@@ -1,0 +1,25 @@
+name: Neue App-Funktion
+description: Feature-Anforderung für Codex oder manuelle Entwicklung
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Ziel
+      description: Welches Problem soll gelöst werden?
+      placeholder: Ich möchte ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Akzeptanzkriterien
+      description: Woran erkennen wir, dass das Feature fertig ist?
+      placeholder: Auf Mobilgeräten kann ich ...
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Einschränkungen
+      placeholder: Keine externen APIs, Daten nur lokal ...

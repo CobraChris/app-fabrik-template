@@ -1,0 +1,13 @@
+{
+  "name": "App-Fabrik Starter",
+  "short_name": "App-Fabrik",
+  "description": "Deine App-Ideen lokal festhalten und neue Apps entwickeln.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b101a",
+  "theme_color": "#101622",
+  "icons": [
+    {"src": "./icons/app.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}

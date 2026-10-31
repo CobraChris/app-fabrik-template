@@ -1,0 +1,91 @@
+name: Codex Änderung vorschlagen (manuell)
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Was soll Codex verändern? Ohne Zugangsdaten eingeben.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Quellcode ohne Token auschecken
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Codex bearbeitet das Projekt isoliert
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ':workspace'
+          safety-strategy: drop-sudo
+          prompt: |
+            Du arbeitest an einer kleinen PWA. Lies AGENTS.md und halte dich daran.
+            Ändere nur Dateien in site/, tests/ oder README.md.
+            Keine Workflows, Secrets, Konfiguration, externen Dienste oder Dependencies ändern.
+            Implementiere diese Aufgabe:
+            ${{ inputs.task }}
+            Erstelle möglichst kleine, überprüfbare Änderungen. Kein Git-Commit, kein Push.
+      - name: Änderungspatch erzeugen
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -N -- site tests README.md
+          git diff --binary -- site tests README.md > proposed.patch
+          if [[ ! -s proposed.patch ]]; then
+            echo 'Keine Änderungen gefunden.' >&2
+            exit 1
+          fi
+      - name: Patch als Artefakt übergeben
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-proposal
+          path: proposed.patch
+          retention-days: 3
+          if-no-files-found: error
+
+  open-pr:
+    needs: propose
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Unveränderte Hauptversion laden
+        uses: actions/checkout@v4
+      - name: Änderungspatch herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          name: codex-proposal
+      - name: Änderungen anwenden und separaten Branch veröffentlichen
+        shell: bash
+        env:
+          TASK: ${{ inputs.task }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          git apply --check -- proposed.patch
+          git apply -- proposed.patch
+          BRANCH="codex/proposal-${RUN_ID}"
+          git switch -c "$BRANCH"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- site tests README.md
+          if git diff --cached --quiet; then
+            echo 'Keine Änderungen zu committen.' >&2
+            exit 1
+          fi
+          git commit -m 'Codex: Änderungsvorschlag'
+          git push --set-upstream origin "$BRANCH"
+          printf '### Auftrag\n\n%s\n\n### Sicherheit\n\nAutomatischer Vorschlag. Bitte Code, Tests und Berechtigungen prüfen. Kein Auto-Merge.\n' "$TASK" > pr-body.md
+          gh pr create --repo "$REPO" --base main --head "$BRANCH" --title "Codex-Vorschlag #${RUN_ID}" --body-file pr-body.md

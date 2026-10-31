@@ -1,0 +1,27 @@
+name: Qualität prüfen
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository laden
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript prüfen
+        run: npm run check
+      - name: Tests ausführen
+        run: npm test

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101622">
+  <meta name="description" content="Dein eigener App-Starter mit Ideenübersicht, Offline-Funktion und GitHub-Automation.">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="./icons/app.svg">
+  <link rel="stylesheet" href="./styles.css">
+  <title>App-Fabrik · Starter</title>
+</head>
+<body>
+  <main class="shell">
+    <header class="header">
+      <div class="brand"><div class="brand-icon">A</div><span>APP-FABRIK <small>/ STARTER</small></span></div>
+      <span class="status">● Lokal & offline</span>
+    </header>
+    <section class="hero" aria-labelledby="hero-title">
+      <span class="eyebrow">DEINE NÄCHSTE IDEE</span>
+      <h1 id="hero-title">Eine Idee.<br><em>Eine neue App.</em></h1>
+      <p>Ein wiederverwendbarer Ausgangspunkt für deine Projekte. Ergänze Ideen, teste das Grundgerüst und entwickle es anschließend mit Codex weiter.</p>
+    </section>
+    <section class="panel" aria-labelledby="ideas-title">
+      <div class="panel-heading"><div><span class="eyebrow">IDEEN-BOARD</span><h2 id="ideas-title">Deine App-Ideen</h2></div><output id="count" aria-live="polite">0 Ideen</output></div>
+      <form id="idea-form" class="idea-form">
+        <label class="sr-only" for="idea-title">App-Idee</label>
+        <input id="idea-title" name="idea" type="text" placeholder="z. B. Fitness-Tracker" maxlength="100" autocomplete="off" required>
+        <button type="submit">+ Hinzufügen</button>
+      </form>
+      <p id="form-feedback" class="feedback" role="status" aria-live="polite"></p>
+      <ul id="idea-list" class="idea-list" aria-label="Gespeicherte App-Ideen"></ul>
+      <p id="empty-state" class="empty-state">Noch keine Ideen gespeichert. Beginne mit deiner ersten App.</p>
+    </section>
+    <footer><span>Keine Anmeldung · Keine Cloud · Nur auf diesem Gerät gespeichert</span><span>Version 1.0</span></footer>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
