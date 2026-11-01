@@ -1,1 +1,27 @@
 :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b101a;color:#ecf2fd;color-scheme:dark}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 80% 5%,#1d2b44 0%,transparent 45%),#0b101a}.shell{max-width:920px;margin:auto;padding:32px 24px 40px}.header{display:flex;justify-content:space-between;align-items:center;gap:20px}.brand{display:flex;gap:11px;align-items:center;font-size:12px;letter-spacing:.16em;font-weight:800}.brand small{color:#75849c;font-size:10px}.brand-icon{width:34px;height:34px;background:var(--app-accent,#b1e0ff);color:#101b30;border-radius:10px;display:grid;place-items:center;font-size:19px;letter-spacing:0}.status{font-size:12px;color:#9eb8ae}.hero{padding:80px 0 55px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;color:#8cb8e6}.hero h1{font-size:clamp(42px,8vw,76px);letter-spacing:-.055em;line-height:1.04;margin:15px 0}.hero h1 em{font-style:normal;color:var(--app-accent,#a4dcff)}.hero p{font-size:17px;line-height:1.65;color:#b1c0d7;max-width:590px}.panel{background:#141d2c;border:1px solid #2d3a50;border-radius:24px;padding:28px}.panel-heading{display:flex;justify-content:space-between;align-items:end;gap:10px}.panel-heading h2{font-size:25px;margin:8px 0 22px}.panel-heading output{color:#8498b2;font-size:13px;padding-bottom:26px}.idea-form{display:flex;gap:10px}.idea-form input{width:100%;min-width:0;padding:14px 15px;background:#0c1422;border:1px solid #42506a;border-radius:12px;color:#f8fbff;font:inherit}.idea-form input:focus-visible,.idea-form button:focus-visible,.idea-list button:focus-visible{outline:2px solid #90d2ff;outline-offset:3px}.idea-form button{white-space:nowrap;background:var(--app-accent,#b1e0ff);color:#091626;padding:14px 20px;border:0;border-radius:12px;font-weight:800;cursor:pointer}.idea-form button:hover{background:#d5eeff}.feedback{margin:8px 0;min-height:1.2em;font-size:12px;color:#c0d9ae}.idea-list{list-style:none;padding:0;margin:12px 0 0}.idea-list li{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:16px 6px;border-bottom:1px solid #29364b;overflow-wrap:anywhere}.idea-list li span{font-weight:500}.idea-list li button{border:1px solid #4b5e76;color:#d0d9e9;border-radius:9px;padding:8px 11px;background:transparent;cursor:pointer}.idea-list li button:hover{background:#253149}.empty-state{padding:25px 0;color:#91a2bb;font-size:14px}footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:18px;color:#7d8da6;font-size:12px;margin-top:28px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:580px){.shell{padding:24px 18px}.header{align-items:flex-start}.status{font-size:10px}.hero{padding:55px 0 35px}.hero p{font-size:15px}.panel{padding:18px;border-radius:18px}.idea-form{flex-direction:column}.idea-form button{width:100%}}
+
+
+/* App-Ideen zu mobilen, editierbaren Entwicklungsaufträgen ausbauen */
+.idea-form{display:block}.idea-form>label,.form-fields>label,.copy-fallback>label,.form-selects label{display:block;font-size:13px;font-weight:650;color:#c4d3e7;margin:16px 0 7px}
+.idea-form input:not([type=hidden]),.idea-form textarea,.idea-form select,.copy-fallback textarea{width:100%;padding:12px 14px;background:#0c1422;border:1px solid #42506a;border-radius:11px;color:#f8fbff;font:inherit}
+.idea-form textarea,.copy-fallback textarea{resize:vertical;line-height:1.5}
+.idea-form :is(textarea,select):focus-visible,.copy-fallback textarea:focus-visible{outline:2px solid #90d2ff;outline-offset:2px}
+.idea-details{margin-top:13px;border:1px solid #35435b;border-radius:12px;padding:12px}
+.idea-details summary{cursor:pointer;font-size:14px;font-weight:700;color:#d7e8fc}
+.idea-details summary span{font-weight:400;color:#95a6be}
+.form-selects{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.form-actions,.backup-actions,.idea-actions{display:flex;flex-wrap:wrap;gap:9px}
+.form-actions{margin-top:14px}.backup-actions{margin-top:23px;padding-top:16px;border-top:1px solid #344056}
+.secondary-button{background:#1a273a!important;color:#d9e5f5!important;border:1px solid #4a5b75!important;border-radius:10px!important;padding:10px 12px!important;cursor:pointer;font:inherit;font-size:13px}
+.secondary-button:hover{background:#30425c!important}
+.secondary-button:focus-visible{outline:2px solid #90d2ff;outline-offset:2px}
+.idea-card{display:block!important;padding:17px 0!important}
+.idea-card-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:7px}
+.idea-card-heading strong{font-size:17px;overflow-wrap:anywhere}
+.idea-meta{font-size:12px;color:#99bad1}
+.idea-card p{font-size:13px;color:#b7c5d6;line-height:1.45;margin:9px 0 12px;white-space:pre-wrap}
+.idea-actions{margin-top:11px}
+.idea-actions button{font-weight:500}
+.privacy-notice{font-size:12px;line-height:1.6;color:#93a7bf;margin-top:18px}
+.copy-fallback{margin-top:18px}
+@media(max-width:580px){.form-selects{grid-template-columns:1fr 1fr}.idea-actions{align-items:stretch}.idea-actions button{flex:1}.form-actions button{flex:1}.backup-actions button{flex:1}}

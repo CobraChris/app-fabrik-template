@@ -2,6 +2,18 @@
 
 **Status:** Wiederverwendbares Template mit statischer PWA, Offline-Funktion, automatischen Tests, optionalem Codex-Vorschlagsworkflow und GitHub Pages. Keine Frameworks oder npm-Abhängigkeiten.
 
+## Ideenboard als strukturierter Entwicklungsauftrag
+
+Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MVP-Funktionen, Abnahmekriterien, Einschränkungen, Priorität und Status. Das Formular kann klein bleiben (nur ein Name ist erforderlich); weitere Felder liegen unter „Details für den Entwicklungsauftrag“.
+
+- **Bearbeiten** aktualisiert einen Steckbrief, ohne ein zweites Exemplar anzulegen.
+- **Für ChatGPT kopieren** stellt einen gegliederten Entwicklungsauftrag zusammen, der im Chat als GitHub Issue angelegt werden kann. Es findet **kein automatischer GitHub-Upload** aus der PWA statt.
+- **Backup exportieren/importieren** sichert deine Ideen als JSON-Datei, falls du das Gerät wechselst oder den Browser-Speicher leerst. Der Import überschreibt bestehende Einträge nur nach Bestätigung.
+- **Migration:** Auf der ursprünglichen App-Fabrik-Seite werden früher gespeicherte reine Ideentitel automatisch in Steckbriefe übernommen. Der alte Speicher bleibt als Sicherheitskopie erhalten.
+- **Privatsphäre:** Jede PWA nutzt einen eigenen lokalen Schlüssel anhand ihres URL-Pfads. Ideen verlassen das Gerät nur durch bewusstes Kopieren oder Exportieren. Keine Kontoverbindung, API-Schlüssel oder Cloud-Synchronisierung.
+
+**Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
+
 ## Schnellstart vom Handy (ohne Dateien zu bearbeiten)
 
 1. In der Vorlage auf **Use this template → Create a new repository** tippen und einen Namen für das neue App-Repository wählen. [Vorlage direkt kopieren](https://github.com/CobraChris/app-fabrik-template/generate).
