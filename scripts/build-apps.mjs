@@ -50,6 +50,11 @@ export function validateAppManifest(raw) {
   if (!Array.isArray(raw.icons) || raw.icons.length === 0) {
     throw new Error('App-Icon fehlt.');
   }
+  const sizes = new Set(raw.icons.flatMap(icon =>
+    typeof icon?.sizes === 'string' ? icon.sizes.split(/\s+/) : []));
+  if (!sizes.has('192x192') || !sizes.has('512x512')) {
+    throw new Error('Android-Installation benötigt App-Icons in 192x192 und 512x512.');
+  }
   return {
     name: raw.name.trim(),
     description: raw.description.trim(),

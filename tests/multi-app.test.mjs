@@ -16,12 +16,14 @@ test('Nur sichere App-Unterverzeichnisse erlaubt', () => {
 
 test('App-Manifest ist eigenständig und relativ zur App installiert', () => {
   const correct = {name:'Test',short_name:'T',description:'Beschreibung',id:'./',
-    scope:'./',start_url:'./',display:'standalone',icons:[{src:'./icons/app.svg'}]};
+    scope:'./',start_url:'./',display:'standalone',
+    icons:[{src:'./icons/app.svg',sizes:'192x192'},{src:'./icons/app.svg',sizes:'512x512'}]};
   assert.equal(validateAppManifest(correct).name, 'Test');
   for (const bad of [
     {...correct,id:'/'}, {...correct,scope:'../../'}, {...correct,start_url:'../'},
     {...correct,display:'browser'}, {...correct,icons:[]},
-    {...correct,icons:[{src:'../../secret'}]},
+    {...correct,icons:[{src:'../../secret',sizes:'192x192'},{src:'./icons/app.svg',sizes:'512x512'}]},
+    {...correct,icons:[{src:'./icons/app.svg',sizes:'any'}]},
     {...correct,name:'<'.repeat(100)}
   ]) assert.throws(() => validateAppManifest(bad));
 });
@@ -53,6 +55,8 @@ test('Build liefert App-Fabrik und vollständige Demo-App aus', async () => {
   assert.equal(manifest.id, './');
   assert.equal(manifest.scope, './');
   assert.equal(manifest.start_url, './');
+  assert.ok(manifest.icons.some(icon => icon.sizes === '192x192'));
+  assert.ok(manifest.icons.some(icon => icon.sizes === '512x512'));
 });
 
 test('Demo-Offline-Cache ist auf den App-Pfad beschränkt', async () => {
