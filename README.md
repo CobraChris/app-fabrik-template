@@ -14,6 +14,17 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## Projektübergreifende Fokusliste: „Meine nächsten Aufgaben“
+
+Die Projektübersicht zeigt jetzt ganz oben bis zu acht nächste Arbeitsschritte aus unterschiedlichen Projekten. Dabei gelten folgende Regeln:
+
+- Projekte mit Status **In Arbeit** stehen vor **Offen**, danach **Wartet**. Fertige Projekte werden übersprungen.
+- Pro Projekt erscheint die **erste offene Checklisten-Aufgabe**. Hat ein Projekt noch keine Checkliste, verwenden wir als Fallback das bisherige Freitextfeld **Nächster Schritt**.
+- Bei bereits vollständig erledigter Checkliste wird der alte Freitext nicht erneut als offene Aufgabe interpretiert. Das verhindert doppelte/stale Meldungen.
+- **Erledigt** setzt nur bei echten Checklisten-Einträgen ein lokales Häkchen; die nächste offene Aufgabe dieses Projekts rückt nach. Für Freitext gibt es stattdessen **Bearbeiten**.
+- **GitHub** öffnet das passende Repository, ohne dessen Status zu ändern.
+- Alle angezeigten Daten kommen ausschließlich aus deinen eigenen lokalen Projekteinträgen; die App behauptet keinen aktuellen GitHub-Status. Weder zusätzliche API-Zugriffe noch Kosten.
+
 ## Projekt-To-dos: Mehrere offene Arbeitsschritte im Blick
 
 Für jedes GitHub-Projekt gibt es jetzt eine **lokale To-do-Checkliste** unter dem bisherigen Feld **Nächster Schritt**. Trage mehrere konkrete Aufgaben ein, hake erledigte Punkte ab oder öffne sie erneut. Offene Einträge stehen vor erledigten Aufgaben. Die Projektübersicht zeigt zusätzlich die Anzahl der offenen To-dos.

@@ -50,3 +50,8 @@ Das Projekt-Dashboard speichert Repository-Pfad, Status, nächsten Schritt und N
 ## Lokale Projekt-To-dos
 
 Projekt-Checklisten sind lokale Notizen, keine Live-Daten aus GitHub. Das bestehende Feld \`nextStep\` darf bei einem Upgrade nicht überschrieben werden. Bereits exportierte \`schemaVersion: 1\`-Projekt-Backups müssen importierbar bleiben. \`schemaVersion: 2\` enthält die Liste \`todos\`. Keine automatische Synchronisierung, kein Token und keine GitHub-Aktion durch das Setzen eines Häkchens.
+
+
+## Globale Fokusliste
+
+Die Fokusliste wird rein aus lokal gespeicherten Projekten berechnet. Ein offenes To-do hat Vorrang vor dem alten Freitext-Nächster-Schritt; wenn eine Checkliste komplett erledigt ist, darf der alte Text nicht als neue offene Aufgabe erscheinen. Maximal ein Fokus-Eintrag pro aktivem Projekt; kein automatischer Merge, keine GitHub-Schreiboperationen und keine kostenpflichtigen Zugriffe durch die Fokusfunktion.

@@ -1,6 +1,6 @@
 import { STORE_KEY, parseIdeas } from './core.mjs';
 import { newAppUrl, newIssueLink, ownerFromHostname } from './github-links.mjs';
-import { projectKey, upsertProject, deleteProject, sortProjects, openProjectsCount, projectLinks, parseProjects, exportProjects, importProjects, addProjectTask, toggleProjectTask, removeProjectTask, openTasksCount } from './projects.mjs';
+import { projectKey, upsertProject, deleteProject, sortProjects, openProjectsCount, projectLinks, parseProjects, exportProjects, importProjects, addProjectTask, toggleProjectTask, removeProjectTask, openTasksCount, focusActions } from './projects.mjs';
 import {
   storageKey, normalizeBrief, upsertBrief, removeBrief, parseBriefs, migrateLegacy,
   issueDraft, exportBackup, importBackup
@@ -302,6 +302,66 @@ function githubLink(title, url) {
   return link;
 }
 
+// Jede Fokuszeile ist ein echtes lokales Projekt-To-do oder ein verlinkter
+// manuell hinterlegter nächster Schritt. Keine Daten aus GitHub werden geraten.
+function renderFocus() {
+  const list = $('#focus-list');
+  list.replaceChildren();
+  const actions = focusActions(projects, 8);
+  $('#focus-count').textContent = actions.length + ' angezeigt';
+  $('#focus-empty').hidden = actions.length !== 0;
+  for (const action of actions) {
+    const li = document.createElement('li');
+    li.className = 'focus-item';
+    const body = document.createElement('div');
+    body.className = 'focus-body';
+    const repo = document.createElement('span');
+    repo.className = 'focus-repo';
+    repo.textContent = action.repository + ' · ' + action.status;
+    const task = document.createElement('strong');
+    task.className = 'focus-task';
+    task.textContent = action.title;
+    body.append(repo, task);
+    const controls = document.createElement('div');
+    controls.className = 'focus-controls';
+    const github = document.createElement('a');
+    github.textContent = 'GitHub';
+    github.href = projectLinks(projects.find(p => p.id === action.projectId)).repository;
+    github.target = '_blank';
+    github.rel = 'noopener noreferrer';
+    controls.append(github);
+    if (action.kind === 'todo') {
+      const done = document.createElement('button');
+      done.type = 'button';
+      done.textContent = 'Erledigt';
+      done.setAttribute('aria-label', action.title + ' für ' + action.repository + ' als erledigt markieren');
+      done.addEventListener('click', () => {
+        try {
+          // Projekt beim Klick neu ermitteln, damit keine veraltete Kopie genutzt wird.
+          const current = projects.find(p => p.id === action.projectId);
+          if (!current) throw new Error('Projekt nicht mehr vorhanden.');
+          projects = upsertProject(projects, toggleProjectTask(current, action.taskId, true));
+          saveProjects();
+          renderProjects();
+          if (projectsStorageAvailable) projectNotify('Aufgabe lokal erledigt. GitHub wurde nicht geändert.');
+        } catch (error) { projectNotify(error.message); }
+      });
+      controls.append(done);
+    } else {
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.textContent = 'Bearbeiten';
+      edit.addEventListener('click', () => {
+        const project = projects.find(p => p.id === action.projectId);
+        if (project) editProject(project);
+      });
+      controls.append(edit);
+    }
+    li.append(body, controls);
+    list.append(li);
+  }
+}
+
 function renderProjects() {
   const list = $('#project-list');
   list.replaceChildren();
@@ -313,6 +373,7 @@ function renderProjects() {
     const links = projectLinks(project);
     const li = document.createElement('li');
     li.className = 'project-card';
+    li.id = 'project-card-' + project.id;
     const head = document.createElement('div');
     head.className = 'project-card-head';
     const name = document.createElement('strong');
@@ -425,6 +486,7 @@ function renderProjects() {
     li.append(controls);
     list.append(li);
   }
+  renderFocus();
 }
 
 projectForm.addEventListener('submit', event => {

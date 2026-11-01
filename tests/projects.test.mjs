@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   PROJECT_LIMIT, TASK_LIMIT, projectKey, normalizeProject, upsertProject,
+  focusActions,
   deleteProject, sortProjects, openProjectsCount, projectLinks,
   parseProjects, importProjects, exportProjects,
   normalizeTask, addProjectTask, toggleProjectTask, removeProjectTask, openTasksCount
@@ -131,4 +132,61 @@ test('Alte Projekt-Bearbeitungsmaske darf Checklisten nicht löschen', () => {
   assert.equal(saved[0].nextStep, 'Anderer Fokus');
   assert.equal(saved[0].todos.length, 1);
   assert.equal(saved[0].todos[0].id, 'keep-me');
+});
+
+
+test('Fokusliste wählt je aktivem Projekt die erste offene Aufgabe', () => {
+  const items = [
+    { ...project, id:'a', repository:'CobraChris/first', status:'Offen',
+      todos:[{id:'a1',title:'Bereits fertig',done:true},{id:'a2',title:'Bitte prüfen',done:false}] },
+    { ...project, id:'b', repository:'CobraChris/second', status:'In Arbeit',
+      todos:[{id:'b1',title:'Code testen',done:false},{id:'b2',title:'Release',done:false}] }
+  ];
+  const result = focusActions(items);
+  assert.equal(result.length, 2);
+  assert.equal(result[0].projectId, 'b');
+  assert.equal(result[0].title, 'Code testen');
+  assert.equal(result[0].kind, 'todo');
+  assert.equal(result[0].taskId, 'b1');
+  assert.equal(result[1].title, 'Bitte prüfen');
+});
+
+test('Bisheriges Freitextfeld ist Fallback bei Projekten ohne Checkliste', () => {
+  const result = focusActions([project]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].kind, 'note');
+  assert.equal(result[0].taskId, null);
+  assert.equal(result[0].title, project.nextStep);
+});
+
+test('Fertige Projekte und abgeschlossene Checklisten erzeugen keinen Fokus', () => {
+  const items = [
+    { ...project, status:'Fertig', todos:[{id:'a',title:'Offen trotz Status',done:false}] },
+    { ...project, id:'two', repository:'CobraChris/two',
+      todos:[{id:'b',title:'Erledigt',done:true}] },
+    { ...project, id:'three', repository:'CobraChris/three', nextStep:'',todos:[] }
+  ];
+  assert.deepEqual(focusActions(items), []);
+});
+
+test('Wartende Projekte folgen aktiven, die Anzeige ist begrenzt', () => {
+  const items = [
+    { ...project, status:'Wartet' },
+    { ...project, id:'open', repository:'CobraChris/open', status:'Offen' },
+    { ...project, id:'active', repository:'CobraChris/active', status:'In Arbeit' }
+  ];
+  assert.deepEqual(focusActions(items, 2).map(item => item.projectId), ['active','open']);
+  assert.equal(items[0].status, 'Wartet');
+  assert.throws(() => focusActions(items,0), /Fokuslimit/);
+  assert.throws(() => focusActions(items,101), /Fokuslimit/);
+  assert.throws(() => focusActions({}), /Projektliste/);
+});
+
+test('Abhaken entfernt die Aufgabe aus dem globalen Fokus und zeigt den Nachfolger', () => {
+  const updated = addProjectTask(addProjectTask(project, 'Erste', 'one'), 'Zweite', 'two');
+  assert.equal(focusActions([updated])[0].title, 'Erste');
+  const changed = toggleProjectTask(updated, 'one', true);
+  assert.equal(focusActions([changed])[0].title, 'Zweite');
+  const finished = toggleProjectTask(changed, 'two', true);
+  assert.deepEqual(focusActions([finished]), []);
 });

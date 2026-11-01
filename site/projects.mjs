@@ -106,6 +106,46 @@ export function sortProjects(projects) {
     a.repository.localeCompare(b.repository, 'de'));
 }
 
+/**
+ * Zeigt je aktivem Projekt maximal eine nächste Handlung.
+ * Eine offene Checklisten-Aufgabe hat Vorrang. Wenn ein Projekt noch keine
+ * Checkliste hat, dient das bisherige Feld "Nächster Schritt" als Fallback.
+ * Erledigte Projekte und vollständig abgearbeitete Checklisten erscheinen nicht.
+ * Keine GitHub-Abfragen, keine Mutationen an Eingangsdaten.
+ */
+export function focusActions(rawProjects, limit = 8) {
+  if (!Array.isArray(rawProjects)) throw new Error('Projektliste ungültig.');
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new Error('Fokuslimit muss zwischen 1 und 100 liegen.');
+  }
+  const actions = [];
+  for (const project of sortProjects(rawProjects.map(normalizeProject))) {
+    if (project.status === 'Fertig') continue;
+    const todo = project.todos.find(task => !task.done);
+    if (todo) {
+      actions.push({
+        projectId: project.id,
+        repository: project.repository,
+        status: project.status,
+        title: todo.title,
+        kind: 'todo',
+        taskId: todo.id
+      });
+    } else if (project.todos.length === 0 && project.nextStep) {
+      actions.push({
+        projectId: project.id,
+        repository: project.repository,
+        status: project.status,
+        title: project.nextStep,
+        kind: 'note',
+        taskId: null
+      });
+    }
+    if (actions.length >= limit) break;
+  }
+  return actions;
+}
+
 export function openProjectsCount(projects) {
   return projects.filter(item => item.status !== 'Fertig').length;
 }
