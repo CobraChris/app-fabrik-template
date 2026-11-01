@@ -44,10 +44,13 @@ test('Auswahl importieren, aber bestehende Projekte und Todos erhalten', () => {
     ()=>'new-project');
   assert.equal(result.added,1);
   assert.equal(result.projects.length,2);
-  assert.equal(result.projects[0].nextStep,'PR prüfen');
-  assert.equal(result.projects[0].todos.length,1);
-  assert.equal(result.projects[1].status,'Offen');
-  assert.equal(result.projects[1].nextStep,'');
+  const original=result.projects.find(x=>x.repository==='CobraChris/meine-livekarte');
+  const imported=result.projects.find(x=>x.repository==='CobraChris/app-fabrik-template');
+  assert.equal(original.nextStep,'PR prüfen');
+  assert.equal(original.todos.length,1);
+  assert.equal(original.status,'In Arbeit');
+  assert.equal(imported.status,'Offen');
+  assert.equal(imported.nextStep,'');
 });
 
 test('Auswahl darf keine erfundenen oder doppelt genannten Repositories enthalten', () => {
