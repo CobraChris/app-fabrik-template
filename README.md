@@ -81,7 +81,9 @@ Du kannst deine bereits existierenden Apps, z. B. \`CobraChris/meine-livekarte\`
 
 ## Neue App und GitHub-Issue aus einer Idee starten
 
-Jede Idee hat nun im Bereich **Mit GitHub weiterarbeiten** zwei Abkürzungen. **Neue App aus Vorlage** öffnet `https://github.com/new` mit vorausgefülltem Namen, Beschreibung, **privater Sichtbarkeit** und dem GitHub-Template `CobraChris/app-fabrik-template`. Die neue App wird erst nach eigener Bestätigung auf GitHub erstellt. Danach muss GitHub Pages im neuen Repository noch aktiviert werden.
+Jede Idee hat nun im Bereich **Mit GitHub weiterarbeiten** zwei Abkürzungen. **Neue App aus Vorlage** öffnet `https://github.com/new` mit vorausgefülltem Namen, Beschreibung, **der ausdrücklich gewählten Sichtbarkeit** und dem GitHub-Template `CobraChris/app-fabrik-template`. Die neue App wird erst nach eigener Bestätigung auf GitHub erstellt. Danach muss GitHub Pages im neuen Repository noch aktiviert werden.
+
+**Wichtig für den kostenlosen Betrieb:** GitHub Pages funktioniert mit **GitHub Free nur bei öffentlichen Repositories**. Wer **Privat** auswählt, kann den Code privat halten, aber GitHub Pages nicht im Free-Tarif nutzen. Die App fragt daher vor der ersten Repository-Erstellung ausdrücklich nach **Öffentlich** oder **Privat**, merkt sich die Wahl nur lokal und warnt vor dem Öffnen von GitHub nochmals über die Folgen. Vertrauliche Firmen- oder Zugangsdaten gehören niemals in ein öffentliches Repository. Offizielle Dokumentation: https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site.
 
 **GitHub-Issue öffnen** erzeugt einen vorausgefüllten GitHub-Issue-Link für das bestehende Ziel-Repository mit Ziel, Funktionen und Abnahmekriterien. Das Issue wird erst durch den eigenen Klick auf **Submit new issue** angelegt. GitHub-Konto und Ziel-Repository werden unter **GitHub-Verknüpfung** ausschließlich lokal im Browser gespeichert. Weder GitHub-Token noch API-Schlüssel werden benötigt.
 

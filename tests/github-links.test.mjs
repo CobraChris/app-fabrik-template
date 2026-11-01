@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { githubOwner, githubRepository, ownerFromHostname, repositorySlug, newAppUrl, issueText, newIssueLink, PREFILL_LIMIT } from '../site/github-links.mjs';
+import { githubOwner, githubRepository, ownerFromHostname, repositorySlug, newAppUrl, repositoryVisibility, issueText, newIssueLink, PREFILL_LIMIT } from '../site/github-links.mjs';
 
 const idea = { id: 'app1', title: 'Fitness Übungen', goal: 'Training organisieren',
   features: 'Übungen speichern', acceptance: 'Offline nutzbar',
@@ -45,4 +45,23 @@ test('Lange Issue-Texte nutzen die leere Eingabemaske', () => {
   assert.equal(result.url, 'https://github.com/CobraChris/fitness/issues/new');
   assert.ok(result.body.length > 5000);
   assert.ok(PREFILL_LIMIT < 7000);
+});
+
+
+test('Öffentliche Repositories für kostenloses GitHub Pages nur nach expliziter Wahl', () => {
+  const url = new URL(newAppUrl(idea, 'CobraChris', 'public'));
+  assert.equal(url.searchParams.get('visibility'), 'public');
+  assert.equal(url.searchParams.get('template_owner'), 'CobraChris');
+  assert.equal(url.searchParams.get('template_name'), 'app-fabrik-template');
+  assert.equal(repositoryVisibility('public'), 'public');
+  assert.equal(repositoryVisibility('private'), 'private');
+});
+
+test('Unbekannte Sichtbarkeiten werden abgelehnt, Default bleibt konservativ privat', () => {
+  assert.equal(new URL(newAppUrl(idea, 'CobraChris')).searchParams.get('visibility'), 'private');
+  assert.throws(() => repositoryVisibility(undefined), /Bitte vor dem Erstellen/);
+  for (const invalid of ['', 'Public', 'internal', 'public&owner=attacker', null]) {
+    assert.throws(() => repositoryVisibility(invalid), /Bitte vor dem Erstellen/);
+    assert.throws(() => newAppUrl(idea, 'CobraChris', invalid), /Bitte vor dem Erstellen/);
+  }
 });

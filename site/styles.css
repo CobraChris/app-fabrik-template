@@ -154,3 +154,10 @@ html{scroll-behavior:smooth}
   .hero{padding:28px 0}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+
+/* GitHub-Pages-Sichtbarkeit: explizite Wahl statt irreführender Privat-Vorauswahl */
+.github-visibility-label{display:block;margin:16px 0 7px;color:#c4d3e7;font-size:13px;font-weight:700}
+#github-visibility{width:100%;min-width:0;color:#f8fbff;background:#0c1422;border:1px solid #42506a;border-radius:11px;padding:12px;font:inherit}
+#github-visibility:focus-visible{outline:2px solid #90d2ff;outline-offset:2px}
+#github-settings{scroll-margin-top:16px}

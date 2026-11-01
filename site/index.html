@@ -133,7 +133,7 @@
       <p id="form-feedback" class="feedback" role="status" aria-live="polite"></p>
       <ul id="idea-list" class="idea-list" aria-label="Gespeicherte App-Ideen"></ul>
       <p id="empty-state" class="empty-state">Noch keine Ideen gespeichert. Beginne mit deiner ersten App.</p>
-      <details class="github-settings">
+      <details id="github-settings" class="github-settings">
         <summary>GitHub-Verknüpfung <span>(einmalig einstellen)</span></summary>
         <div class="github-settings-grid">
           <div>
@@ -145,7 +145,13 @@
             <input id="github-repository" type="text" maxlength="150" autocapitalize="off" spellcheck="false" placeholder="CobraChris/meine-neue-app">
           </div>
         </div>
-        <p class="github-hint">Die Einstellungen bleiben lokal. Neue Repositories werden als privat vorgeschlagen. Zum Erstellen eines Issues muss das Ziel-Repository schon existieren.</p>
+        <label class="github-visibility-label" for="github-visibility">Sichtbarkeit beim Erstellen neuer Apps</label>
+        <select id="github-visibility" required>
+          <option value="">Bitte wählen</option>
+          <option value="public">Öffentlich – GitHub Pages im Free-Tarif möglich</option>
+          <option value="private">Privat – GitHub Pages nicht mit GitHub Free</option>
+        </select>
+        <p class="github-hint"><strong>Öffentlich:</strong> Der Quellcode ist für alle sichtbar. Nie vertrauliche Daten speichern. <strong>Privat:</strong> Der Code bleibt geschützt; für GitHub Pages ist ein unterstützter kostenpflichtiger GitHub-Tarif erforderlich. Die Einstellung wird nur auf diesem Gerät gespeichert. Das Ziel-Repository für Issues muss bereits existieren.</p>
       </details>
       <div class="backup-actions">
         <button type="button" id="export-button" class="secondary-button">Backup exportieren</button>
