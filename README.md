@@ -14,6 +14,12 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## Qualitätssicherung: PWA-Smoke-Tests
+
+Zusätzlich zu den bisherigen Unit-Tests prüft `tests/ui-smoke.test.mjs` nach dem Build ohne neue Abhängigkeiten die wichtigsten Verknüpfungen: JavaScript-Selektoren zu vorhandenen HTML-Elementen, Schnellnavigation, JavaScript-Module, Offline-Cache-Dateien und PWA-Manifest inklusive Icons. Diese Tests laufen mit `npm test` und automatisch in der PR-Qualitätsprüfung.
+
+**Grenze:** Die Smoke-Tests sind statische Integritätsprüfungen und ersetzen keinen echten Android-Browsertest. Für den praktischen Check die veröffentlichte PWA öffnen, einen öffentlichen Repository-Import starten, ein Projekt übernehmen, ein To-do abhaken und nach dem Neuladen den lokalen Speicher kontrollieren.
+
 ## Startbereich auf dem Handy: Nächste sinnvolle Aktion statt neuer Checklisten
 
 Ganz oben zeigt die App-Fabrik einen **dynamischen Startbereich** mit einem konkreten nächsten Schritt und einer Schnellnavigation zu *Start*, *Projekte* und *App-Ideen*.
