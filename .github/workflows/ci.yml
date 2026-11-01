@@ -23,5 +23,7 @@ jobs:
           node-version: '22'
       - name: JavaScript prüfen
         run: npm run check
+      - name: Konfiguration bauen
+        run: npm run build
       - name: Tests ausführen
         run: npm test

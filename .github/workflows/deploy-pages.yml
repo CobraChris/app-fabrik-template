@@ -27,12 +27,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Konfigurierte App bauen
+        run: npm run build
       - name: GitHub Pages konfigurieren
         uses: actions/configure-pages@v5
       - name: Nur die Website hochladen
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./site
+          path: ./dist
       - name: Veröffentlichen
         id: deployment
         uses: actions/deploy-pages@v4

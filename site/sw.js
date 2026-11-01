@@ -1,4 +1,7 @@
-const CACHE_NAME = 'app-fabrik-shell-v1';
+// Caches sind nach PWA-Pfad getrennt. Andere Apps auf github.io bleiben unberührt.
+const SCOPE = new URL(self.registration.scope);
+const CACHE_PREFIX = 'app-shell:' + SCOPE.pathname + ':';
+const CACHE_NAME = CACHE_PREFIX + 'v2';
 const ASSETS = ['./', './index.html', './styles.css', './app.js', './core.mjs', './manifest.webmanifest', './icons/app.svg'];
 
 self.addEventListener('install', event => {
@@ -9,13 +12,16 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)));
+    await Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+      .map(key => caches.delete(key)));
     await self.clients.claim();
   })());
 });
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
+  const url = new URL(event.request.url);
+  if (event.request.method !== 'GET' || url.origin !== SCOPE.origin ||
+      !url.pathname.startsWith(SCOPE.pathname)) return;
   event.respondWith((async () => {
     try {
       const response = await fetch(event.request);

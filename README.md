@@ -1,43 +1,60 @@
 # App-Fabrik: Universelle PWA-Vorlage
 
-Ein schlanker Startpunkt für eigene Web-Apps. Keine Frameworks, keine npm-Abhängigkeiten, keine Laufzeit-APIs. Mobile Oberfläche, lokales Ideenboard, offlinefähige PWA, Tests, GitHub Actions und ein optionaler, bewusst manueller Codex-Workflow.
+**Status:** Wiederverwendbares Template mit statischer PWA, Offline-Funktion, automatischen Tests, optionalem Codex-Vorschlagsworkflow und GitHub Pages. Keine Frameworks oder npm-Abhängigkeiten.
 
-## Schnell testen
+## Eine neue App aus der Vorlage erstellen
 
-- Node.js ab Version 20 bereitstellen.
-- Im Projektordner npm run check und npm test ausführen.
-- Zum lokalen Öffnen einen statischen HTTP-Server starten: python -m http.server 8000 -d site und http://localhost:8000 besuchen. Die PWA-Funktionen benötigen localhost oder HTTPS.
-- App-Ideen liegen im Browser unter localStorage, nicht in GitHub.
+1. Auf GitHub **Use this template → Create a new repository** wählen und ein neues Repository benennen.
+2. In **app.config.json** den App-Namen, Kurz-Namen, Beschreibung, die Farben und den Icon-Buchstaben ändern. Nur diese eine Datei ist für das Branding erforderlich.
+3. Im neuen Repository **Settings → Pages → Build and deployment → GitHub Actions** einstellen.
+4. Mit dem vorhandenen Workflow wird bei Änderungen an main die App aus **app.config.json** gebaut und unter GitHub Pages veröffentlicht. Die beiden bereits eingebauten Qualitätsprüfungen kontrollieren den JavaScript-Code und die Konfiguration.
+5. Funktionen nach und nach unter **site/** hinzufügen. Das enthaltene Ideenboard ist ein Beispiel; der Konfigurationswechsel erzeugt allein noch keine individuelle Fach-App.
 
-## Einmalige GitHub-Einrichtung
+Beispiel:
 
-1. Dieses Repository unter **Settings → General → Template repository** als Vorlage markieren. Danach kann für jede neue App über **Use this template → Create a new repository** eine Kopie erstellt werden.
-2. Für die PWA-Veröffentlichung **Settings → Pages → Build and deployment → Source: GitHub Actions** auswählen. Danach den Workflow „PWA veröffentlichen“ starten. Nur der Ordner site/ wird veröffentlicht.
-3. Optional für Codex: Einen **separat abrechenbaren** OpenAI API-Key als **Settings → Secrets and variables → Actions → Repository secrets → New repository secret** mit dem Namen OPENAI_API_KEY hinterlegen. Nie im Chat oder Code posten.
-4. Für automatisierte Pull Requests gegebenenfalls **Settings → Actions → General → Workflow permissions → Allow GitHub Actions to create and approve pull requests** aktivieren.
-5. Unter **Actions → Codex Änderung vorschlagen (manuell) → Run workflow** eine konkrete Aufgabe eingeben. Die Automation soll einen Branch und einen PR öffnen. Erst nach Codeprüfung mergen.
+```json
+{
+  "name": "Mein Fitness-Tracker",
+  "shortName": "Fitness",
+  "description": "Meine Übungen und Trainingseinheiten",
+  "themeColor": "#101622",
+  "accentColor": "#b1e0ff",
+  "iconLetter": "F"
+}
+```
 
-## Warum kein Autopilot ohne Freigabe?
+**Sicherheit:** Farben dürfen ausschließlich sechsstellige Hex-Codes sein, der Icon-Buchstabe A–Z oder 0–9. Texte werden für HTML escaped. Erforderliche Felder werden beim Build geprüft.
 
-Codex erhält im ersten Job Repository-Leserechte. Erst ein zweiter Job darf einen Pull Request erstellen. Keine automatischen Merges. Der Codex-Workflow ist standardmäßig inaktiv, bis er manuell gestartet und der separate API-Key eingerichtet ist.
+## Lokal starten
 
-## Projektstruktur
+Node.js >=20 verwenden:
 
-- site/: Veröffentlichte PWA (index.html, styles.css, app.js, core.mjs, sw.js, Manifest und Symbol)
-- tests/: Automatische Node-Tests
-- .github/workflows/ci.yml: Tests bei Pull Request und Push
-- .github/workflows/deploy-pages.yml: Veröffentlichung über GitHub Pages
-- .github/workflows/codex-proposal.yml: Manuelle Codex-Vorschläge als Pull Request
-- AGENTS.md: Regeln für Entwicklungsagenten
-- SECURITY.md: Schutzmaßnahmen
+```bash
+npm run check
+npm test
+npm run build
+python -m http.server 8000 -d dist
+```
 
-## Erste eigene App starten
+Danach http://localhost:8000 öffnen. Nur **dist/** enthält das fertige, konfiguriert gebaute Ergebnis. **site/** bleibt der editierbare Quellcode, **dist/** wird generiert und nicht ins Repository eingecheckt. Auf GitHub veröffentlicht der Workflow ebenfalls ausschließlich **dist/**. Die PWA kann auf HTTPS/localhost offline gecacht werden.
 
-Aus der Vorlage ein neues Repository erstellen und Name, Design und Funktionen anpassen. Keine GitHub-Tokens in Frontend-Dateien ablegen. Für Anwendungen mit Server, Login oder sensiblen Daten ist eine angepasste Architektur erforderlich. Die Vorlage ist für kleine statische PWAs gedacht.
+Für GitHub-Pages-Projektpfade erhalten PWAs jetzt jeweils ihren **eigenen Cache-Namensraum**; neue Apps löschen keine Cache-Daten anderer Apps auf derselben github.io-Domain.
 
-## Nächste Ausbaustufen
+## Optional: Codex integriert Änderungen als Vorschlag
 
-- Gemeinsame App-Konfiguration für Namen, Farben und Icon.
-- Standardisierter Feature-Backlog aus GitHub Issues.
-- Kontrollierte Generierung von PRs aus Issues statt manueller Prompt-Eingabe.
-- Optional zentraler CI-Workflow für mehrere Repositories.
+Der Workflow **Codex Änderung vorschlagen (manuell)** führt erst nach manueller Auslösung Codex aus und versucht, Änderungen in einem separaten Branch mit Pull Request vorzuschlagen. Dafür wird der separat abrechenbare API-Key als GitHub Actions Repository Secret **OPENAI_API_KEY** benötigt. Der Codex-Workflow ist noch nicht mit einem echten API-Lauf verifiziert.
+
+In **Settings → Actions → General → Workflow permissions** muss ggf. die Erstellung von Pull Requests durch Actions aktiviert werden. Automatisches Mergen ist deaktiviert. Kein Key, keine Laufzeit-Abrechnung.
+
+## Dateien
+
+- `app.config.json`: Name, Farben, Kurzbeschreibung und Icon-Buchstabe
+- `scripts/build.mjs`: Validierung, HTML/Manifest/Icon/CSS-Branding
+- `site/`: App-Quellcode mit Beispiel-Ideenboard und Offline-Service-Worker
+- `dist/`: generierter, von GitHub Pages veröffentlichter App-Stand (gitignored)
+- `tests/`: Node-Tests für Ideenboard und Konfiguration
+- `.github/workflows/ci.yml`: Qualitätsprüfung bei PR und Push
+- `.github/workflows/deploy-pages.yml`: Deployment aus dist nach main-Push
+- `.github/workflows/codex-proposal.yml`: optionaler, manuell aufgerufener Codex-PR-Vorschlag
+
+**Achtung:** Die Vorlage ist für kleine öffentliche statische PWAs gedacht. Keine vertraulichen Firmeninformationen, Nutzerdaten oder API-Schlüssel in site oder app.config.json speichern. Für Authentifizierung, Datenbanken und private Hosting-Umgebungen ist eine andere Architektur erforderlich.
