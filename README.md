@@ -14,6 +14,14 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## Geführter App-Start vom Handy
+
+Die Schaltfläche **Neue App anlegen** in der Startübersicht öffnet jetzt eine lokale Einrichtungshilfe statt direkt und ohne Sicherheitsentscheidung die GitHub-Template-Seite. Du gibst App-Name, GitHub-Konto, optionale Kurzbeschreibung und die **explizite Sichtbarkeit Öffentlich/Privat** ein. Die App erzeugt den vorausgefüllten GitHub-Dialog, öffnet ihn erst nach deiner Bestätigung und zeigt zugleich einen Ersatzlink, falls Android das neue Fenster blockiert.
+
+Nach der manuellen GitHub-Repository-Erstellung führen drei konkrete Links durch die übrigen Schritte: **Settings → Pages → Source: GitHub Actions**, **Actions → Neue App einrichten (Handy-Assistent) → Run workflow**, anschließend den Veröffentlichungsstatus unter **Actions** kontrollieren. Diese Links verwenden den aus dem App-Namen vorgeschlagenen Repository-Namen. Wenn du ihn bei GitHub nachträglich änderst, verwende die Einrichtungshilfe am tatsächlich angelegten Projekt unter **Meine Apps → Einrichtung & Veröffentlichung**.
+
+Die Hilfe nimmt **keine GitHub-Statusprüfung** vor und erstellt **keine Repositories, Workflows oder Websites automatisch**. GitHub Pages ist im GitHub-Free-Tarif ausschließlich für öffentliche Repositories verfügbar; öffentliche Repositories sind allgemein sichtbar. Es werden keine neuen Tokens oder kostenpflichtigen Dienste benötigt. Für neue Apps sind die eigentlichen Fachfunktionen danach weiterhin separat zu entwickeln.
+
 ## Qualitätssicherung: PWA-Smoke-Tests
 
 Zusätzlich zu den bisherigen Unit-Tests prüft `tests/ui-smoke.test.mjs` nach dem Build ohne neue Abhängigkeiten die wichtigsten Verknüpfungen: JavaScript-Selektoren zu vorhandenen HTML-Elementen, Schnellnavigation, JavaScript-Module, Offline-Cache-Dateien und PWA-Manifest inklusive Icons. Diese Tests laufen mit `npm test` und automatisch in der PR-Qualitätsprüfung.

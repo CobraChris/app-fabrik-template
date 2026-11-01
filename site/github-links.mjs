@@ -50,6 +50,20 @@ export function newAppUrl(rawBrief, ownerRaw, visibility = 'private') {
   });
   return 'https://github.com/new?' + params;
 }
+export function appSetupLinks(rawRepository) {
+  const repository = githubRepository(rawRepository);
+  const root = 'https://github.com/' + repository;
+  const [owner, name] = repository.split('/');
+  return {
+    repository,
+    template: repository.toLowerCase() === 'cobrachris/app-fabrik-template',
+    pagesSettings: root + '/settings/pages',
+    setupWorkflow: root + '/actions/workflows/setup-app.yml',
+    actions: root + '/actions',
+    possibleSite: 'https://' + owner.toLowerCase() + '.github.io/' + encodeURIComponent(name) + '/',
+  };
+}
+
 export function issueText(rawBrief) {
   const b = normalizeBrief(rawBrief);
   const missing = '_Noch zu definieren_';
