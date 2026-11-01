@@ -69,3 +69,7 @@ Die Startseite darf ihren Status ausschließlich aus vorhandenen lokalen Projekt
 ## Merge-Freigabe aus ChatGPT
 
 Der Nutzer hat für die laufende Entwicklung der App-Fabrik den direkten Merge durch ChatGPT ausdrücklich freigegeben, um GitHub-Klicks auf dem Handy zu sparen. Diese Freigabe gilt für nachvollziehbare, getestete Änderungen an diesem Repository, nicht für unsichere, nicht überprüfte oder fremde Pull Requests. Nach jedem Merge GitHub-Pages-Deployment kontrollieren und den tatsächlichen Status mitteilen. Die GitHub-Branch-Schutzregeln und alle notwendigen Freigaben bleiben maßgeblich; nicht umgehen.
+
+## Gemeinsamer App-Erstellungsweg
+
+Alle App-Erstellungsaktionen (Startseite und gespeicherte Ideen) sollen denselben lokalen App-Assistenten öffnen. Keine separaten GitHub-Repository-Dialoge, die die Sichtbarkeitswahl umgehen können. Beim Vorausfüllen aus Ideen nur Name und Kurzbeschreibung übernehmen. Vollständige Featurelisten, Anforderungen und vertrauliche Angaben ausschließlich auf ausdrückliche Nutzeraktion weitergeben. Nach Eingabeänderungen dürfen keine alten Repository-Einrichtungslinks sichtbar bleiben.

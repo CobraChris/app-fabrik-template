@@ -14,6 +14,12 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## App aus einer gespeicherten Idee starten
+
+**App aus Idee erstellen** öffnet jetzt exakt denselben geführten App-Assistenten wie die Schaltfläche **Neue App anlegen** auf der Startseite. Die Idee liefert automatisch ihren Namen und die ersten 180 Zeichen der Kurzbeschreibung. Die vorhandenen Rahmenbedingungen, Funktionen und Abnahmekriterien werden **nicht** automatisch an GitHub übertragen; dafür bleibt der separate Entwicklungsauftrag verfügbar.
+
+Die ausdrücklich gewählte Sichtbarkeit und das GitHub-Konto werden vor dem Öffnen des GitHub-Dialogs angezeigt und nach Bestätigung lokal als Präferenz gespeichert. Änderungen am Namen, der Beschreibung, dem Konto oder der Sichtbarkeit blenden alte Einrichtungslinks sofort aus, damit sie nicht zum falschen Repository führen. Es wird kein Repository automatisch erstellt und keine kostenpflichtige API aufgerufen.
+
 ## Geführter App-Start vom Handy
 
 Die Schaltfläche **Neue App anlegen** in der Startübersicht öffnet jetzt eine lokale Einrichtungshilfe statt direkt und ohne Sicherheitsentscheidung die GitHub-Template-Seite. Du gibst App-Name, GitHub-Konto, optionale Kurzbeschreibung und die **explizite Sichtbarkeit Öffentlich/Privat** ein. Die App erzeugt den vorausgefüllten GitHub-Dialog, öffnet ihn erst nach deiner Bestätigung und zeigt zugleich einen Ersatzlink, falls Android das neue Fenster blockiert.

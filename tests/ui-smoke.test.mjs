@@ -38,7 +38,7 @@ test('Schnellnavigation und wichtige Aktionen verweisen auf vorhandene HTML-IDs'
   for (const id of ['quickstart-action', 'repo-import-panel', 'repo-import-search',
     'project-form', 'project-list', 'focus-list', 'idea-form', 'idea-list',
     'project-export', 'project-import', 'app-creation', 'new-app-entry',
-    'app-creation-form', 'app-create-visibility', 'app-setup-results']) {
+    'app-creation-form', 'app-create-source', 'app-create-visibility', 'app-setup-results']) {
     assert.ok(ids.has(id), 'Pflichtelement fehlt: ' + id);
   }
   const nav = [...html.matchAll(/href="#([A-Za-z][\w-]*)"/g)].map(match => match[1]);
@@ -88,4 +88,18 @@ test('Stylesheet, Manifest, PWA-Icon und App-Einstieg sind verfügbar', async ()
   assert.ok(manifest.name && manifest.short_name);
   assert.ok(manifest.icons.length >= 1);
   for (const icon of manifest.icons) assert.ok((await stat(localFile(icon.src))).isFile());
+});
+
+
+test('Gespeicherte App-Ideen verwenden denselben geführten Assistenten', async () => {
+  const source = await content('app.js');
+  const start = source.indexOf('function startNewApp(brief) {');
+  const end = source.indexOf('function startGitHubIssue(brief) {', start);
+  assert.ok(start >= 0 && end > start, 'App-Ideen-Weiterleitung fehlt');
+  const functionBody = source.slice(start, end);
+  assert.match(functionBody, /openAppCreation\(brief\)/);
+  assert.doesNotMatch(functionBody, /window\.open|newAppUrl|confirm\(/,
+    'Der alte unabhängige Repository-Erstellungsweg ist noch aktiv');
+  assert.match(source, /App aus Idee erstellen/);
+  assert.match(source, /app-create-source/);
 });
