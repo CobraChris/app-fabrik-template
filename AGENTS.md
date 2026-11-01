@@ -55,3 +55,8 @@ Projekt-Checklisten sind lokale Notizen, keine Live-Daten aus GitHub. Das besteh
 ## Globale Fokusliste
 
 Die Fokusliste wird rein aus lokal gespeicherten Projekten berechnet. Ein offenes To-do hat Vorrang vor dem alten Freitext-Nächster-Schritt; wenn eine Checkliste komplett erledigt ist, darf der alte Text nicht als neue offene Aufgabe erscheinen. Maximal ein Fokus-Eintrag pro aktivem Projekt; kein automatischer Merge, keine GitHub-Schreiboperationen und keine kostenpflichtigen Zugriffe durch die Fokusfunktion.
+
+
+## Import öffentlicher GitHub-Repositories
+
+Nur auf ausdrücklichen Klick öffentliche Daten über \`https://api.github.com/users/{validierter-name}/repos\` abrufen, ohne Tokens und ohne automatische Hintergrundabfrage. Nur Repositories des abgefragten Benutzers, ausschließlich öffentliche und nicht archivierte, importieren. Private Repositories niemals versprechen. Bereits gespeicherte Projekte, deren To-dos, Notizen und Status dürfen beim Import nicht überschrieben werden. Einträge vor dem Speichern validieren, maximal 100 lokale Projekte, dem Nutzer Auswahl per Checkbox überlassen.

@@ -39,6 +39,21 @@
         <p id="focus-empty" class="focus-empty">Noch keine nächsten Aufgaben. Füge ein Projekt mit einem nächsten Schritt oder einer offenen Checkliste hinzu.</p>
         <p class="focus-note">Bis zu acht Projekte. To-dos lassen sich hier abhaken; reine Textnotizen kannst du bearbeiten. Änderungen bleiben lokal und werden nicht an GitHub gesendet.</p>
       </section>
+      <details id="repo-import-panel" class="repo-import-panel">
+        <summary>Öffentliche GitHub-Repositories gesammelt übernehmen</summary>
+        <p class="repo-import-hint">Nur auf deinen Klick werden öffentliche Repository-Namen bei GitHub abgefragt. Private Repositories sind ohne Anmeldung nicht sichtbar; du kannst sie weiterhin manuell erfassen.</p>
+        <form id="repo-import-form" class="repo-import-form">
+          <label for="repo-import-owner">GitHub-Benutzername</label>
+          <div class="repo-import-search-row">
+            <input id="repo-import-owner" type="text" maxlength="39" placeholder="z. B. CobraChris" autocapitalize="off" spellcheck="false" required>
+            <button type="submit" id="repo-import-search">Repositories suchen</button>
+          </div>
+        </form>
+        <p id="repo-import-status" class="repo-import-status" role="status" aria-live="polite">Noch keine GitHub-Abfrage durchgeführt.</p>
+        <ul id="repo-import-results" class="repo-import-results" aria-label="Öffentliche GitHub-Repositories zur Auswahl"></ul>
+        <button id="repo-import-add" type="button" hidden disabled>Ausgewählte Projekte hinzufügen</button>
+        <p class="repo-import-hint">Bereits vorhandene Projekte werden nicht überschrieben. Es werden keine Passwörter oder GitHub-Tokens benötigt. Der Import speichert nur lokal und ändert nichts bei GitHub.</p>
+      </details>
       <details id="project-editor" class="idea-details">
         <summary id="project-form-heading">+ GitHub-Projekt hinzufügen</summary>
         <form id="project-form" class="project-form">
