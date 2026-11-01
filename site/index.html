@@ -27,6 +27,18 @@
         <output id="project-count" aria-live="polite">0 offen</output>
       </div>
       <p class="project-description">Verfolge deine verschiedenen GitHub-Projekte an einem Ort. Status und nächster Schritt sind deine eigenen Notizen, keine automatisch aus GitHub abgerufenen Angaben.</p>
+      <section class="focus-section" aria-labelledby="focus-title">
+        <div class="focus-heading">
+          <div>
+            <span class="eyebrow">JETZT ANSTEHEND</span>
+            <h3 id="focus-title">Meine nächsten Aufgaben</h3>
+          </div>
+          <output id="focus-count" aria-live="polite">0 angezeigt</output>
+        </div>
+        <ul id="focus-list" class="focus-list" aria-label="Nächste Aufgaben aus allen Projekten"></ul>
+        <p id="focus-empty" class="focus-empty">Noch keine nächsten Aufgaben. Füge ein Projekt mit einem nächsten Schritt oder einer offenen Checkliste hinzu.</p>
+        <p class="focus-note">Bis zu acht Projekte. To-dos lassen sich hier abhaken; reine Textnotizen kannst du bearbeiten. Änderungen bleiben lokal und werden nicht an GitHub gesendet.</p>
+      </section>
       <details id="project-editor" class="idea-details">
         <summary id="project-form-heading">+ GitHub-Projekt hinzufügen</summary>
         <form id="project-form" class="project-form">
