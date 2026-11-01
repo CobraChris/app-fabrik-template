@@ -14,6 +14,16 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## Projekt-To-dos: Mehrere offene Arbeitsschritte im Blick
+
+Für jedes GitHub-Projekt gibt es jetzt eine **lokale To-do-Checkliste** unter dem bisherigen Feld **Nächster Schritt**. Trage mehrere konkrete Aufgaben ein, hake erledigte Punkte ab oder öffne sie erneut. Offene Einträge stehen vor erledigten Aufgaben. Die Projektübersicht zeigt zusätzlich die Anzahl der offenen To-dos.
+
+- Bereits gespeicherte Projekte und der bisherige **Nächster Schritt** bleiben unverändert erhalten.
+- Bis zu 50 Aufgaben pro Projekt. Aufgaben und Status werden nur **auf diesem Gerät** gespeichert. Sie ändern keine GitHub-Issues, Pull Requests oder Commits.
+- Projekt-Backups enthalten jetzt die Checklisten (\`schemaVersion: 2\`). Ältere Projekt-Backups im Format \`schemaVersion: 1\` bleiben importierbar und erhalten eine leere Checkliste.
+- **Status** des Projekts und **erledigt** einer Aufgabe sind bewusst unabhängig: Das Erledigen aller Aufgaben markiert das GitHub-Projekt nicht automatisch als fertig.
+- Bei Bedarf weiterhin **Projekt-Backup exportieren**, da Browserdaten verloren gehen können.
+
 ## Meine Apps: Projektübersicht und nächste Schritte
 
 Die App-Fabrik enthält eine **lokale Projektübersicht** oberhalb des Ideenboards. Für jedes GitHub-Repository kannst du den **nächsten konkreten Schritt**, kurze Notizen und den manuellen Status (*Offen*, *In Arbeit*, *Wartet*, *Fertig*) notieren. Offene Projekte erscheinen zuerst. Direktlinks führen zu Repository, Pull Requests, Issues und GitHub Actions.
