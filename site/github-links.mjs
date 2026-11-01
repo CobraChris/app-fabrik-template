@@ -1,6 +1,6 @@
 import { normalizeBrief } from './briefs.mjs';
 
-export const PREFILL_LIMIT = 6200;
+export const PREFILL_LIMIT = 4800;
 export function githubOwner(raw) {
   const value = typeof raw === 'string' ? raw.trim() : '';
   if (!/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/.test(value) || value.includes('--')) {
