@@ -14,6 +14,20 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## Startbereich auf dem Handy: Nächste sinnvolle Aktion statt neuer Checklisten
+
+Ganz oben zeigt die App-Fabrik einen **dynamischen Startbereich** mit einem konkreten nächsten Schritt und einer Schnellnavigation zu *Start*, *Projekte* und *App-Ideen*.
+
+Der Startbereich bewertet **nur vorhandene lokale Daten**. Er benötigt keine zusätzliche Checkliste oder Häkchen:
+
+- **Keine Projekte und Ideen:** Öffentliche GitHub-Repositories importieren oder die erste App-Idee erfassen.
+- **App-Ideen, aber noch keine Projekte:** App-Ideen ansehen und die GitHub-Abkürzungen nutzen.
+- **Mindestens eine offene Aufgabe bzw. ein nächster Schritt:** Zur projektübergreifenden Fokusliste springen.
+- **Aktive Projekte ohne offene Aufgaben:** Ein bestehendes Projekt ansehen und den nächsten Entwicklungsschritt hinterlegen.
+- **Alle Projekte fertig:** Neue App-Idee erfassen.
+
+Der direkte Link **Neue App aus Vorlage** öffnet die GitHub-Vorlage und erstellt nichts automatisch. Der Status wird direkt aus den lokal vorhandenen Projekten und Ideen berechnet; es erfolgt keine GitHub-Abfrage und keine Kostenpflicht. Gespeicherte Projektdaten, Checklisten und beide Backup-Formate bleiben unverändert.
+
 ## Öffentliche GitHub-Repositories gesammelt importieren
 
 Die Projektübersicht hat die Funktion **Öffentliche GitHub-Repositories gesammelt übernehmen**. Sie erleichtert die Ersteinrichtung auf dem Android-Handy:
