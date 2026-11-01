@@ -41,3 +41,7 @@ App-Steckbriefe bleiben lokal im Browser. Bestehende Ideentitel aus `app-fabrik-
 ## GitHub-Abkürzungen
 
 Das Frontend darf nur zu `https://github.com/` navigieren, niemals fremde Hosts aus Benutzereingaben übernehmen. Besitzer und Repository streng validieren. Keine Tokens in die PWA einbauen. Neue Repositories standardmäßig privat vorschlagen; eine Veröffentlichung nur nach bewusster GitHub-Bestätigung. GitHub-Issue-URLs begrenzen und lange Texte lokal als Kopierhilfe zeigen. Bestehende Ideen und Backups unverändert lassen.
+
+## Projektübersicht
+
+Das Projekt-Dashboard speichert Repository-Pfad, Status, nächsten Schritt und Notizen ausschließlich lokal. Keine Token-Speicherung, kein GitHub-API-Polling, keine automatische Statusbehauptung und keine Veränderung an GitHub beim Entfernen eines Dashboard-Eintrags. Ziel-URLs nur aus validierten `Benutzer/Repository`-Pfaden erzeugen. Projekt-Backup und Ideen-Backup getrennt und rückwärtskompatibel halten.

@@ -21,6 +21,42 @@
       <h1 id="hero-title">Eine Idee.<br><em>Eine neue App.</em></h1>
       <p>Halte App-Ideen fest und mache aus ihnen konkrete Entwicklungsaufträge. Alles bleibt auf diesem Gerät, bis du es ausdrücklich kopierst oder exportierst.</p>
     </section>
+    <section class="panel project-panel" aria-labelledby="projects-title">
+      <div class="panel-heading">
+        <div><span class="eyebrow">PROJEKTÜBERSICHT</span><h2 id="projects-title">Meine Apps & nächste Schritte</h2></div>
+        <output id="project-count" aria-live="polite">0 offen</output>
+      </div>
+      <p class="project-description">Verfolge deine verschiedenen GitHub-Projekte an einem Ort. Status und nächster Schritt sind deine eigenen Notizen, keine automatisch aus GitHub abgerufenen Angaben.</p>
+      <details id="project-editor" class="idea-details">
+        <summary id="project-form-heading">+ GitHub-Projekt hinzufügen</summary>
+        <form id="project-form" class="project-form">
+          <input id="project-id" type="hidden">
+          <label for="project-repository">GitHub-Repository</label>
+          <input id="project-repository" type="text" placeholder="CobraChris/meine-livekarte" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="150" required>
+          <label for="project-next-step">Was ist der nächste Schritt?</label>
+          <textarea id="project-next-step" rows="2" maxlength="350" placeholder="z. B. Pull Request #5 prüfen und mergen"></textarea>
+          <label for="project-notes">Notizen (optional)</label>
+          <textarea id="project-notes" rows="2" maxlength="1000" placeholder="Wichtige Entscheidungen oder Einschränkungen"></textarea>
+          <label for="project-status">Status (manuell)</label>
+          <select id="project-status">
+            <option>Offen</option><option>In Arbeit</option><option>Wartet</option><option>Fertig</option>
+          </select>
+          <div class="form-actions">
+            <button id="project-save" type="submit">Projekt speichern</button>
+            <button id="project-cancel" type="button" class="secondary-button">Abbrechen</button>
+          </div>
+        </form>
+      </details>
+      <p id="project-feedback" class="feedback" role="status" aria-live="polite"></p>
+      <ul id="project-list" class="idea-list" aria-label="Gespeicherte GitHub-Projekte"></ul>
+      <p id="project-empty" class="empty-state">Noch keine Projekte erfasst. Ergänze deine Repositories, um die nächsten Aufgaben übersichtlich zu sehen.</p>
+      <div class="backup-actions">
+        <button id="project-export" type="button" class="secondary-button">Projekt-Backup exportieren</button>
+        <button id="project-import" type="button" class="secondary-button">Projekt-Backup importieren</button>
+        <input id="project-file" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p class="privacy-notice">Die Projektübersicht ist lokal auf diesem Gerät gespeichert. Es erfolgt keine automatische Prüfung von GitHub-Status oder Synchronisation. Für wichtige Projekte regelmäßig ein Backup erstellen.</p>
+    </section>
     <section class="panel" aria-labelledby="ideas-title">
       <div class="panel-heading">
         <div><span class="eyebrow">IDEEN-BOARD</span><h2 id="ideas-title">Deine App-Ideen</h2></div>
@@ -81,7 +117,7 @@
       </div>
       <p class="privacy-notice">Deine Ideen werden ausschließlich lokal im Browser gespeichert. Für GitHub kannst du den Steckbrief kopieren oder einen vorbereiteten GitHub-Link bewusst öffnen. Bewahre bei wichtigen Ideen ein Backup auf.</p>
     </section>
-    <footer><span>Keine Anmeldung · Keine automatische Cloud-Synchronisierung</span><span>Version 1.5</span></footer>
+    <footer><span>Keine Anmeldung · Keine automatische Cloud-Synchronisierung</span><span>Version 1.6</span></footer>
   </main>
   <script type="module" src="./app.js"></script>
 </body>

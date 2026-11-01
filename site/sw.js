@@ -1,8 +1,8 @@
 // Caches sind nach PWA-Pfad getrennt. Andere Apps auf github.io bleiben unberührt.
 const SCOPE = new URL(self.registration.scope);
 const CACHE_PREFIX = 'app-shell:' + SCOPE.pathname + ':';
-const CACHE_NAME = CACHE_PREFIX + 'v4';
-const ASSETS = ['./', './index.html', './styles.css', './app.js', './core.mjs', './briefs.mjs', './github-links.mjs', './manifest.webmanifest', './icons/app.svg'];
+const CACHE_NAME = CACHE_PREFIX + 'v5';
+const ASSETS = ['./', './index.html', './styles.css', './app.js', './core.mjs', './briefs.mjs', './github-links.mjs', './projects.mjs', './manifest.webmanifest', './icons/app.svg'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
