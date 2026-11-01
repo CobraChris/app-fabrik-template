@@ -14,6 +14,18 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## Öffentliche GitHub-Repositories gesammelt importieren
+
+Die Projektübersicht hat die Funktion **Öffentliche GitHub-Repositories gesammelt übernehmen**. Sie erleichtert die Ersteinrichtung auf dem Android-Handy:
+
+1. GitHub-Benutzernamen eintragen (auf deiner github.io-Seite vorausgewählt) und **Repositories suchen** klicken.
+2. Die App ruft **erst nach diesem Klick** die maximal 100 zuletzt aktualisierten öffentlichen, nicht archivierten Repositories über GitHubs öffentliche REST-API ab. Ohne GitHub-Login, Token oder zusätzliche KI-API-Kosten.
+3. Gewünschte Repositories einzeln abhaken und **Ausgewählte Projekte hinzufügen** wählen.
+4. Bereits vorhandene Projekte und ihre Notizen, Checklisten und Status bleiben unverändert. Neue Projekte beginnen mit dem Status **Offen**, ohne künstlich erfundene Aufgaben.
+5. Bei privaten Repositories oder GitHub-Abfragelimits weiterhin **+ GitHub-Projekt hinzufügen** nutzen.
+
+Die Importfunktion wird **nicht automatisch beim Start** aufgerufen. Es findet keine Hintergrund-Synchronisierung statt. Der Browser sendet bei der bewussten Suche den gewählten GitHub-Benutzernamen an GitHub und kann bei fehlender Verbindung oder API-Ratenlimit einen Fehler anzeigen. Alle übernommenen Projekte bleiben ausschließlich lokal; vor einem Gerätewechsel Projekt-Backup exportieren.
+
 ## Projektübergreifende Fokusliste: „Meine nächsten Aufgaben“
 
 Die Projektübersicht zeigt jetzt ganz oben bis zu acht nächste Arbeitsschritte aus unterschiedlichen Projekten. Dabei gelten folgende Regeln:

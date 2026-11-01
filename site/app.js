@@ -1,6 +1,7 @@
 import { STORE_KEY, parseIdeas } from './core.mjs';
 import { newAppUrl, newIssueLink, ownerFromHostname } from './github-links.mjs';
 import { projectKey, upsertProject, deleteProject, sortProjects, openProjectsCount, projectLinks, parseProjects, exportProjects, importProjects, addProjectTask, toggleProjectTask, removeProjectTask, openTasksCount, focusActions } from './projects.mjs';
+import { publicRepositoriesUrl, parsePublicRepositories, mergePublicRepositories } from './github-import.mjs';
 import {
   storageKey, normalizeBrief, upsertBrief, removeBrief, parseBriefs, migrateLegacy,
   issueDraft, exportBackup, importBackup
@@ -362,6 +363,112 @@ function renderFocus() {
   }
 }
 
+// Abruf öffentlicher Repository-Metadaten ausschließlich nach einem Klick.
+let publicRepoCandidates = [];
+const importOwner = $('#repo-import-owner');
+const importStatus = $('#repo-import-status');
+const importList = $('#repo-import-results');
+const importAdd = $('#repo-import-add');
+
+function renderRepoImport() {
+  importList.replaceChildren();
+  let selectable = 0;
+  for (const entry of publicRepoCandidates) {
+    const existing = projects.some(p => p.repository.toLowerCase() === entry.repository.toLowerCase());
+    const item = document.createElement('li');
+    item.className = 'repo-import-item';
+    const label = document.createElement('label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = entry.repository;
+    checkbox.disabled = existing;
+    if (!existing) selectable++;
+    const content = document.createElement('span');
+    const name = document.createElement('strong');
+    name.textContent = entry.repository;
+    content.append(name);
+    const details = document.createElement('span');
+    details.className = 'repo-import-info';
+    details.textContent = existing ? 'Bereits erfasst' :
+      [entry.description, entry.fork ? 'Fork' : ''].filter(Boolean).join(' · ') || 'Öffentliches Repository';
+    content.append(details);
+    label.append(checkbox, content);
+    item.append(label);
+    importList.append(item);
+  }
+  importAdd.disabled = true;
+  importAdd.hidden = selectable === 0;
+  if (publicRepoCandidates.length) {
+    importStatus.textContent = publicRepoCandidates.length + ' öffentliche Repositories gefunden, ' +
+      selectable + ' noch nicht erfasst.' +
+      (publicRepoCandidates.length === 100 ? ' Maximal die 100 zuletzt aktualisierten Repositories werden angezeigt.' : '');
+  }
+}
+
+importOwner.value = ownerFromHostname(location.hostname);
+$('#repo-import-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = $('#repo-import-search');
+  let url;
+  try { url = publicRepositoriesUrl(importOwner.value); }
+  catch (error) { importStatus.textContent = error.message; return; }
+  publicRepoCandidates = [];
+  importList.replaceChildren();
+  importAdd.disabled = true;
+  importAdd.hidden = true;
+  button.disabled = true;
+  importStatus.textContent = 'Öffentliche GitHub-Repositories werden geladen …';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      credentials: 'omit',
+      cache: 'no-store',
+      referrerPolicy: 'no-referrer',
+      headers: { Accept: 'application/vnd.github+json' }
+    });
+    if (!response.ok) {
+      if (response.status === 403 || response.status === 429) {
+        throw new Error('GitHub-Limit erreicht. Später erneut versuchen oder Repository manuell ergänzen.');
+      }
+      if (response.status === 404) throw new Error('GitHub-Konto nicht gefunden.');
+      throw new Error('GitHub konnte nicht geladen werden (HTTP ' + response.status + ').');
+    }
+    const data = await response.json();
+    publicRepoCandidates = parsePublicRepositories(data, importOwner.value);
+    renderRepoImport();
+    if (!publicRepoCandidates.length) importStatus.textContent =
+      'Keine öffentlichen, nicht archivierten Repositories auf der ersten Seite gefunden.';
+  } catch (error) {
+    importStatus.textContent = error.name === 'AbortError' ?
+      'GitHub hat nicht rechtzeitig geantwortet. Bitte erneut versuchen.' :
+      error.message || 'GitHub-Abfrage fehlgeschlagen. Bitte Internetverbindung prüfen.';
+  } finally {
+    clearTimeout(timeout);
+    button.disabled = false;
+  }
+});
+
+importList.addEventListener('change', () => {
+  importAdd.disabled = !importList.querySelector('input[type="checkbox"]:checked');
+});
+
+importAdd.addEventListener('click', () => {
+  const selected = [...importList.querySelectorAll('input[type="checkbox"]:checked')].map(x => x.value);
+  if (!selected.length) return;
+  try {
+    const createId = () => globalThis.crypto?.randomUUID?.() ??
+      ('project-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    const result = mergePublicRepositories(projects, publicRepoCandidates, selected, createId);
+    if (!result.added) { importStatus.textContent = 'Alle ausgewählten Repositories sind bereits erfasst.'; return; }
+    projects = result.projects;
+    saveProjects();
+    renderProjects();
+    if (projectsStorageAvailable) projectNotify(result.added + ' Projekte importiert. Nächste Schritte kannst du über Bearbeiten ergänzen.');
+  } catch (error) { importStatus.textContent = error.message; }
+});
+
 function renderProjects() {
   const list = $('#project-list');
   list.replaceChildren();
@@ -487,6 +594,7 @@ function renderProjects() {
     list.append(li);
   }
   renderFocus();
+  if (publicRepoCandidates.length) renderRepoImport();
 }
 
 projectForm.addEventListener('submit', event => {
