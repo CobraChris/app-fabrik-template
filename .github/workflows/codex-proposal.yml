@@ -5,7 +5,11 @@ on:
     inputs:
       task:
         description: 'Was soll Codex verändern? Ohne Zugangsdaten eingeben.'
-        required: true
+        required: false
+        type: string
+      issue_number:
+        description: 'Statt Freitext: Nummer eines offenen GitHub Issues'
+        required: false
         type: string
 
 permissions:
@@ -16,24 +20,26 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: read
     steps:
       - name: Quellcode ohne Token auschecken
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Issue oder Freitext als sichere Auftragsdatei vorbereiten
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TASK_TEXT: ${{ inputs.task }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: node scripts/prepare-codex-task.mjs
       - name: Codex bearbeitet das Projekt isoliert
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ':workspace'
           safety-strategy: drop-sudo
-          prompt: |
-            Du arbeitest an einer kleinen PWA. Lies AGENTS.md und halte dich daran.
-            Ändere nur Dateien in site/, tests/, README.md oder app.config.json.
-            Keine Workflows, Secrets, Konfiguration, externen Dienste oder Dependencies ändern.
-            Implementiere diese Aufgabe:
-            ${{ inputs.task }}
-            Erstelle möglichst kleine, überprüfbare Änderungen. Kein Git-Commit, kein Push.
+          prompt-file: codex-task.md
       - name: Änderungspatch erzeugen
         shell: bash
         run: |
@@ -69,6 +75,7 @@ jobs:
         shell: bash
         env:
           TASK: ${{ inputs.task }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
@@ -87,5 +94,10 @@ jobs:
           fi
           git commit -m 'Codex: Änderungsvorschlag'
           git push --set-upstream origin "$BRANCH"
-          printf '### Auftrag\n\n%s\n\n### Sicherheit\n\nAutomatischer Vorschlag. Bitte Code, Tests und Berechtigungen prüfen. Kein Auto-Merge.\n' "$TASK" > pr-body.md
+          if [[ -n "$ISSUE_NUMBER" ]]; then
+            printf '### Auftrag\n\nReferenz: Issue #%s\n\n' "$ISSUE_NUMBER" > pr-body.md
+          else
+            printf '### Auftrag\n\n%s\n\n' "$TASK" > pr-body.md
+          fi
+          printf '### Sicherheit\n\nAutomatischer Vorschlag. Bitte Code, Tests und Berechtigungen prüfen. Kein Auto-Merge.\n' >> pr-body.md
           gh pr create --repo "$REPO" --base main --head "$BRANCH" --title "Codex-Vorschlag #${RUN_ID}" --body-file pr-body.md
