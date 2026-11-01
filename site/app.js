@@ -1,5 +1,5 @@
 import { STORE_KEY, parseIdeas } from './core.mjs';
-import { newAppUrl, newIssueLink, ownerFromHostname, appSetupLinks } from './github-links.mjs';
+import { newAppUrl, newIssueLink, ownerFromHostname, appSetupLinks, appDraftFromBrief } from './github-links.mjs';
 import { projectKey, upsertProject, deleteProject, sortProjects, openProjectsCount, projectLinks, parseProjects, exportProjects, importProjects, addProjectTask, toggleProjectTask, removeProjectTask, openTasksCount, focusActions } from './projects.mjs';
 import { publicRepositoriesUrl, parsePublicRepositories, mergePublicRepositories } from './github-import.mjs';
 import { quickstartState } from './quickstart.mjs';
@@ -57,13 +57,39 @@ function showGitHubBackup(url, body) {
 
 // Eigener, sicherer Schnellstart. Der direkte GitHub-Template-Link
 // darf die explizite Wahl Öffentlich/Privat nicht umgehen.
-$('#new-app-entry').addEventListener('click', () => {
+function openAppCreation(brief = null) {
+  const form = $('#app-creation-form');
+  form.reset();
+  if (brief) {
+    const draft = appDraftFromBrief(brief);
+    $('#app-create-name').value = draft.name;
+    $('#app-create-goal').value = draft.description;
+  }
+  // Die in der bisherigen GitHub-Verknüpfung gespeicherten Präferenzen
+  // gelten hier nur als Vorauswahl; vor dem Senden ist die Wahl sichtbar.
+  $('#app-create-owner').value = ownerInput.value.trim() || ownerFromHostname(location.hostname);
+  $('#app-create-visibility').value = visibilityInput.value;
+  $('#app-create-source').textContent = brief
+    ? 'Aus deiner gespeicherten Idee: Nur Name und Kurzbeschreibung werden übernommen. Aufgaben und Abnahmekriterien bleiben lokal.'
+    : 'Neue App ohne vorhandene Idee: Name und Kurzbeschreibung eingeben.';
+  $('#app-create-feedback').textContent = '';
+  $('#app-setup-results').hidden = true;
   const panel = $('#app-creation');
   panel.open = true;
-  if (!$('#app-create-owner').value) $('#app-create-owner').value = ownerInput.value.trim();
   panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   $('#app-create-name').focus({ preventScroll: true });
-});
+}
+
+$('#new-app-entry').addEventListener('click', () => openAppCreation());
+
+// Ändert man die Eingaben nach dem ersten Versuch, dürfen die zuvor
+// berechneten GitHub-Links nicht irreführend weiter angezeigt werden.
+for (const selector of ['#app-create-name', '#app-create-goal', '#app-create-owner', '#app-create-visibility']) {
+  $(selector).addEventListener('input', () => {
+    $('#app-setup-results').hidden = true;
+    $('#app-create-feedback').textContent = '';
+  });
+}
 
 $('#app-creation-form').addEventListener('submit', event => {
   event.preventDefault();
@@ -87,6 +113,11 @@ $('#app-creation-form').addEventListener('submit', event => {
     $('#app-create-workflow').href = setup.setupWorkflow;
     $('#app-create-actions').href = setup.actions;
     $('#app-setup-results').hidden = false;
+    // Eine Entscheidung an dieser Stelle ist auch für den Einstieg aus
+    // anderen Ideen sinnvoll, jedoch keine ungeprüfte GitHub-Aktion.
+    ownerInput.value = owner;
+    visibilityInput.value = visibility;
+    saveGitHubSettings();
     window.open(url, '_blank', 'noopener,noreferrer');
     message.textContent = 'GitHub-Dialog angefordert. Falls er nicht erscheint, nutze „Repository-Erstellung öffnen“. Die nachfolgenden Links gelten erst nach der Erstellung.';
   } catch (error) {
@@ -95,27 +126,7 @@ $('#app-creation-form').addEventListener('submit', event => {
 });
 
 function startNewApp(brief) {
-  try {
-    if (!visibilityInput.value) {
-      $('#github-settings').open = true;
-      $('#github-settings').scrollIntoView({ behavior: 'smooth', block: 'center' });
-      visibilityInput.focus({ preventScroll: true });
-      notify('Bitte unter GitHub-Verknüpfung die Sichtbarkeit wählen. Öffentlich ist für GitHub Pages im kostenlosen Tarif erforderlich.');
-      return;
-    }
-    const visibility = visibilityInput.value;
-    const url = newAppUrl(brief, ownerInput.value, visibility);
-    const warning = visibility === 'public'
-      ? 'ÖFFENTLICH: Repository, Quellcode und eingetragene Daten sind für alle sichtbar. GitHub Pages kann mit GitHub Free genutzt werden. Keine vertraulichen Inhalte hochladen.'
-      : 'PRIVAT: Repository ist nicht öffentlich. GitHub Pages lässt sich damit im kostenlosen GitHub-Tarif nicht verwenden; dafür ist ein unterstützter kostenpflichtiger GitHub-Tarif erforderlich.';
-    if (!confirm(warning + '\n\nGitHub zur Vorbereitung öffnen? Du erstellst das Repository erst dort selbst.')) return;
-    saveGitHubSettings();
-    showGitHubBackup(url, '');
-    window.open(url, '_blank', 'noopener,noreferrer');
-    notify(visibility === 'public'
-      ? 'GitHub geöffnet: Vor dem Erstellen prüfen, ob Öffentlich eingestellt ist. Quellcode ist dann für alle sichtbar.'
-      : 'GitHub geöffnet: Vor dem Erstellen Privat prüfen. GitHub Pages ist bei GitHub Free für private Repositories nicht verfügbar.');
-  } catch (error) { notify(error.message); }
+  openAppCreation(brief);
 }
 
 function startGitHubIssue(brief) {
@@ -254,7 +265,7 @@ function render() {
     const options = document.createElement('div');
     options.className = 'idea-actions';
     options.append(
-      actionButton('Neue App aus Vorlage', () => startNewApp(brief), brief.title + ' als neue App vorbereiten'),
+      actionButton('App aus Idee erstellen', () => startNewApp(brief), brief.title + ' im geführten App-Start vorbereiten'),
       actionButton('GitHub-Issue öffnen', () => startGitHubIssue(brief), brief.title + ' als GitHub-Issue vorbereiten')
     );
     extra.append(summary, options);

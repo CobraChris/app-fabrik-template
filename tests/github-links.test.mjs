@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { githubOwner, githubRepository, ownerFromHostname, repositorySlug, newAppUrl, repositoryVisibility, appSetupLinks, issueText, newIssueLink, PREFILL_LIMIT } from '../site/github-links.mjs';
+import { githubOwner, githubRepository, ownerFromHostname, repositorySlug, newAppUrl, repositoryVisibility, appDraftFromBrief, appSetupLinks, issueText, newIssueLink, PREFILL_LIMIT } from '../site/github-links.mjs';
 
 const idea = { id: 'app1', title: 'Fitness Übungen', goal: 'Training organisieren',
   features: 'Übungen speichern', acceptance: 'Offline nutzbar',
@@ -77,4 +77,15 @@ test('Einrichtungslinks führen ausschließlich zum validierten GitHub-Repositor
   assert.equal(appSetupLinks('CobraChris/app-fabrik-template').template, true);
   assert.throws(() => appSetupLinks('https://evil.example/x'));
   assert.throws(() => appSetupLinks('CobraChris/../../repo'));
+});
+
+
+test('Ideen können ohne Verlust zum geführten App-Start übertragen werden', () => {
+  const draft = appDraftFromBrief(idea);
+  assert.deepEqual(draft, {name:'Fitness Übungen',description:'Training organisieren'});
+  const long = {...idea,goal:'a'.repeat(450),features:'Ein geheimes, nur lokal gespeichertes Detail'};
+  assert.equal(appDraftFromBrief(long).description.length,180);
+  assert.equal(appDraftFromBrief(long).features, undefined);
+  assert.equal(long.goal.length,450); // Die gespeicherte Idee selbst bleibt unverändert.
+  assert.throws(() => appDraftFromBrief({title:''}),/App-Namen/);
 });

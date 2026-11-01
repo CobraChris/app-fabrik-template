@@ -50,6 +50,14 @@ export function newAppUrl(rawBrief, ownerRaw, visibility = 'private') {
   });
   return 'https://github.com/new?' + params;
 }
+// Der geführte App-Start übernimmt nur den Namen und eine kurze Zielbeschreibung.
+// Die ausführlichen Anforderungen bleiben im lokalen Ideenboard, bis der Nutzer
+// sie bewusst als Entwicklungsauftrag weitergibt.
+export function appDraftFromBrief(rawBrief) {
+  const brief = normalizeBrief(rawBrief);
+  return { name: brief.title, description: brief.goal.slice(0, 180) };
+}
+
 export function appSetupLinks(rawRepository) {
   const repository = githubRepository(rawRepository);
   const root = 'https://github.com/' + repository;
