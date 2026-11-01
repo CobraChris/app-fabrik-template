@@ -103,3 +103,20 @@ test('Gespeicherte App-Ideen verwenden denselben geführten Assistenten', async 
   assert.match(source, /App aus Idee erstellen/);
   assert.match(source, /app-create-source/);
 });
+
+
+test('Mobile GitHub-Navigation erfolgt über echte Links statt blockierbarer Popups', async () => {
+  const js = await content('app.js');
+  const html = await content('index.html');
+  assert.doesNotMatch(js, /\bwindow\.open\s*\(/, 'Programmatische GitHub-Popups verbleiben');
+  for (const id of ['app-create-again', 'github-fallback-link']) {
+    const match = html.match(new RegExp('<a\\s+[^>]*id="' + id + '"[^>]*>'));
+    assert.ok(match, 'GitHub-Link fehlt: ' + id);
+    assert.match(match[0], /target="_blank"/, 'Muss als separate Registerkarte öffnen');
+    assert.match(match[0], /rel="noopener noreferrer"/, 'Externer Link ohne Schutz');
+  }
+  assert.match(html, /id="app-create-privacy-summary"/);
+  assert.match(js, /#app-create-again'\)\.href = url/);
+  assert.match(js, /#github-fallback-link'/);
+  assert.match(js, /app-create-privacy-summary/);
+});
