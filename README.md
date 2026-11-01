@@ -14,6 +14,14 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## Neue App und GitHub-Issue aus einer Idee starten
+
+Jede Idee hat nun im Bereich **Mit GitHub weiterarbeiten** zwei Abkürzungen. **Neue App aus Vorlage** öffnet `https://github.com/new` mit vorausgefülltem Namen, Beschreibung, **privater Sichtbarkeit** und dem GitHub-Template `CobraChris/app-fabrik-template`. Die neue App wird erst nach eigener Bestätigung auf GitHub erstellt. Danach muss GitHub Pages im neuen Repository noch aktiviert werden.
+
+**GitHub-Issue öffnen** erzeugt einen vorausgefüllten GitHub-Issue-Link für das bestehende Ziel-Repository mit Ziel, Funktionen und Abnahmekriterien. Das Issue wird erst durch den eigenen Klick auf **Submit new issue** angelegt. GitHub-Konto und Ziel-Repository werden unter **GitHub-Verknüpfung** ausschließlich lokal im Browser gespeichert. Weder GitHub-Token noch API-Schlüssel werden benötigt.
+
+**Wichtig für Android:** Die GitHub-Handy-App übernimmt die vorausgefüllten Felder nicht immer. Deshalb erscheint zusätzlich ein lokaler kopierbarer Text und ein erneuter GitHub-Link. Sehr lange Issues öffnen aus Sicherheitsgründen nur die leere Issue-Maske; den Text muss man dann hineinkopieren. Beim Öffnen eines vorausgefüllten Links werden die enthaltenen Daten als URL-Parameter an GitHub übertragen. Kein vertrauliches Material in öffentlichen Issues veröffentlichen.
+
 ## Schnellstart vom Handy (ohne Dateien zu bearbeiten)
 
 1. In der Vorlage auf **Use this template → Create a new repository** tippen und einen Namen für das neue App-Repository wählen. [Vorlage direkt kopieren](https://github.com/CobraChris/app-fabrik-template/generate).

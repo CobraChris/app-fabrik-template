@@ -1,13 +1,13 @@
 {
   "name": "app-fabrik-template",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "type": "module",
   "description": "Konfigurierbare PWA-Vorlage mit GitHub Actions und optionalem Codex-Pull-Request-Workflow",
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "npm run build && node --test",
-    "check": "node --check scripts/build.mjs && node --check site/app.js && node --check site/core.mjs && node --check site/sw.js && node --check scripts/setup-app.mjs && node --check scripts/prepare-codex-task.mjs && node --check site/briefs.mjs"
+    "check": "node --check scripts/build.mjs && node --check site/app.js && node --check site/core.mjs && node --check site/sw.js && node --check scripts/setup-app.mjs && node --check scripts/prepare-codex-task.mjs && node --check site/briefs.mjs && node --check site/github-links.mjs"
   },
   "engines": {
     "node": ">=20"
