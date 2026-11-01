@@ -45,3 +45,8 @@ Das Frontend darf nur zu `https://github.com/` navigieren, niemals fremde Hosts 
 ## Projektübersicht
 
 Das Projekt-Dashboard speichert Repository-Pfad, Status, nächsten Schritt und Notizen ausschließlich lokal. Keine Token-Speicherung, kein GitHub-API-Polling, keine automatische Statusbehauptung und keine Veränderung an GitHub beim Entfernen eines Dashboard-Eintrags. Ziel-URLs nur aus validierten `Benutzer/Repository`-Pfaden erzeugen. Projekt-Backup und Ideen-Backup getrennt und rückwärtskompatibel halten.
+
+
+## Lokale Projekt-To-dos
+
+Projekt-Checklisten sind lokale Notizen, keine Live-Daten aus GitHub. Das bestehende Feld \`nextStep\` darf bei einem Upgrade nicht überschrieben werden. Bereits exportierte \`schemaVersion: 1\`-Projekt-Backups müssen importierbar bleiben. \`schemaVersion: 2\` enthält die Liste \`todos\`. Keine automatische Synchronisierung, kein Token und keine GitHub-Aktion durch das Setzen eines Häkchens.

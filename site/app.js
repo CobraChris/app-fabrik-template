@@ -1,6 +1,6 @@
 import { STORE_KEY, parseIdeas } from './core.mjs';
 import { newAppUrl, newIssueLink, ownerFromHostname } from './github-links.mjs';
-import { projectKey, upsertProject, deleteProject, sortProjects, openProjectsCount, projectLinks, parseProjects, exportProjects, importProjects } from './projects.mjs';
+import { projectKey, upsertProject, deleteProject, sortProjects, openProjectsCount, projectLinks, parseProjects, exportProjects, importProjects, addProjectTask, toggleProjectTask, removeProjectTask, openTasksCount } from './projects.mjs';
 import {
   storageKey, normalizeBrief, upsertBrief, removeBrief, parseBriefs, migrateLegacy,
   issueDraft, exportBackup, importBackup
@@ -306,7 +306,8 @@ function renderProjects() {
   const list = $('#project-list');
   list.replaceChildren();
   const openCount = openProjectsCount(projects);
-  $('#project-count').textContent = openCount + ' offen';
+  const openTodoCount = projects.reduce((total, project) => total + openTasksCount(project.todos), 0);
+  $('#project-count').textContent = openCount + ' Projekte · ' + openTodoCount + ' To-dos';
   $('#project-empty').hidden = projects.length !== 0;
   for (const project of sortProjects(projects)) {
     const links = projectLinks(project);
@@ -328,6 +329,74 @@ function renderProjects() {
     task.className = 'project-next-text';
     task.textContent = project.nextStep || 'Noch keinen nächsten Schritt hinterlegt';
     li.append(taskLabel, task);
+
+    const todoSection = document.createElement('section');
+    todoSection.className = 'project-todo-section';
+    todoSection.setAttribute('aria-label', 'Aufgaben für ' + project.repository);
+    const todoHeader = document.createElement('div');
+    todoHeader.className = 'project-todo-header';
+    const todoTitle = document.createElement('strong');
+    todoTitle.textContent = 'To-dos';
+    const progress = document.createElement('span');
+    progress.textContent = openTasksCount(project.todos) + ' offen von ' + project.todos.length;
+    todoHeader.append(todoTitle, progress);
+    todoSection.append(todoHeader);
+
+    const todosList = document.createElement('ul');
+    todosList.className = 'project-todo-list';
+    for (const todo of [...project.todos].sort((a, b) => Number(a.done) - Number(b.done))) {
+      const item = document.createElement('li');
+      item.className = 'project-todo-item';
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = todo.done;
+      checkbox.setAttribute('aria-label', todo.title + ' als ' + (todo.done ? 'offen' : 'erledigt') + ' markieren');
+      const title = document.createElement('span');
+      title.textContent = todo.title;
+      if (todo.done) title.className = 'project-todo-completed';
+      checkbox.addEventListener('change', () => {
+        try {
+          projects = upsertProject(projects, toggleProjectTask(project, todo.id, checkbox.checked));
+          saveProjects(); renderProjects();
+        } catch (error) { projectNotify(error.message); }
+      });
+      label.append(checkbox, title);
+      const remove = actionButton('Entfernen', () => {
+        if (!confirm('Aufgabe "' + todo.title + '" aus der lokalen Liste entfernen?')) return;
+        projects = upsertProject(projects, removeProjectTask(project, todo.id));
+        saveProjects(); renderProjects();
+        projectNotify('Aufgabe entfernt. GitHub bleibt unverändert.');
+      }, todo.title + ' entfernen');
+      item.append(label, remove);
+      todosList.append(item);
+    }
+    todoSection.append(todosList);
+
+    const todoForm = document.createElement('form');
+    todoForm.className = 'project-todo-form';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 240;
+    input.placeholder = 'Neue Aufgabe, z. B. PR prüfen';
+    input.required = true;
+    input.setAttribute('aria-label', 'Neue Aufgabe für ' + project.repository);
+    const add = document.createElement('button');
+    add.type = 'submit';
+    add.textContent = '+ Aufgabe';
+    todoForm.append(input, add);
+    todoForm.addEventListener('submit', event => {
+      event.preventDefault();
+      try {
+        const id = globalThis.crypto?.randomUUID?.() ??
+          ('todo-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+        projects = upsertProject(projects, addProjectTask(project, input.value, id));
+        saveProjects(); renderProjects();
+        if (projectsStorageAvailable) projectNotify('Aufgabe hinzugefügt.');
+      } catch (error) { projectNotify(error.message); input.focus(); }
+    });
+    todoSection.append(todoForm);
+    li.append(todoSection);
     if (project.notes) {
       const notes = document.createElement('p');
       notes.className = 'project-notes';
