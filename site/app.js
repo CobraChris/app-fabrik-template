@@ -2,6 +2,7 @@ import { STORE_KEY, parseIdeas } from './core.mjs';
 import { newAppUrl, newIssueLink, ownerFromHostname } from './github-links.mjs';
 import { projectKey, upsertProject, deleteProject, sortProjects, openProjectsCount, projectLinks, parseProjects, exportProjects, importProjects, addProjectTask, toggleProjectTask, removeProjectTask, openTasksCount, focusActions } from './projects.mjs';
 import { publicRepositoriesUrl, parsePublicRepositories, mergePublicRepositories } from './github-import.mjs';
+import { quickstartState } from './quickstart.mjs';
 import {
   storageKey, normalizeBrief, upsertBrief, removeBrief, parseBriefs, migrateLegacy,
   issueDraft, exportBackup, importBackup
@@ -205,6 +206,7 @@ function render() {
     li.append(extra);
     list.append(li);
   }
+  renderQuickstart();
 }
 
 form.addEventListener('submit', event => {
@@ -469,6 +471,30 @@ importAdd.addEventListener('click', () => {
   } catch (error) { importStatus.textContent = error.message; }
 });
 
+// Kein zusätzlicher Haken / kein zweiter Aufgabenstand: der Schnellstart ist
+// eine abgeleitete Ansicht der bereits lokal gespeicherten Projekte und Ideen.
+function renderQuickstart() {
+  const state = quickstartState(projects, briefs);
+  $('#quickstart-title').textContent = state.title;
+  $('#quickstart-description').textContent = state.description;
+  const button = $('#quickstart-action');
+  button.textContent = state.button;
+  button.dataset.target = state.target;
+  const s = state.summary;
+  $('#quickstart-summary').textContent = s.projects + ' Projekte · ' +
+    s.ideas + ' Ideen · ' + s.openTodos + ' offene To-dos';
+}
+
+$('#quickstart-action').addEventListener('click', () => {
+  const target = $('#quickstart-action').dataset.target;
+  const element = target && document.getElementById(target);
+  if (!element) return;
+  if (element.tagName === 'DETAILS') element.open = true;
+  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (target === 'idea-title') element.focus({ preventScroll: true });
+  if (target === 'repo-import-panel') $('#repo-import-owner').focus({ preventScroll: true });
+});
+
 function renderProjects() {
   const list = $('#project-list');
   list.replaceChildren();
@@ -595,6 +621,7 @@ function renderProjects() {
   }
   renderFocus();
   if (publicRepoCandidates.length) renderRepoImport();
+  renderQuickstart();
 }
 
 projectForm.addEventListener('submit', event => {

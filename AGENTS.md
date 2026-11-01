@@ -60,3 +60,8 @@ Die Fokusliste wird rein aus lokal gespeicherten Projekten berechnet. Ein offene
 ## Import öffentlicher GitHub-Repositories
 
 Nur auf ausdrücklichen Klick öffentliche Daten über \`https://api.github.com/users/{validierter-name}/repos\` abrufen, ohne Tokens und ohne automatische Hintergrundabfrage. Nur Repositories des abgefragten Benutzers, ausschließlich öffentliche und nicht archivierte, importieren. Private Repositories niemals versprechen. Bereits gespeicherte Projekte, deren To-dos, Notizen und Status dürfen beim Import nicht überschrieben werden. Einträge vor dem Speichern validieren, maximal 100 lokale Projekte, dem Nutzer Auswahl per Checkbox überlassen.
+
+
+## Kontextabhängiger Schnellstart
+
+Die Startseite darf ihren Status ausschließlich aus vorhandenen lokalen Projekten, To-dos und App-Ideen berechnen. Keine separaten Checklisten, zusätzlichen Speicherstände, fiktiven Statusdaten oder automatischen GitHub-Abfragen. Nach jeder Änderung an Projekten oder Ideen die Schnellstart-Anzeige erneut rendern. Die Navigation soll mobil bedienbar und mit Tastatur zugänglich sein; bestehende Projektdaten und Backups unverändert lassen.
