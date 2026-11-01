@@ -4,7 +4,7 @@ import { access, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const dist = fileURLToPath(new URL('../dist/', import.meta.url));
+const dist = path.resolve(fileURLToPath(new URL('../dist/', import.meta.url)));
 async function content(relativePath) {
   return readFile(path.join(dist, relativePath), 'utf8');
 }
