@@ -1,28 +1,30 @@
 # Regeln für KI-Entwicklungsagenten
 
-Dieses Repository enthält eine einfache, lokal nutzbare PWA. Halte Änderungen klein, nachvollziehbar und testbar.
+Dieses Repository ist eine wiederverwendbare PWA-Vorlage. Änderungen klein und testbar halten.
 
-1. Vor Änderungen relevante Dateien und vorhandene Tests lesen.
-2. Keine Zugangsdaten, Tokens, Nutzerinformationen oder fremde API-Schlüssel in Code oder Logs schreiben.
-3. Keine externen Dienste, Tracker, Abhängigkeiten, Bezahl-APIs oder Benutzerkonten ohne ausdrücklichen Auftrag ergänzen.
-4. Sicherheits-Workflows, Berechtigungen und Deployment-Einstellungen nicht eigenständig abschwächen.
-5. Keine Änderungen an .github/workflows/ ohne gesonderte Prüfung durch den Eigentümer.
-6. npm test und npm run check ausführen und das Ergebnis beschreiben.
-7. Produktive Änderungen nur als Pull Request vorschlagen; niemals selbstständig mergen.
-8. Für neue Apps: Namen, Zweck und UI-Texte anpassen; generische Tests und CI erhalten.
-9. Keine echten L4L-/SharePoint-Projektdaten oder vertrauliche Firmendaten einfügen.
+1. Relevante Dateien und Tests vor Änderungen lesen.
+2. Keine Secrets, Zugangsdaten, persönlichen Daten oder geschäftlichen Informationen im Code, GitHub-Pages-Output oder in Logs speichern.
+3. Keine neuen externen Dienste, Tracker, Abhängigkeiten oder kostenpflichtigen APIs ohne ausdrücklichen Auftrag.
+4. Keine GitHub-Workflows oder Berechtigungen ohne gesonderte menschliche Prüfung ändern.
+5. Namensgebung, Farben, Kurzbeschreibung und Icon-Buchstabe ausschließlich über **app.config.json** konfigurieren. Darin keine Secrets speichern.
+6. **site/** ist Quelle, **dist/** wird mit `npm run build` erstellt und nie manuell bearbeitet oder eingecheckt.
+7. `npm run check` und `npm test` ausführen. Änderungen sollten passende Tests haben.
+8. PWA-Caches müssen nach App-Scope getrennt bleiben: keine Cache-Löschung anderer PWAs derselben Domain.
+9. Änderungen als Pull Request vorschlagen und nicht selbstständig mergen.
+10. Keine L4L-/SharePoint-Echtdaten oder andere Unternehmensdaten einfügen.
 
 ## Projektaufbau
 
-- site/: Statische PWA, kann ohne Build veröffentlicht werden.
-- tests/: Automatische Node-Tests.
-- .github/workflows/ci.yml: Validierung nach Push/PR.
-- .github/workflows/deploy-pages.yml: GitHub-Pages-Veröffentlichung auf main.
-- .github/workflows/codex-proposal.yml: Optionaler manueller Codex-Lauf, PR statt Auto-Merge.
+- app.config.json: Branding
+- scripts/build.mjs: Auslieferungsartefakte erzeugen
+- site/: Statische App-Quelldateien
+- dist/: generierte Website (gitignored)
+- tests/: Node.js-Tests
+- .github/workflows/: Tests, GitHub Pages, optional Codex (Änderungen menschlich prüfen)
 
 ## Akzeptanzkriterien
 
-- App funktioniert ohne Laufzeit-API-Key.
-- Daten bleiben lokal, sofern nicht ausdrücklich anders beschlossen.
-- Vorhandene Tests bestehen; neue Features erhalten sinnvolle Tests.
-- Mobile Darstellung, Tastaturbedienung und sinnvolle Fehlermeldungen funktionieren.
+- PWA funktioniert ohne Laufzeit-API-Key.
+- Daten bleiben lokal, wenn nicht anders vereinbart.
+- Mobile Ansicht, Tastaturbedienung, sinnvolle Fehlermeldungen.
+- CI erfolgreich; keine unerwarteten Netzwerkaufrufe.
