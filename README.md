@@ -2,7 +2,16 @@
 
 **Status:** Wiederverwendbares Template mit statischer PWA, Offline-Funktion, automatischen Tests, optionalem Codex-Vorschlagsworkflow und GitHub Pages. Keine Frameworks oder npm-Abhängigkeiten.
 
-## Eine neue App aus der Vorlage erstellen
+## Schnellstart vom Handy (ohne Dateien zu bearbeiten)
+
+1. In der Vorlage auf **Use this template → Create a new repository** tippen und einen Namen für das neue App-Repository wählen. [Vorlage direkt kopieren](https://github.com/CobraChris/app-fabrik-template/generate).
+2. Im neuen Repository unter **Settings → Pages → Build and deployment → Source** einmal **GitHub Actions** auswählen. Das ist pro neuer App notwendig: Die automatische GitHub-Pages-Erstaktivierung mit `GITHUB_TOKEN` allein wird nicht unterstützt.
+3. In **Actions** den Workflow **Neue App einrichten (Handy-Assistent)** auswählen und **Run workflow** antippen. App-Name, Kurzname, Beschreibung, Farben und Icon-Buchstaben eintragen.
+4. Der Workflow prüft die Eingaben, baut und testet die App, speichert `app.config.json` und veröffentlicht die PWA auf GitHub Pages. **Kein API-Key erforderlich.** In der Workflow-Zusammenfassung steht der Veröffentlichungslink.
+
+**Wichtig:** Den Assistenten nur in einer **Kopie** starten, nicht in `CobraChris/app-fabrik-template`. Die Originalvorlage ist im Workflow vor versehentlicher Umkonfiguration geschützt. Änderungen werden erst nach bewusstem Start des Workflows auf `main` gespeichert. Da `GITHUB_TOKEN`-Commits keine neuen Push-Workflows auslösen, führt dieser Assistent seine Tests und die Veröffentlichung selbst aus. Wenn Pages noch nicht aktiviert ist, kann die Veröffentlichung trotz erfolgreich gespeicherter Konfiguration scheitern; dann Pages aktivieren und den normalen Workflow **PWA veröffentlichen** starten.
+
+## Alternative: Konfiguration direkt bearbeiten
 
 1. Auf GitHub **Use this template → Create a new repository** wählen und ein neues Repository benennen.
 2. In **app.config.json** den App-Namen, Kurz-Namen, Beschreibung, die Farben und den Icon-Buchstaben ändern. Nur diese eine Datei ist für das Branding erforderlich.

@@ -7,11 +7,12 @@ Dieses Repository ist eine wiederverwendbare PWA-Vorlage. Änderungen klein und 
 3. Keine neuen externen Dienste, Tracker, Abhängigkeiten oder kostenpflichtigen APIs ohne ausdrücklichen Auftrag.
 4. Keine GitHub-Workflows oder Berechtigungen ohne gesonderte menschliche Prüfung ändern.
 5. Namensgebung, Farben, Kurzbeschreibung und Icon-Buchstabe ausschließlich über **app.config.json** konfigurieren. Darin keine Secrets speichern.
-6. **site/** ist Quelle, **dist/** wird mit `npm run build` erstellt und nie manuell bearbeitet oder eingecheckt.
-7. `npm run check` und `npm test` ausführen. Änderungen sollten passende Tests haben.
-8. PWA-Caches müssen nach App-Scope getrennt bleiben: keine Cache-Löschung anderer PWAs derselben Domain.
-9. Änderungen als Pull Request vorschlagen und nicht selbstständig mergen.
-10. Keine L4L-/SharePoint-Echtdaten oder andere Unternehmensdaten einfügen.
+6. Der Handy-Assistent in `.github/workflows/setup-app.yml` darf nur in Kopien gestartet werden. Er prüft vor dem Commit und veröffentlicht danach in einem getrennten Job.
+7. **site/** ist Quelle. **dist/** wird mit `npm run build` erstellt und nie manuell bearbeitet oder eingecheckt.
+8. `npm run check` und `npm test` ausführen. Änderungen sollten passende Tests haben.
+9. PWA-Caches müssen nach App-Scope getrennt bleiben: keine Cache-Löschung anderer PWAs derselben Domain.
+10. Änderungen als Pull Request vorschlagen und nicht selbstständig mergen.
+11. Keine L4L-/SharePoint-Echtdaten oder andere Unternehmensdaten einfügen.
 
 ## Projektaufbau
 

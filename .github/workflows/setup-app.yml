@@ -1,0 +1,121 @@
+name: Neue App einrichten (Handy-Assistent)
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "Vollständiger App-Name (z. B. Mein Fitness-Tracker)"
+        required: true
+        type: string
+      app_short_name:
+        description: "Kurzname für das Handy (max. 30 Zeichen)"
+        required: true
+        type: string
+      app_description:
+        description: "Ein Satz, was die App macht"
+        required: true
+        type: string
+      app_theme_color:
+        description: "Hintergrundfarbe als #RRGGBB"
+        required: true
+        default: "#101622"
+        type: string
+      app_accent_color:
+        description: "Akzentfarbe als #RRGGBB"
+        required: true
+        default: "#b1e0ff"
+        type: string
+      app_icon_letter:
+        description: "Ein Großbuchstabe A-Z oder eine Ziffer für das Icon"
+        required: true
+        default: "A"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    name: App konfigurieren und testen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Ausgangsvorlage schützen
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REPOSITORY" == "CobraChris/app-fabrik-template" ]]; then
+            echo "::error::Bitte zuerst über Use this template ein eigenes App-Repository erstellen."
+            exit 1
+          fi
+      - name: Repository laden
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: App-Daten übernehmen und prüfen
+        env:
+          APP_NAME: ${{ inputs.app_name }}
+          APP_SHORT_NAME: ${{ inputs.app_short_name }}
+          APP_DESCRIPTION: ${{ inputs.app_description }}
+          APP_THEME_COLOR: ${{ inputs.app_theme_color }}
+          APP_ACCENT_COLOR: ${{ inputs.app_accent_color }}
+          APP_ICON_LETTER: ${{ inputs.app_icon_letter }}
+        run: node scripts/setup-app.mjs
+      - name: JavaScript und Konfiguration testen
+        run: |
+          npm run check
+          npm test
+      - name: Freigegebene App-Konfiguration speichern
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- app.config.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: configure new app"
+            git push origin HEAD:main
+          fi
+      - name: Geprüfte App für Veröffentlichung bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: configured-app
+          path: dist/
+          retention-days: 1
+          if-no-files-found: error
+
+  deploy:
+    name: App auf GitHub Pages veröffentlichen
+    needs: configure
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Geprüfte App laden
+        uses: actions/download-artifact@v4
+        with:
+          name: configured-app
+          path: dist/
+      - name: GitHub Pages konfigurieren
+        uses: actions/configure-pages@v5
+      - name: Website hochladen
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+      - name: Veröffentlichen
+        id: deployment
+        uses: actions/deploy-pages@v4
