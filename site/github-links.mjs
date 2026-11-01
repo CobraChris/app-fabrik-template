@@ -31,13 +31,20 @@ export function repositorySlug(raw) {
   if (!name) throw new Error('Der Name benötigt lateinische Buchstaben oder Ziffern.');
   return name;
 }
-export function newAppUrl(rawBrief, ownerRaw) {
+export function repositoryVisibility(raw) {
+  if (raw !== 'public' && raw !== 'private') {
+    throw new Error('Bitte vor dem Erstellen Öffentlich oder Privat auswählen.');
+  }
+  return raw;
+}
+
+export function newAppUrl(rawBrief, ownerRaw, visibility = 'private') {
   const brief = normalizeBrief(rawBrief);
   const params = new URLSearchParams({
     owner: githubOwner(ownerRaw),
     name: repositorySlug(brief.title),
     description: (brief.goal || 'Neue App: ' + brief.title).slice(0,200),
-    visibility: 'private',
+    visibility: repositoryVisibility(visibility),
     template_owner: 'CobraChris',
     template_name: 'app-fabrik-template'
   });

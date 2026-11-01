@@ -25,6 +25,7 @@ const fields = {
 };
 const ownerInput = $('#github-owner');
 const repoInput = $('#github-repository');
+const visibilityInput = $('#github-visibility');
 const githubKey = 'app-fabrik-github-v1:' + scopePath;
 
 function loadGitHubSettings() {
@@ -33,15 +34,18 @@ function loadGitHubSettings() {
     const saved = JSON.parse(localStorage.getItem(githubKey) || '{}');
     if (typeof saved.owner === 'string') ownerInput.value = saved.owner;
     if (typeof saved.repository === 'string') repoInput.value = saved.repository;
+    if (saved.visibility === 'public' || saved.visibility === 'private') visibilityInput.value = saved.visibility;
   } catch { /* GitHub-Einstellungen sind optional. */ }
 }
 function saveGitHubSettings() {
   try { localStorage.setItem(githubKey, JSON.stringify({
-    owner: ownerInput.value.trim(), repository: repoInput.value.trim()
+    owner: ownerInput.value.trim(), repository: repoInput.value.trim(),
+    visibility: visibilityInput.value
   })); } catch { /* Kein GitHub-Login erforderlich. */ }
 }
 ownerInput.addEventListener('change', saveGitHubSettings);
 repoInput.addEventListener('change', saveGitHubSettings);
+visibilityInput.addEventListener('change', saveGitHubSettings);
 
 function showGitHubBackup(url, body) {
   $('#copy-fallback').hidden = false;
@@ -53,13 +57,25 @@ function showGitHubBackup(url, body) {
 
 function startNewApp(brief) {
   try {
-    const url = newAppUrl(brief, ownerInput.value);
-    if (!confirm('Ein neues Repository mit der App-Fabrik-Vorlage bei GitHub vorbereiten? ' +
-      'Es wird privat vorausgewählt. Bitte vor dem Erstellen prüfen.')) return;
+    if (!visibilityInput.value) {
+      $('#github-settings').open = true;
+      $('#github-settings').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      visibilityInput.focus({ preventScroll: true });
+      notify('Bitte unter GitHub-Verknüpfung die Sichtbarkeit wählen. Öffentlich ist für GitHub Pages im kostenlosen Tarif erforderlich.');
+      return;
+    }
+    const visibility = visibilityInput.value;
+    const url = newAppUrl(brief, ownerInput.value, visibility);
+    const warning = visibility === 'public'
+      ? 'ÖFFENTLICH: Repository, Quellcode und eingetragene Daten sind für alle sichtbar. GitHub Pages kann mit GitHub Free genutzt werden. Keine vertraulichen Inhalte hochladen.'
+      : 'PRIVAT: Repository ist nicht öffentlich. GitHub Pages lässt sich damit im kostenlosen GitHub-Tarif nicht verwenden; dafür ist ein unterstützter kostenpflichtiger GitHub-Tarif erforderlich.';
+    if (!confirm(warning + '\n\nGitHub zur Vorbereitung öffnen? Du erstellst das Repository erst dort selbst.')) return;
     saveGitHubSettings();
     showGitHubBackup(url, '');
     window.open(url, '_blank', 'noopener,noreferrer');
-    notify('GitHub geöffnet: Repository erst dort erstellen. Bitte privaten Modus und Vorlage prüfen.');
+    notify(visibility === 'public'
+      ? 'GitHub geöffnet: Vor dem Erstellen prüfen, ob Öffentlich eingestellt ist. Quellcode ist dann für alle sichtbar.'
+      : 'GitHub geöffnet: Vor dem Erstellen Privat prüfen. GitHub Pages ist bei GitHub Free für private Repositories nicht verfügbar.');
   } catch (error) { notify(error.message); }
 }
 
