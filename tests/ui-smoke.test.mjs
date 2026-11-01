@@ -37,7 +37,8 @@ test('Schnellnavigation und wichtige Aktionen verweisen auf vorhandene HTML-IDs'
   const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]));
   for (const id of ['quickstart-action', 'repo-import-panel', 'repo-import-search',
     'project-form', 'project-list', 'focus-list', 'idea-form', 'idea-list',
-    'project-export', 'project-import']) {
+    'project-export', 'project-import', 'app-creation', 'new-app-entry',
+    'app-creation-form', 'app-create-visibility', 'app-setup-results']) {
     assert.ok(ids.has(id), 'Pflichtelement fehlt: ' + id);
   }
   const nav = [...html.matchAll(/href="#([A-Za-z][\w-]*)"/g)].map(match => match[1]);

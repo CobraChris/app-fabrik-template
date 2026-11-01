@@ -1,5 +1,5 @@
 import { STORE_KEY, parseIdeas } from './core.mjs';
-import { newAppUrl, newIssueLink, ownerFromHostname } from './github-links.mjs';
+import { newAppUrl, newIssueLink, ownerFromHostname, appSetupLinks } from './github-links.mjs';
 import { projectKey, upsertProject, deleteProject, sortProjects, openProjectsCount, projectLinks, parseProjects, exportProjects, importProjects, addProjectTask, toggleProjectTask, removeProjectTask, openTasksCount, focusActions } from './projects.mjs';
 import { publicRepositoriesUrl, parsePublicRepositories, mergePublicRepositories } from './github-import.mjs';
 import { quickstartState } from './quickstart.mjs';
@@ -54,6 +54,45 @@ function showGitHubBackup(url, body) {
   fallback.href = url;
   fallback.hidden = false;
 }
+
+// Eigener, sicherer Schnellstart. Der direkte GitHub-Template-Link
+// darf die explizite Wahl Öffentlich/Privat nicht umgehen.
+$('#new-app-entry').addEventListener('click', () => {
+  const panel = $('#app-creation');
+  panel.open = true;
+  if (!$('#app-create-owner').value) $('#app-create-owner').value = ownerInput.value.trim();
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#app-create-name').focus({ preventScroll: true });
+});
+
+$('#app-creation-form').addEventListener('submit', event => {
+  event.preventDefault();
+  const message = $('#app-create-feedback');
+  try {
+    const name = $('#app-create-name').value.trim();
+    const owner = $('#app-create-owner').value.trim();
+    const visibility = $('#app-create-visibility').value;
+    const goal = $('#app-create-goal').value.trim();
+    const url = newAppUrl({ id: 'mobile-starter', title: name, goal }, owner, visibility);
+    const params = new URL(url).searchParams;
+    const repository = params.get('owner') + '/' + params.get('name');
+    const setup = appSetupLinks(repository);
+    const warning = visibility === 'public'
+      ? 'ÖFFENTLICH: Alle können den Quellcode sehen. GitHub Pages ist mit GitHub Free möglich.'
+      : 'PRIVAT: GitHub Pages ist im kostenlosen GitHub-Tarif nicht nutzbar.';
+    if (!confirm(warning + '\n\nRepository-Erstellung bei GitHub öffnen? Das Erstellen bestätigst du dort selbst.')) return;
+
+    $('#app-create-again').href = url;
+    $('#app-create-pages').href = setup.pagesSettings;
+    $('#app-create-workflow').href = setup.setupWorkflow;
+    $('#app-create-actions').href = setup.actions;
+    $('#app-setup-results').hidden = false;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    message.textContent = 'GitHub-Dialog angefordert. Falls er nicht erscheint, nutze „Repository-Erstellung öffnen“. Die nachfolgenden Links gelten erst nach der Erstellung.';
+  } catch (error) {
+    message.textContent = error.message;
+  }
+});
 
 function startNewApp(brief) {
   try {
@@ -622,6 +661,33 @@ function renderProjects() {
       githubLink('Actions', links.actions)
     );
     li.append(navigation);
+    const setup = appSetupLinks(project.repository);
+    const guide = document.createElement('details');
+    guide.className = 'project-setup-guide';
+    const title = document.createElement('summary');
+    title.textContent = 'Einrichtung & Veröffentlichung';
+    guide.append(title);
+    if (setup.template) {
+      const warning = document.createElement('p');
+      warning.textContent = 'Diese Repository-Vorlage nicht umkonfigurieren. Erstelle zuerst eine eigene App aus der Vorlage.';
+      guide.append(warning);
+    } else {
+      const instructions = document.createElement('p');
+      instructions.textContent = '1. Unter Pages die Quelle „GitHub Actions“ wählen. 2. Den Handy-Assistenten per „Run workflow“ starten. 3. Ausführung unter Actions kontrollieren.';
+      guide.append(instructions);
+      const links = document.createElement('div');
+      links.className = 'project-setup-links';
+      links.append(
+        githubLink('1 · Pages', setup.pagesSettings),
+        githubLink('2 · Handy-Assistent', setup.setupWorkflow),
+        githubLink('3 · Actions', setup.actions)
+      );
+      guide.append(links);
+      const note = document.createElement('p');
+      note.textContent = 'Diese Links prüfen nicht, ob die App schon eingerichtet oder veröffentlicht wurde. GitHub Pages mit GitHub Free setzt ein öffentliches Repository voraus.';
+      guide.append(note);
+    }
+    li.append(guide);
     const controls = document.createElement('div');
     controls.className = 'project-controls';
     controls.append(

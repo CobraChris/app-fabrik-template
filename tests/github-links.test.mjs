@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { githubOwner, githubRepository, ownerFromHostname, repositorySlug, newAppUrl, repositoryVisibility, issueText, newIssueLink, PREFILL_LIMIT } from '../site/github-links.mjs';
+import { githubOwner, githubRepository, ownerFromHostname, repositorySlug, newAppUrl, repositoryVisibility, appSetupLinks, issueText, newIssueLink, PREFILL_LIMIT } from '../site/github-links.mjs';
 
 const idea = { id: 'app1', title: 'Fitness Übungen', goal: 'Training organisieren',
   features: 'Übungen speichern', acceptance: 'Offline nutzbar',
@@ -64,4 +64,17 @@ test('Unbekannte Sichtbarkeiten werden abgelehnt, Default bleibt konservativ pri
     assert.throws(() => repositoryVisibility(invalid), /Bitte vor dem Erstellen/);
     assert.throws(() => newAppUrl(idea, 'CobraChris', invalid), /Bitte vor dem Erstellen/);
   }
+});
+
+
+test('Einrichtungslinks führen ausschließlich zum validierten GitHub-Repository', () => {
+  const data = appSetupLinks('CobraChris/meine-neue-app');
+  assert.equal(data.pagesSettings, 'https://github.com/CobraChris/meine-neue-app/settings/pages');
+  assert.equal(data.setupWorkflow, 'https://github.com/CobraChris/meine-neue-app/actions/workflows/setup-app.yml');
+  assert.equal(data.actions, 'https://github.com/CobraChris/meine-neue-app/actions');
+  assert.equal(data.possibleSite, 'https://cobrachris.github.io/meine-neue-app/');
+  assert.equal(data.template, false);
+  assert.equal(appSetupLinks('CobraChris/app-fabrik-template').template, true);
+  assert.throws(() => appSetupLinks('https://evil.example/x'));
+  assert.throws(() => appSetupLinks('CobraChris/../../repo'));
 });

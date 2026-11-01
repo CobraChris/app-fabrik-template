@@ -27,10 +27,43 @@
       <p id="quickstart-description">Deine Projekte und Ideen werden lokal geladen.</p>
       <div class="quickstart-actions">
         <button id="quickstart-action" type="button">Zum nächsten Schritt</button>
-        <a href="https://github.com/CobraChris/app-fabrik-template/generate" target="_blank" rel="noopener noreferrer">Neue App aus Vorlage</a>
+        <button id="new-app-entry" type="button">Neue App anlegen</button>
       </div>
       <p id="quickstart-summary" class="quickstart-summary" aria-live="polite">Noch keine Übersicht verfügbar</p>
     </section>
+    <details id="app-creation" class="app-creation">
+      <summary>Neue App mit dem Handy erstellen</summary>
+      <p>Hier bereitest du dein Repository vor. Es wird erst durch deine Bestätigung bei GitHub erstellt.</p>
+      <form id="app-creation-form" class="app-creation-form">
+        <label for="app-create-name">App-Name</label>
+        <input id="app-create-name" type="text" maxlength="100" placeholder="Mein Fitness-Tracker" required>
+        <label for="app-create-goal">Kurzbeschreibung (optional)</label>
+        <input id="app-create-goal" type="text" maxlength="180" placeholder="Wofür ist die App gedacht?">
+        <label for="app-create-owner">GitHub-Benutzername</label>
+        <input id="app-create-owner" type="text" maxlength="39" autocapitalize="off" spellcheck="false" autocomplete="off" required>
+        <label for="app-create-visibility">Sichtbarkeit</label>
+        <select id="app-create-visibility" required>
+          <option value="">Bitte wählen</option>
+          <option value="public">Öffentlich – GitHub Pages mit GitHub Free möglich</option>
+          <option value="private">Privat – GitHub Pages nicht mit GitHub Free</option>
+        </select>
+        <p class="app-creation-warning">Bei öffentlichen Repositories kann jeder den Quellcode lesen. Vertrauliche Daten und Passwörter nicht eintragen.</p>
+        <button type="submit">1. Repository bei GitHub vorbereiten</button>
+      </form>
+      <p id="app-create-feedback" role="status" aria-live="polite"></p>
+      <div id="app-setup-results" class="app-setup-results" hidden>
+        <h3>Nach dem Erstellen des Repositories</h3>
+        <p><strong>1.</strong> Repository bei GitHub tatsächlich erstellen. Namen kontrollieren.</p>
+        <a id="app-create-again" href="https://github.com/CobraChris/app-fabrik-template/generate" target="_blank" rel="noopener noreferrer">Repository-Erstellung öffnen</a>
+        <p><strong>2.</strong> Settings → Pages → Source: <strong>GitHub Actions</strong> auswählen.</p>
+        <a id="app-create-pages" href="https://github.com/CobraChris/app-fabrik-template/settings/pages" target="_blank" rel="noopener noreferrer">Pages-Einstellungen</a>
+        <p><strong>3.</strong> Actions → <strong>Neue App einrichten (Handy-Assistent)</strong> → Run workflow.</p>
+        <a id="app-create-workflow" href="https://github.com/CobraChris/app-fabrik-template/actions/workflows/setup-app.yml" target="_blank" rel="noopener noreferrer">Handy-Assistent</a>
+        <p><strong>4.</strong> Ausführung und Veröffentlichung bei GitHub Actions prüfen.</p>
+        <a id="app-create-actions" href="https://github.com/CobraChris/app-fabrik-template/actions" target="_blank" rel="noopener noreferrer">GitHub Actions</a>
+        <p class="app-creation-warning">Die Links gehen vom vorgeschlagenen Repository-Namen aus. Änderst du ihn in GitHub, verwende die Einrichtungslinks des tatsächlich angelegten Projekts unter „Meine Apps“. Die PWA überprüft hier keinen GitHub-Livestatus.</p>
+      </div>
+    </details>
     <section class="hero" aria-labelledby="hero-title">
       <span class="eyebrow">DEINE NÄCHSTE IDEE</span>
       <h1 id="hero-title">Eine Idee.<br><em>Eine neue App.</em></h1>
@@ -165,7 +198,7 @@
       </div>
       <p class="privacy-notice">Deine Ideen werden ausschließlich lokal im Browser gespeichert. Für GitHub kannst du den Steckbrief kopieren oder einen vorbereiteten GitHub-Link bewusst öffnen. Bewahre bei wichtigen Ideen ein Backup auf.</p>
     </section>
-    <footer><span>Keine Anmeldung · Keine automatische Cloud-Synchronisierung</span><span>Version 2.0</span></footer>
+    <footer><span>Keine Anmeldung · Keine automatische Cloud-Synchronisierung</span><span>Version 2.1</span></footer>
   </main>
   <script type="module" src="./app.js"></script>
 </body>
