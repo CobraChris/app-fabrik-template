@@ -183,3 +183,15 @@ html{scroll-behavior:smooth}
 .project-setup-links a{color:#a6dbff;text-decoration:none;border:1px solid #435c7b;border-radius:8px;padding:9px;font-size:12px}
 .app-creation :is(input,select,button,a):focus-visible,.project-setup-links a:focus-visible{outline:2px solid #90d2ff;outline-offset:2px}
 @media(max-width:560px){.app-creation{padding:15px}.project-setup-links a{flex:1;text-align:center}}
+
+
+/* GitHub-Links per normalem Tap öffnen; keine durch Bestätigung blockierten Popups */
+.app-setup-results .app-create-primary-link{
+  background:var(--app-accent,#b1e0ff);color:#091626;font-weight:800;
+  border:1px solid transparent;padding:15px 14px
+}
+#app-create-privacy-summary{font-weight:650;color:#f0ce9a}
+#github-fallback-link{display:block;text-align:center;padding:13px 12px;border-radius:10px;
+  background:var(--app-accent,#b1e0ff);color:#0b1828;font-weight:750;text-decoration:none;margin-top:12px}
+#github-fallback-link[hidden]{display:none}
+#github-fallback-link:focus-visible{outline:2px solid #90d2ff;outline-offset:3px}

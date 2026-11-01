@@ -49,13 +49,14 @@
           <option value="private">Privat – GitHub Pages nicht mit GitHub Free</option>
         </select>
         <p class="app-creation-warning">Bei öffentlichen Repositories kann jeder den Quellcode lesen. Vertrauliche Daten und Passwörter nicht eintragen.</p>
-        <button type="submit">1. Repository bei GitHub vorbereiten</button>
+        <button type="submit">GitHub-Link vorbereiten</button>
       </form>
       <p id="app-create-feedback" role="status" aria-live="polite"></p>
       <div id="app-setup-results" class="app-setup-results" hidden>
-        <h3>Nach dem Erstellen des Repositories</h3>
-        <p><strong>1.</strong> Repository bei GitHub tatsächlich erstellen. Namen kontrollieren.</p>
-        <a id="app-create-again" href="https://github.com/CobraChris/app-fabrik-template/generate" target="_blank" rel="noopener noreferrer">Repository-Erstellung öffnen</a>
+        <h3>Weiter mit GitHub</h3>
+        <p id="app-create-privacy-summary" class="app-creation-warning"></p>
+        <p><strong>1.</strong> Tippe auf den folgenden Link und erstelle dort dein Repository. Kontrolliere den Namen und die Sichtbarkeit bei GitHub.</p>
+        <a id="app-create-again" class="app-create-primary-link" href="https://github.com/CobraChris/app-fabrik-template/generate" target="_blank" rel="noopener noreferrer">1. GitHub-Vorlage öffnen</a>
         <p><strong>2.</strong> Settings → Pages → Source: <strong>GitHub Actions</strong> auswählen.</p>
         <a id="app-create-pages" href="https://github.com/CobraChris/app-fabrik-template/settings/pages" target="_blank" rel="noopener noreferrer">Pages-Einstellungen</a>
         <p><strong>3.</strong> Actions → <strong>Neue App einrichten (Handy-Assistent)</strong> → Run workflow.</p>
@@ -195,11 +196,11 @@
       <div id="copy-fallback" class="copy-fallback" hidden>
         <label for="copy-text">Manuell kopieren</label>
         <textarea id="copy-text" rows="8" readonly></textarea>
-        <a id="github-fallback-link" href="https://github.com" target="_blank" rel="noopener noreferrer" hidden>GitHub-Link erneut öffnen</a>
+        <a id="github-fallback-link" href="https://github.com" target="_blank" rel="noopener noreferrer" hidden>GitHub-Issue-Entwurf öffnen</a>
       </div>
       <p class="privacy-notice">Deine Ideen werden ausschließlich lokal im Browser gespeichert. Für GitHub kannst du den Steckbrief kopieren oder einen vorbereiteten GitHub-Link bewusst öffnen. Bewahre bei wichtigen Ideen ein Backup auf.</p>
     </section>
-    <footer><span>Keine Anmeldung · Keine automatische Cloud-Synchronisierung</span><span>Version 2.2</span></footer>
+    <footer><span>Keine Anmeldung · Keine automatische Cloud-Synchronisierung</span><span>Version 2.3</span></footer>
   </main>
   <script type="module" src="./app.js"></script>
 </body>

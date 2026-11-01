@@ -104,9 +104,9 @@ $('#app-creation-form').addEventListener('submit', event => {
     const repository = params.get('owner') + '/' + params.get('name');
     const setup = appSetupLinks(repository);
     const warning = visibility === 'public'
-      ? 'ÖFFENTLICH: Alle können den Quellcode sehen. GitHub Pages ist mit GitHub Free möglich.'
-      : 'PRIVAT: GitHub Pages ist im kostenlosen GitHub-Tarif nicht nutzbar.';
-    if (!confirm(warning + '\n\nRepository-Erstellung bei GitHub öffnen? Das Erstellen bestätigst du dort selbst.')) return;
+      ? 'ÖFFENTLICH: Der Quellcode ist für alle sichtbar. GitHub Pages kann mit GitHub Free genutzt werden.'
+      : 'PRIVAT: GitHub Pages ist mit GitHub Free nicht verfügbar.';
+    $('#app-create-privacy-summary').textContent = warning;
 
     $('#app-create-again').href = url;
     $('#app-create-pages').href = setup.pagesSettings;
@@ -118,8 +118,9 @@ $('#app-creation-form').addEventListener('submit', event => {
     ownerInput.value = owner;
     visibilityInput.value = visibility;
     saveGitHubSettings();
-    window.open(url, '_blank', 'noopener,noreferrer');
-    message.textContent = 'GitHub-Dialog angefordert. Falls er nicht erscheint, nutze „Repository-Erstellung öffnen“. Die nachfolgenden Links gelten erst nach der Erstellung.';
+    // Nur ein direkt angetippter Link öffnet GitHub, kein programmatisches Popup.
+    $('#app-create-again').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    message.textContent = 'Link vorbereitet. Tippe auf „1. GitHub-Vorlage öffnen“. Erst dort kannst du das Repository erstellen.';
   } catch (error) {
     message.textContent = error.message;
   }
@@ -138,10 +139,11 @@ function startGitHubIssue(brief) {
     saveGitHubSettings();
     showGitHubBackup(issue.url, issue.body);
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(issue.body).catch(() => {});
-    window.open(issue.url, '_blank', 'noopener,noreferrer');
+    // Echte Links bleiben selbst bei strenger Popup-Sperre bedienbar.
+    $('#copy-fallback').scrollIntoView({ behavior: 'smooth', block: 'center' });
     notify(issue.prefilled ?
-      'GitHub-Issue geöffnet. Bitte Inhalt und Sichtbarkeit prüfen. Falls die Handy-App Felder verliert, Text unten kopieren.' :
-      'Steckbrief zu lang für die URL: GitHub wurde leer geöffnet. Bitte den vollständigen Text unten kopieren.');
+      'Issue-Link vorbereitet. Tippe unten auf „GitHub-Issue-Entwurf öffnen“. Bitte Inhalt und Sichtbarkeit prüfen.' :
+      'Steckbrief zu lang für eine URL: Öffne unten den leeren GitHub-Entwurf und kopiere den vollständigen Text hinein.');
   } catch (error) { notify(error.message); }
 }
 

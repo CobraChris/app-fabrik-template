@@ -14,6 +14,12 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## Zuverlässige GitHub-Links auf Android
+
+Der App-Assistent öffnet GitHub nicht mehr programmatisch nach einem JavaScript-Bestätigungsdialog. Das kann Android-Chrome und andere mobile Browser als unerwünschtes Popup blockieren. Stattdessen validiert die App die Angaben und zeigt **„1. GitHub-Vorlage öffnen“** als regulären, direkt antippbaren Link (neue Registerkarte). Der aktuelle App-Fabrik-Tab bleibt geöffnet und zeigt weiterhin die nächsten Einrichtungsschritte.
+
+Auch **GitHub-Issue öffnen** erzeugt jetzt zuerst den vorbereiteten Entwurf und zeigt den echten Link direkt unter dem Ideenboard. Bei langen Entwürfen bleibt der vollständige Text zum Kopieren verfügbar. Weder Repository noch Issue werden automatisch angelegt. GitHub prüft beim Öffnen den Login und verlangt weiterhin eine bewusste Bestätigung zum Erstellen.
+
 ## App aus einer gespeicherten Idee starten
 
 **App aus Idee erstellen** öffnet jetzt exakt denselben geführten App-Assistenten wie die Schaltfläche **Neue App anlegen** auf der Startseite. Die Idee liefert automatisch ihren Namen und die ersten 180 Zeichen der Kurzbeschreibung. Die vorhandenen Rahmenbedingungen, Funktionen und Abnahmekriterien werden **nicht** automatisch an GitHub übertragen; dafür bleibt der separate Entwicklungsauftrag verfügbar.
@@ -22,7 +28,7 @@ Die ausdrücklich gewählte Sichtbarkeit und das GitHub-Konto werden vor dem Öf
 
 ## Geführter App-Start vom Handy
 
-Die Schaltfläche **Neue App anlegen** in der Startübersicht öffnet jetzt eine lokale Einrichtungshilfe statt direkt und ohne Sicherheitsentscheidung die GitHub-Template-Seite. Du gibst App-Name, GitHub-Konto, optionale Kurzbeschreibung und die **explizite Sichtbarkeit Öffentlich/Privat** ein. Die App erzeugt den vorausgefüllten GitHub-Dialog, öffnet ihn erst nach deiner Bestätigung und zeigt zugleich einen Ersatzlink, falls Android das neue Fenster blockiert.
+Die Schaltfläche **Neue App anlegen** in der Startübersicht öffnet jetzt eine lokale Einrichtungshilfe statt direkt und ohne Sicherheitsentscheidung die GitHub-Template-Seite. Du gibst App-Name, GitHub-Konto, optionale Kurzbeschreibung und die **explizite Sichtbarkeit Öffentlich/Privat** ein. Die App erstellt nach der Prüfung der Angaben einen direkt antippbaren GitHub-Link, statt ein möglicherweise blockiertes Popup zu öffnen.
 
 Nach der manuellen GitHub-Repository-Erstellung führen drei konkrete Links durch die übrigen Schritte: **Settings → Pages → Source: GitHub Actions**, **Actions → Neue App einrichten (Handy-Assistent) → Run workflow**, anschließend den Veröffentlichungsstatus unter **Actions** kontrollieren. Diese Links verwenden den aus dem App-Namen vorgeschlagenen Repository-Namen. Wenn du ihn bei GitHub nachträglich änderst, verwende die Einrichtungshilfe am tatsächlich angelegten Projekt unter **Meine Apps → Einrichtung & Veröffentlichung**.
 
