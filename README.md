@@ -2,6 +2,18 @@
 
 **Status:** Wiederverwendbares Template mit statischer PWA, Offline-Funktion, automatischen Tests, optionalem Codex-Vorschlagsworkflow und GitHub Pages. Keine Frameworks oder npm-Abhängigkeiten.
 
+## Multi-App-Betrieb: neue Apps ohne neues Repository
+
+Die **App-Fabrik** baut und veröffentlicht ab Version 2.4 zusätzliche statische PWAs aus **apps/<slug>/** zusammen mit der bisherigen Haupt-App. Jede Unter-App besitzt einen eigenen Ordner, eine eigene **manifest.webmanifest**, eigene Dateien, ein eigenes Icon, ihren eigenen Service-Worker mit eingeschränktem Scope und eigene lokale Speicherschlüssel. Der Build legt alle Apps unter **dist/apps/<slug>/** ab und erstellt automatisch die Navigationsseite **dist/apps/index.html**. GitHub Pages veröffentlicht diesen gesamten dist/-Ordner mit dem **bestehenden** Workflow; neue Repositories und GitHub-Berechtigungen sind nicht nötig.
+
+Der typische ChatGPT-Entwicklungsauftrag lautet: „Entwickle eine neue statische App [Beschreibung] in der App-Fabrik, unter apps/[slug], teste sie und veröffentliche sie über den bestehenden GitHub-Pages-Workflow.“ Der Assistent bearbeitet das Repository über die verbundene GitHub-Schnittstelle, erstellt einen PR, kontrolliert die Tests, merged gewöhnliche freigegebene Änderungen und prüft das Deployment während der laufenden Unterhaltung. Es gibt **keine** unbeaufsichtigte KI im Hintergrund und **keine** automatische Codegenerierung aus der PWA-Oberfläche. Der Knopf „GitHub-Vorlage anlegen“ bleibt als **optionaler manueller Alternativweg** für ein eigenes Repository.
+
+**So ergänzt man eine neue App:** Lege **apps/<slug>/** mit mindestens **index.html**, **manifest.webmanifest** und einem Icon an. Verwende im Manifest **id**, **scope** und **start_url** jeweils **"./"** und **display: "standalone"**; referenziere ausschließlich lokale, relative Iconpfade. Ergänze App-spezifische Styles, Logik und optional eigenen Service-Worker (mit Scope nur der App). Der Build validiert die Ordnernamen, Manifestangaben und Icons und lehnt Symlinks ab. Das App-Verzeichnis erscheint nach dem Deployment automatisch im Katalog.
+
+**Abnahme-App:** Unter **apps/abnahme/** ist eine kleine eigenständige PWA mit einem Zähler, Reset, lokalem Speicher und Offline-Cache enthalten. Test: **[Abnahme-App öffnen](https://cobrachris.github.io/app-fabrik-template/apps/abnahme/)** → **+1 zählen** → Seite neu laden → gleicher Zählerstand. Optional über das Android-Chrome-Menü zum Startbildschirm hinzufügen und anschließend offline erneut öffnen. Das sind echte mobile Funktionstests, die die automatischen Node-Tests nicht ersetzen.
+
+**Wichtige Grenzen:** Alle Unter-Apps laufen auf **derselben github.io-Origin**, auch wenn Installation, Pfad, Manifest und Caches getrennt sind. Daher keine vertraulichen Apps in das öffentliche Repository legen; lokaler Speicher teilt sich die Origin und braucht pro App eigene Schlüssel. Die Multi-App-Lösung ist für kostenfreie, öffentlich zugängliche **statische PWAs** gedacht, nicht für sichere Mandantentrennung, Server, Login oder geschützte Daten. App-Inhalte und API-Keys dürfen keine Geheimnisse enthalten.
+
 ## Ideenboard als strukturierter Entwicklungsauftrag
 
 Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MVP-Funktionen, Abnahmekriterien, Einschränkungen, Priorität und Status. Das Formular kann klein bleiben (nur ein Name ist erforderlich); weitere Felder liegen unter „Details für den Entwicklungsauftrag“.
