@@ -40,3 +40,28 @@
 #github-fallback-link{display:inline-block;margin-top:12px;color:#a4dcff;font-size:13px;overflow-wrap:anywhere}
 #github-fallback-link[hidden]{display:none}
 @media(max-width:580px){.github-settings-grid{grid-template-columns:1fr}}
+
+
+/* Lokales Multi-Projekt-Dashboard: offene Aufgaben nach Status sortieren */
+.project-panel{margin-bottom:26px}
+.project-description{font-size:14px;line-height:1.6;color:#a4b7d0;margin-top:-8px}
+.project-form{display:flex;flex-direction:column;gap:7px;padding-top:12px}
+.project-form label{color:#c4d3e7;font-size:13px;font-weight:650;margin-top:9px}
+.project-form :is(input:not([type=hidden]),textarea,select){font:inherit;padding:12px 13px;color:#f8fbff;background:#0c1422;border:1px solid #42506a;border-radius:10px;min-width:0;width:100%}
+.project-form textarea{resize:vertical;line-height:1.5}
+.project-form :is(input,textarea,select):focus-visible{outline:2px solid #90d2ff;outline-offset:2px}
+.project-form .form-actions{margin-top:12px}
+.project-form .form-actions button{padding:12px 14px}
+.project-card{display:block!important;border-bottom:1px solid #29364b;padding:16px 3px!important}
+.project-card-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.project-card-head strong{font-size:15px;overflow-wrap:anywhere}
+.project-state{font-size:11px;color:#b2d8f2;border:1px solid #52637a;border-radius:99px;padding:3px 9px}
+.project-next-label{font-size:10px;letter-spacing:.13em;color:#7faad0;font-weight:800}
+.project-next-text{margin:6px 0 12px;font-size:15px;font-weight:600;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.project-notes{color:#97a8c1;font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.project-links,.project-controls{display:flex;gap:8px;flex-wrap:wrap}
+.project-links{margin:12px 0}
+.project-links a{font-size:12px;color:#addcff;border:1px solid #354763;border-radius:9px;padding:8px 9px;text-decoration:none}
+.project-links a:hover{text-decoration:underline}
+.project-controls button{font-size:12px}
+@media(max-width:580px){.project-links a{flex:1;text-align:center}.project-card-head{align-items:start}}

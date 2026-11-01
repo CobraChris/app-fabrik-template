@@ -1,5 +1,6 @@
 import { STORE_KEY, parseIdeas } from './core.mjs';
 import { newAppUrl, newIssueLink, ownerFromHostname } from './github-links.mjs';
+import { projectKey, upsertProject, deleteProject, sortProjects, openProjectsCount, projectLinks, parseProjects, exportProjects, importProjects } from './projects.mjs';
 import {
   storageKey, normalizeBrief, upsertBrief, removeBrief, parseBriefs, migrateLegacy,
   issueDraft, exportBackup, importBackup
@@ -238,7 +239,169 @@ $('#import-file').addEventListener('change', async event => {
   } catch (error) { notify(error.message); }
 });
 
+
+// Eigenständige lokale Projektübersicht. Kein GitHub-Token und keine API-Abfragen.
+const projectStorage = projectKey(scopePath);
+const projectForm = $('#project-form');
+const projectFields = {
+  id: $('#project-id'),
+  repository: $('#project-repository'),
+  nextStep: $('#project-next-step'),
+  notes: $('#project-notes'),
+  status: $('#project-status'),
+};
+let projects = [];
+let projectsStorageAvailable = true;
+const projectNotify = message => { $('#project-feedback').textContent = message; };
+
+function saveProjects() {
+  if (!projectsStorageAvailable) return;
+  try { localStorage.setItem(projectStorage, JSON.stringify(projects)); }
+  catch {
+    projectsStorageAvailable = false;
+    projectNotify('Gerätespeicher blockiert. Projekt-Backup exportieren; Änderungen gehen beim Neuladen verloren.');
+  }
+}
+
+function loadProjects() {
+  try {
+    const raw = localStorage.getItem(projectStorage);
+    if (raw !== null) projects = parseProjects(raw);
+    if (raw && projects.length === 0 && raw !== '[]') {
+      projectNotify('Projekt-Daten konnten nicht gelesen werden. Vorhandenes Backup prüfen.');
+    }
+  } catch {
+    projectsStorageAvailable = false;
+    projectNotify('Projekte können nur bis zum Neuladen angezeigt werden. Bitte Browser-Speicher prüfen.');
+  }
+}
+
+function resetProjectForm() {
+  projectForm.reset();
+  projectFields.id.value = '';
+  $('#project-save').textContent = 'Projekt speichern';
+  $('#project-form-heading').textContent = '+ GitHub-Projekt hinzufügen';
+  $('#project-editor').open = false;
+}
+
+function editProject(project) {
+  for (const [name, input] of Object.entries(projectFields)) input.value = project[name] || '';
+  $('#project-save').textContent = 'Änderungen speichern';
+  $('#project-form-heading').textContent = 'Projekt bearbeiten';
+  $('#project-editor').open = true;
+  projectFields.nextStep.focus();
+  $('#project-editor').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function githubLink(title, url) {
+  const link = document.createElement('a');
+  link.textContent = title;
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  return link;
+}
+
+function renderProjects() {
+  const list = $('#project-list');
+  list.replaceChildren();
+  const openCount = openProjectsCount(projects);
+  $('#project-count').textContent = openCount + ' offen';
+  $('#project-empty').hidden = projects.length !== 0;
+  for (const project of sortProjects(projects)) {
+    const links = projectLinks(project);
+    const li = document.createElement('li');
+    li.className = 'project-card';
+    const head = document.createElement('div');
+    head.className = 'project-card-head';
+    const name = document.createElement('strong');
+    name.textContent = project.repository;
+    const status = document.createElement('span');
+    status.textContent = project.status;
+    status.className = 'project-state';
+    head.append(name, status);
+    li.append(head);
+    const taskLabel = document.createElement('span');
+    taskLabel.className = 'project-next-label';
+    taskLabel.textContent = 'NÄCHSTER SCHRITT';
+    const task = document.createElement('p');
+    task.className = 'project-next-text';
+    task.textContent = project.nextStep || 'Noch keinen nächsten Schritt hinterlegt';
+    li.append(taskLabel, task);
+    if (project.notes) {
+      const notes = document.createElement('p');
+      notes.className = 'project-notes';
+      notes.textContent = project.notes;
+      li.append(notes);
+    }
+    const navigation = document.createElement('div');
+    navigation.className = 'project-links';
+    navigation.append(
+      githubLink('Repository', links.repository),
+      githubLink('Pull Requests', links.pulls),
+      githubLink('Issues', links.issues),
+      githubLink('Actions', links.actions)
+    );
+    li.append(navigation);
+    const controls = document.createElement('div');
+    controls.className = 'project-controls';
+    controls.append(
+      actionButton('Bearbeiten', () => editProject(project), project.repository + ' bearbeiten'),
+      actionButton('Entfernen', () => {
+        if (!confirm('Projekt "' + project.repository + '" aus der lokalen Übersicht entfernen?')) return;
+        projects = deleteProject(projects, project.id);
+        saveProjects(); renderProjects(); projectNotify('Projekt aus der Übersicht entfernt. GitHub bleibt unverändert.');
+      }, project.repository + ' aus Übersicht entfernen')
+    );
+    li.append(controls);
+    list.append(li);
+  }
+}
+
+projectForm.addEventListener('submit', event => {
+  event.preventDefault();
+  const id = projectFields.id.value ||
+    (globalThis.crypto?.randomUUID?.() ?? 'project-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+  const input = Object.fromEntries(Object.entries(projectFields).map(([name, field]) =>
+    [name, name === 'id' ? id : field.value]));
+  try {
+    projects = upsertProject(projects, input);
+    saveProjects();
+    resetProjectForm();
+    renderProjects();
+    if (projectsStorageAvailable) projectNotify('Projekt gespeichert.');
+  } catch (error) { projectNotify(error.message); }
+});
+$('#project-cancel').addEventListener('click', () => resetProjectForm());
+$('#project-export').addEventListener('click', () => {
+  const json = exportProjects(projects);
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'app-fabrik-projekte.json';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  projectNotify('Projekt-Backup erstellt.');
+});
+$('#project-import').addEventListener('click', () => $('#project-file').click());
+$('#project-file').addEventListener('change', async event => {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  if (file.size > 1024 * 1024) { projectNotify('Backup zu groß (maximal 1 MB).'); return; }
+  try {
+    const imported = importProjects(await file.text());
+    if (projects.length && !confirm('Alle lokalen Projekte mit den Einträgen aus diesem Backup ersetzen?')) return;
+    projects = imported;
+    saveProjects();
+    resetProjectForm();
+    renderProjects();
+    if (projectsStorageAvailable) projectNotify('Projekt-Backup wiederhergestellt: ' + projects.length + ' Projekte.');
+  } catch (error) { projectNotify(error.message); }
+});
+
 loadGitHubSettings(); load(); render();
+loadProjects(); renderProjects();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }

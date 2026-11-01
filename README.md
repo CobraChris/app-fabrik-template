@@ -14,6 +14,18 @@ Die Start-App unterstützt jetzt **App-Steckbriefe**: Name, Ziel, gewünschte MV
 
 **Wichtig:** Browserdaten können durch Löschen des Website-Speichers verloren gehen. Regelmäßig ein Backup exportieren. Für vertrauliche Ideen beim Anlegen des GitHub-Issues ein privates Repository verwenden.
 
+## Meine Apps: Projektübersicht und nächste Schritte
+
+Die App-Fabrik enthält eine **lokale Projektübersicht** oberhalb des Ideenboards. Für jedes GitHub-Repository kannst du den **nächsten konkreten Schritt**, kurze Notizen und den manuellen Status (*Offen*, *In Arbeit*, *Wartet*, *Fertig*) notieren. Offene Projekte erscheinen zuerst. Direktlinks führen zu Repository, Pull Requests, Issues und GitHub Actions.
+
+- Zum Hinzufügen **+ GitHub-Projekt hinzufügen** aufklappen und den Pfad \`Benutzer/Repository\` eintragen.
+- Über **Bearbeiten** kannst du Status und nächsten Schritt aktualisieren. Ein Klick auf **Entfernen** löscht ausschließlich den lokalen Eintrag, niemals das GitHub-Repository.
+- **Projekt-Backup exportieren/importieren** speichert alle Projektangaben als separate JSON-Datei. Das bestehende **Ideen-Backup** bleibt unverändert.
+- Der Projektstatus wird **nicht live aus GitHub gelesen**. Besonders private Repositories benötigen GitHub-Authentifizierung; wir speichern keine Tokens in der öffentlichen PWA.
+- Die Übersicht ist bewusst **nicht mit einer Cloud verbunden**. Notizen werden je PWA-Pfad lokal gespeichert. Bei Gerätewechsel bitte beide Backups exportieren.
+
+Du kannst deine bereits existierenden Apps, z. B. \`CobraChris/meine-livekarte\`, \`CobraChris/l4l-project-plan-inspector\` und die Vorlage, im Formular eintragen. Diese Namen werden nicht automatisch in die öffentliche Vorlage übernommen.
+
 ## Neue App und GitHub-Issue aus einer Idee starten
 
 Jede Idee hat nun im Bereich **Mit GitHub weiterarbeiten** zwei Abkürzungen. **Neue App aus Vorlage** öffnet `https://github.com/new` mit vorausgefülltem Namen, Beschreibung, **privater Sichtbarkeit** und dem GitHub-Template `CobraChris/app-fabrik-template`. Die neue App wird erst nach eigener Bestätigung auf GitHub erstellt. Danach muss GitHub Pages im neuen Repository noch aktiviert werden.
