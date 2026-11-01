@@ -11,7 +11,7 @@ Dieses Repository ist eine wiederverwendbare PWA-Vorlage. Änderungen klein und 
 7. **site/** ist Quelle. **dist/** wird mit `npm run build` erstellt und nie manuell bearbeitet oder eingecheckt.
 8. `npm run check` und `npm test` ausführen. Änderungen sollten passende Tests haben.
 9. PWA-Caches müssen nach App-Scope getrennt bleiben: keine Cache-Löschung anderer PWAs derselben Domain.
-10. Änderungen als Pull Request vorschlagen und nicht selbstständig mergen.
+10. Änderungen zunächst als Pull Request mit nachvollziehbaren Tests vorschlagen. Der vom Nutzer ausdrücklich beauftragte ChatGPT-Assistent darf gewöhnliche App-, Dokumentations- und Teständerungen während der aktiven Unterhaltung **nach erfolgreicher CI, Prüfung der betroffenen Dateien und erwarteter Head-SHA** direkt mergen. **Kein ungeprüfter Auto-Merge:** Sicherheitskritische Änderungen (Workflows, Berechtigungen, Secrets, Authentifizierung, externe kostenpflichtige Dienste, vertrauliche Unternehmensdaten) brauchen eine gesonderte menschliche Freigabe. Der Assistent darf keinen dauerhaft im Hintergrund arbeitenden Merge-Prozess versprechen.
 11. Keine L4L-/SharePoint-Echtdaten oder andere Unternehmensdaten einfügen.
 
 ## Projektaufbau
@@ -65,3 +65,7 @@ Nur auf ausdrücklichen Klick öffentliche Daten über \`https://api.github.com/
 ## Kontextabhängiger Schnellstart
 
 Die Startseite darf ihren Status ausschließlich aus vorhandenen lokalen Projekten, To-dos und App-Ideen berechnen. Keine separaten Checklisten, zusätzlichen Speicherstände, fiktiven Statusdaten oder automatischen GitHub-Abfragen. Nach jeder Änderung an Projekten oder Ideen die Schnellstart-Anzeige erneut rendern. Die Navigation soll mobil bedienbar und mit Tastatur zugänglich sein; bestehende Projektdaten und Backups unverändert lassen.
+
+## Merge-Freigabe aus ChatGPT
+
+Der Nutzer hat für die laufende Entwicklung der App-Fabrik den direkten Merge durch ChatGPT ausdrücklich freigegeben, um GitHub-Klicks auf dem Handy zu sparen. Diese Freigabe gilt für nachvollziehbare, getestete Änderungen an diesem Repository, nicht für unsichere, nicht überprüfte oder fremde Pull Requests. Nach jedem Merge GitHub-Pages-Deployment kontrollieren und den tatsächlichen Status mitteilen. Die GitHub-Branch-Schutzregeln und alle notwendigen Freigaben bleiben maßgeblich; nicht umgehen.
