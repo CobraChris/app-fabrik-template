@@ -123,3 +123,12 @@ test('Alte lokale Daten ohne Todos werden ergänzt, ohne Status zu verändern', 
   assert.equal(data[0].nextStep, project.nextStep);
   assert.deepEqual(data[0].todos, []);
 });
+
+test('Alte Projekt-Bearbeitungsmaske darf Checklisten nicht löschen', () => {
+  const original = addProjectTask(project, 'Wichtiges To-do', 'keep-me');
+  const editedFromOldForm = {...project, nextStep:'Anderer Fokus'};
+  const saved = upsertProject([original], editedFromOldForm);
+  assert.equal(saved[0].nextStep, 'Anderer Fokus');
+  assert.equal(saved[0].todos.length, 1);
+  assert.equal(saved[0].todos[0].id, 'keep-me');
+});
