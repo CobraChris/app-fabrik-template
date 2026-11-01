@@ -87,9 +87,13 @@ export function upsertProject(projects, raw) {
     item.repository.toLocaleLowerCase('en-US') === normalized)) {
     throw new Error('Dieses GitHub-Repository ist bereits eingetragen.');
   }
-  const exists = projects.some(item => item.id === project.id);
-  if (!exists && projects.length >= PROJECT_LIMIT) throw new Error('Maximal 100 Projekte möglich.');
-  return exists ? projects.map(item => item.id === project.id ? project : item) : [project, ...projects];
+  const current = projects.find(item => item.id === project.id);
+  if (!current && projects.length >= PROJECT_LIMIT) throw new Error('Maximal 100 Projekte möglich.');
+  // Bearbeiten des bisherigen Projektformulars darf existierende To-dos nicht löschen.
+  const updated = current && raw.todos === undefined
+    ? { ...project, todos: normalizeTasks(current.todos) }
+    : project;
+  return current ? projects.map(item => item.id === project.id ? updated : item) : [updated, ...projects];
 }
 
 export function deleteProject(projects, id) {
