@@ -1,0 +1,48 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { githubOwner, githubRepository, ownerFromHostname, repositorySlug, newAppUrl, issueText, newIssueLink, PREFILL_LIMIT } from '../site/github-links.mjs';
+
+const idea = { id: 'app1', title: 'Fitness Übungen', goal: 'Training organisieren',
+  features: 'Übungen speichern', acceptance: 'Offline nutzbar',
+  constraints: 'Kein Login', priority: 'Hoch', status: 'Idee' };
+
+test('GitHub Konten und Repository-Pfade prüfen', () => {
+  assert.equal(githubOwner(' CobraChris '), 'CobraChris');
+  assert.equal(githubRepository('CobraChris/fitness'), 'CobraChris/fitness');
+  assert.equal(ownerFromHostname('cobrachris.github.io'), 'cobrachris');
+  assert.equal(ownerFromHostname('example.org'), '');
+  for (const invalid of ['https://bad.test/a','../a','a/b/c','CobraChris/.hidden']) {
+    assert.throws(() => githubRepository(invalid));
+  }
+  assert.throws(() => githubOwner('-bad'));
+});
+
+test('Neue Repositorys werden privat aus der zentralen Vorlage vorgeschlagen', () => {
+  const url = new URL(newAppUrl(idea,'CobraChris'));
+  assert.equal(url.origin, 'https://github.com');
+  assert.equal(url.pathname, '/new');
+  assert.equal(url.searchParams.get('visibility'), 'private');
+  assert.equal(url.searchParams.get('template_owner'), 'CobraChris');
+  assert.equal(url.searchParams.get('template_name'), 'app-fabrik-template');
+  assert.equal(url.searchParams.get('name'), 'fitness-uebungen');
+  assert.equal(repositorySlug('Äpfel & Öl'), 'aepfel-oel');
+});
+
+test('Issues erhalten nur fachliche Angaben und bleiben Entwürfe', () => {
+  const link = newIssueLink(idea, 'CobraChris/fitness');
+  const url = new URL(link.url);
+  assert.equal(url.pathname, '/CobraChris/fitness/issues/new');
+  assert.match(url.searchParams.get('title'), /Fitness/);
+  assert.match(url.searchParams.get('body'), /Offline nutzbar/);
+  assert.ok(link.prefilled);
+  assert.match(issueText(idea), /Rahmenbedingungen/);
+});
+
+test('Lange Issue-Texte nutzen die leere Eingabemaske', () => {
+  const long = { ...idea, features: 'x'.repeat(2500), acceptance: 'y'.repeat(2000), constraints: 'z'.repeat(1000) };
+  const result = newIssueLink(long, 'CobraChris/fitness');
+  assert.equal(result.prefilled, false);
+  assert.equal(result.url, 'https://github.com/CobraChris/fitness/issues/new');
+  assert.ok(result.body.length > 5000);
+  assert.ok(PREFILL_LIMIT < 7000);
+});

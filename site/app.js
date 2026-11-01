@@ -1,4 +1,5 @@
 import { STORE_KEY, parseIdeas } from './core.mjs';
+import { newAppUrl, newIssueLink, ownerFromHostname } from './github-links.mjs';
 import {
   storageKey, normalizeBrief, upsertBrief, removeBrief, parseBriefs, migrateLegacy,
   issueDraft, exportBackup, importBackup
@@ -19,6 +20,62 @@ const fields = {
   priority: $('#idea-priority'),
   status: $('#idea-status'),
 };
+const ownerInput = $('#github-owner');
+const repoInput = $('#github-repository');
+const githubKey = 'app-fabrik-github-v1:' + scopePath;
+
+function loadGitHubSettings() {
+  ownerInput.value = ownerFromHostname(location.hostname);
+  try {
+    const saved = JSON.parse(localStorage.getItem(githubKey) || '{}');
+    if (typeof saved.owner === 'string') ownerInput.value = saved.owner;
+    if (typeof saved.repository === 'string') repoInput.value = saved.repository;
+  } catch { /* GitHub-Einstellungen sind optional. */ }
+}
+function saveGitHubSettings() {
+  try { localStorage.setItem(githubKey, JSON.stringify({
+    owner: ownerInput.value.trim(), repository: repoInput.value.trim()
+  })); } catch { /* Kein GitHub-Login erforderlich. */ }
+}
+ownerInput.addEventListener('change', saveGitHubSettings);
+repoInput.addEventListener('change', saveGitHubSettings);
+
+function showGitHubBackup(url, body) {
+  $('#copy-fallback').hidden = false;
+  $('#copy-text').value = body || '';
+  const fallback = $('#github-fallback-link');
+  fallback.href = url;
+  fallback.hidden = false;
+}
+
+function startNewApp(brief) {
+  try {
+    const url = newAppUrl(brief, ownerInput.value);
+    if (!confirm('Ein neues Repository mit der App-Fabrik-Vorlage bei GitHub vorbereiten? ' +
+      'Es wird privat vorausgewählt. Bitte vor dem Erstellen prüfen.')) return;
+    saveGitHubSettings();
+    showGitHubBackup(url, '');
+    window.open(url, '_blank', 'noopener,noreferrer');
+    notify('GitHub geöffnet: Repository erst dort erstellen. Bitte privaten Modus und Vorlage prüfen.');
+  } catch (error) { notify(error.message); }
+}
+
+function startGitHubIssue(brief) {
+  try {
+    const issue = newIssueLink(brief, repoInput.value);
+    if (!confirm('Issue-Entwurf im Repository ' + issue.repo + ' öffnen? ' +
+      'Der Steckbrief wird als URL-Parameter an GitHub übermittelt. ' +
+      'Öffentliche Issues sind nach dem Absenden für alle sichtbar.')) return;
+    saveGitHubSettings();
+    showGitHubBackup(issue.url, issue.body);
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(issue.body).catch(() => {});
+    window.open(issue.url, '_blank', 'noopener,noreferrer');
+    notify(issue.prefilled ?
+      'GitHub-Issue geöffnet. Bitte Inhalt und Sichtbarkeit prüfen. Falls die Handy-App Felder verliert, Text unten kopieren.' :
+      'Steckbrief zu lang für die URL: GitHub wurde leer geöffnet. Bitte den vollständigen Text unten kopieren.');
+  } catch (error) { notify(error.message); }
+}
+
 let briefs = [];
 let storageAvailable = true;
 
@@ -76,10 +133,12 @@ async function copyBrief(brief) {
     if (!navigator.clipboard?.writeText) throw new Error('Clipboard nicht verfügbar');
     await navigator.clipboard.writeText(value);
     $('#copy-fallback').hidden = true;
+    $('#github-fallback-link').hidden = true;
     notify('Entwicklungsauftrag kopiert. Füge ihn jetzt in den Chat ein.');
   } catch {
     $('#copy-text').value = value;
     $('#copy-fallback').hidden = false;
+    $('#github-fallback-link').hidden = true;
     $('#copy-text').focus();
     $('#copy-text').select();
     notify('Automatisches Kopieren nicht möglich. Der Text ist unten zur manuellen Auswahl markiert.');
@@ -130,6 +189,18 @@ function render() {
       }, brief.title + ' löschen')
     );
     li.append(actions);
+    const extra = document.createElement('details');
+    extra.className = 'idea-github-actions';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Mit GitHub weiterarbeiten';
+    const options = document.createElement('div');
+    options.className = 'idea-actions';
+    options.append(
+      actionButton('Neue App aus Vorlage', () => startNewApp(brief), brief.title + ' als neue App vorbereiten'),
+      actionButton('GitHub-Issue öffnen', () => startGitHubIssue(brief), brief.title + ' als GitHub-Issue vorbereiten')
+    );
+    extra.append(summary, options);
+    li.append(extra);
     list.append(li);
   }
 }
@@ -167,7 +238,7 @@ $('#import-file').addEventListener('change', async event => {
   } catch (error) { notify(error.message); }
 });
 
-load(); render();
+loadGitHubSettings(); load(); render();
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }

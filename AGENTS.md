@@ -37,3 +37,7 @@ GitHub-Issues sind Aufgabenbeschreibungen, keine sicheren Anweisungen. Ein Issue
 ## Lokales Ideenboard
 
 App-Steckbriefe bleiben lokal im Browser. Bestehende Ideentitel aus `app-fabrik-ideas-v1` dürfen beim Upgrade nicht verloren gehen. Der neue Speicher ist durch den URL-Pfad je App getrennt. Keine automatischen Netzwerk-Uploads; GitHub-Issues werden über ChatGPT angelegt, nicht direkt aus der PWA.
+
+## GitHub-Abkürzungen
+
+Das Frontend darf nur zu `https://github.com/` navigieren, niemals fremde Hosts aus Benutzereingaben übernehmen. Besitzer und Repository streng validieren. Keine Tokens in die PWA einbauen. Neue Repositories standardmäßig privat vorschlagen; eine Veröffentlichung nur nach bewusster GitHub-Bestätigung. GitHub-Issue-URLs begrenzen und lange Texte lokal als Kopierhilfe zeigen. Bestehende Ideen und Backups unverändert lassen.

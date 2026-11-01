@@ -55,6 +55,20 @@
       <p id="form-feedback" class="feedback" role="status" aria-live="polite"></p>
       <ul id="idea-list" class="idea-list" aria-label="Gespeicherte App-Ideen"></ul>
       <p id="empty-state" class="empty-state">Noch keine Ideen gespeichert. Beginne mit deiner ersten App.</p>
+      <details class="github-settings">
+        <summary>GitHub-Verknüpfung <span>(einmalig einstellen)</span></summary>
+        <div class="github-settings-grid">
+          <div>
+            <label for="github-owner">GitHub-Konto</label>
+            <input id="github-owner" type="text" maxlength="39" autocapitalize="off" spellcheck="false" placeholder="CobraChris">
+          </div>
+          <div>
+            <label for="github-repository">Ziel-Repository für Issues</label>
+            <input id="github-repository" type="text" maxlength="150" autocapitalize="off" spellcheck="false" placeholder="CobraChris/meine-neue-app">
+          </div>
+        </div>
+        <p class="github-hint">Die Einstellungen bleiben lokal. Neue Repositories werden als privat vorgeschlagen. Zum Erstellen eines Issues muss das Ziel-Repository schon existieren.</p>
+      </details>
       <div class="backup-actions">
         <button type="button" id="export-button" class="secondary-button">Backup exportieren</button>
         <button type="button" id="import-button" class="secondary-button">Backup importieren</button>
@@ -63,10 +77,11 @@
       <div id="copy-fallback" class="copy-fallback" hidden>
         <label for="copy-text">Manuell kopieren</label>
         <textarea id="copy-text" rows="8" readonly></textarea>
+        <a id="github-fallback-link" href="https://github.com" target="_blank" rel="noopener noreferrer" hidden>GitHub-Link erneut öffnen</a>
       </div>
-      <p class="privacy-notice">Deine Ideen werden ausschließlich lokal im Browser gespeichert. Für GitHub kopierst du den Steckbrief zunächst in den Chat. Bewahre bei wichtigen Ideen ein Backup auf.</p>
+      <p class="privacy-notice">Deine Ideen werden ausschließlich lokal im Browser gespeichert. Für GitHub kannst du den Steckbrief kopieren oder einen vorbereiteten GitHub-Link bewusst öffnen. Bewahre bei wichtigen Ideen ein Backup auf.</p>
     </section>
-    <footer><span>Keine Anmeldung · Keine automatische Cloud-Synchronisierung</span><span>Version 1.4</span></footer>
+    <footer><span>Keine Anmeldung · Keine automatische Cloud-Synchronisierung</span><span>Version 1.5</span></footer>
   </main>
   <script type="module" src="./app.js"></script>
 </body>
