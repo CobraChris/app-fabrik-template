@@ -1,0 +1,25 @@
+{
+  "name": "App-Fabrik-Abnahme",
+  "short_name": "Abnahme",
+  "description": "Eigenständige Test-App mit Zähler, Offline-Funktion und lokalem Speicher.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1728",
+  "theme_color": "#142238",
+  "icons": [
+    {
+      "src": "./icons/app.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/app.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

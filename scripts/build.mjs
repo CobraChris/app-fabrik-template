@@ -1,6 +1,7 @@
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { buildApps } from './build-apps.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const sourceDir = path.join(root, 'site');
@@ -91,6 +92,7 @@ export async function build() {
     writeFile(path.join(outputDir, 'manifest.webmanifest'), JSON.stringify(manifest, null, 2) + '\n'),
     writeFile(path.join(outputDir, 'icons', 'app.svg'), renderIcon(config)),
   ]);
+  await buildApps(outputDir);
   return outputDir;
 }
 
