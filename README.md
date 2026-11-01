@@ -55,6 +55,21 @@ Der Workflow **Codex Änderung vorschlagen (manuell)** führt erst nach manuelle
 
 In **Settings → Actions → General → Workflow permissions** muss ggf. die Erstellung von Pull Requests durch Actions aktiviert werden. Automatisches Mergen ist deaktiviert. Kein Key, keine Laufzeit-Abrechnung.
 
+## Aufgaben direkt aus ChatGPT als GitHub Issues
+
+ChatGPT kann über deinen bereits verbundenen GitHub-Zugang eine strukturierte Entwicklungsaufgabe (**Issue**) für ein freigegebenes App-Repository anlegen. Du musst dafür keinen GitHub-Dialog ausfüllen: Beschreibe im Chat die neue Funktion, bestätige bei Bedarf das Ziel-Repository, und die Aufgabe wird mit Ziel, Umfang, Abnahmekriterien und Einschränkungen in GitHub erfasst.
+
+**Ein neues Issue löst noch keine kostenpflichtige KI-Ausführung aus.** Eine spätere Codex-Ausführung ist bewusst manuell:
+
+1. Öffne im *betroffenen App-Repository* **Actions → Codex Änderung vorschlagen (manuell) → Run workflow**.
+2. Trage **entweder** den Auftrag als Freitext im Feld `task` **oder** die Issue-Nummer im Feld `issue_number` ein. Das andere Feld bleibt leer.
+3. Nach bewusster Ausführung liest der Workflow das offene Issue über die GitHub-API, lässt Codex nur im lokalen Workspace arbeiten und erstellt einen überprüfbaren Pull Request. Kein Auto-Merge.
+4. Prüfe Änderungen, Tests und Sicherheitsauswirkungen vor einer Freigabe.
+
+Dafür ist weiterhin ein separat abgerechneter `OPENAI_API_KEY` im jeweiligen App-Repository notwendig. Codex wurde in dieser Vorlage noch **nicht** mit einem echten API-Lauf getestet. Auch die Erstellung eines neuen Repositories aus dem Template wird nicht durch einen Issue-Workflow übernommen.
+
+**Datenschutz:** `app-fabrik-template` ist öffentlich. Keine persönlichen Ideen, Firmeninformationen oder Zugangsdaten in öffentliche Issues schreiben. Private Ideen gehören in ein separates **privates** App-Repository.
+
 ## Dateien
 
 - `app.config.json`: Name, Farben, Kurzbeschreibung und Icon-Buchstabe
@@ -64,6 +79,7 @@ In **Settings → Actions → General → Workflow permissions** muss ggf. die E
 - `tests/`: Node-Tests für Ideenboard und Konfiguration
 - `.github/workflows/ci.yml`: Qualitätsprüfung bei PR und Push
 - `.github/workflows/deploy-pages.yml`: Deployment aus dist nach main-Push
-- `.github/workflows/codex-proposal.yml`: optionaler, manuell aufgerufener Codex-PR-Vorschlag
+- `.github/workflows/codex-proposal.yml`: optionaler, manuell aufgerufener Codex-PR-Vorschlag aus Freitext **oder Issue**
+- `scripts/prepare-codex-task.mjs`: prüft Eingaben, lädt ein offenes Issue und erstellt Codex-Prompt-Datei
 
 **Achtung:** Die Vorlage ist für kleine öffentliche statische PWAs gedacht. Keine vertraulichen Firmeninformationen, Nutzerdaten oder API-Schlüssel in site oder app.config.json speichern. Für Authentifizierung, Datenbanken und private Hosting-Umgebungen ist eine andere Architektur erforderlich.
