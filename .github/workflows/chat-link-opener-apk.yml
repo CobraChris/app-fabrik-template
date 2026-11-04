@@ -39,29 +39,39 @@ jobs:
       - name: Debug APK erstellen
         working-directory: prototypes/chatgpt-link-opener
         run: gradle --no-daemon --stacktrace :app:assembleDebug
-      - name: Zertifikatsfingerabdruck und Asset-Links-Dokument erzeugen
+      - name: Zertifikatsfingerabdruck direkt aus APK ermitteln
         shell: bash
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
         run: |
           set -euo pipefail
           mkdir -p verification-output
-          keytool -list -v -keystore "$HOME/.android/debug.keystore" \
-            -storepass android -alias androiddebugkey \
-            | grep 'SHA256:' | head -1 | sed -E 's/.*SHA256: *//' > verification-output/cert-sha256.txt
+          APK="prototypes/chatgpt-link-opener/app/build/outputs/apk/debug/app-debug.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -f "$APK"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --print-certs "$APK" > verification-output/apk-certs.txt
           python3 - <<'PY'
           import json
+          import re
           from pathlib import Path
-          fp = Path('verification-output/cert-sha256.txt').read_text().strip()
-          if len(fp.split(':')) != 32:
-              raise SystemExit('SHA-256-Fingerprint ist ungültig')
-          assetlinks = [{
+
+          text = Path('verification-output/apk-certs.txt').read_text()
+          match = re.search(r'certificate SHA-256 digest:\s*([0-9A-Fa-f]{64})', text)
+          if not match:
+              raise SystemExit('Der APK-Zertifikatsfingerabdruck wurde nicht gefunden.')
+          raw = match.group(1).upper()
+          fingerprint = ':'.join(raw[i:i+2] for i in range(0, len(raw), 2))
+          Path('verification-output/cert-sha256.txt').write_text(fingerprint + '\n')
+          document = [{
               'relation': ['delegate_permission/common.handle_all_urls'],
               'target': {
                   'namespace': 'android_app',
                   'package_name': 'io.github.cobrachris.chatlinkopener',
-                  'sha256_cert_fingerprints': [fp]
+                  'sha256_cert_fingerprints': [fingerprint]
               }
           }]
-          Path('verification-output/assetlinks.json').write_text(json.dumps(assetlinks, indent=2) + '\n')
+          Path('verification-output/assetlinks.json').write_text(json.dumps(document, indent=2) + '\n')
           PY
       - name: APK und passende Verifizierungsdatei speichern
         uses: actions/upload-artifact@v4
