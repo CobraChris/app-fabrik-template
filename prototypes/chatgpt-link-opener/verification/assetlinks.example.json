@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.cobrachris.chatlinkopener",
+      "sha256_cert_fingerprints": [
+        "REPLACE_WITH_REAL_APK_SIGNING_CERTIFICATE_SHA256"
+      ]
+    }
+  }
+]
