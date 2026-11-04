@@ -1,0 +1,44 @@
+name: Galaxy Watch Vibration PoC (APKs)
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/watch-vibration-poc/**'
+      - '.github/workflows/watch-vibration-poc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Android- und Wear-OS-APKs bauen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Android SDK 35 installieren
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Phone und Watch in einem Job mit derselben Debug-Signatur bauen
+        run: gradle --no-daemon -p experiments/watch-vibration-poc :phone:assembleDebug :watch:assembleDebug
+      - name: APKs lesbar benennen
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp experiments/watch-vibration-poc/phone/build/outputs/apk/debug/phone-debug.apk artifacts/
+          cp experiments/watch-vibration-poc/watch/build/outputs/apk/debug/watch-debug.apk artifacts/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: watch-vibration-poc-apks
+          path: artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 14
