@@ -1,0 +1,74 @@
+name: Chat-Link-Öffner APK (nur PR)
+
+on:
+  pull_request:
+    paths:
+      - 'prototypes/chatgpt-link-opener/**'
+      - '.github/workflows/chat-link-opener-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Repository ohne persistierte GitHub-Zugangsdaten auschecken
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Java 17 installieren
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Gradle 8.9 bereitstellen
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Android SDK bereitstellen
+        uses: android-actions/setup-android@v3
+      - name: Android SDK 35 installieren
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Debug APK erstellen
+        working-directory: prototypes/chatgpt-link-opener
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Zertifikatsfingerabdruck und Asset-Links-Dokument erzeugen
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p verification-output
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey \
+            | grep 'SHA256:' | head -1 | sed -E 's/.*SHA256: *//' > verification-output/cert-sha256.txt
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          fp = Path('verification-output/cert-sha256.txt').read_text().strip()
+          if len(fp.split(':')) != 32:
+              raise SystemExit('SHA-256-Fingerprint ist ungültig')
+          assetlinks = [{
+              'relation': ['delegate_permission/common.handle_all_urls'],
+              'target': {
+                  'namespace': 'android_app',
+                  'package_name': 'io.github.cobrachris.chatlinkopener',
+                  'sha256_cert_fingerprints': [fp]
+              }
+          }]
+          Path('verification-output/assetlinks.json').write_text(json.dumps(assetlinks, indent=2) + '\n')
+          PY
+      - name: APK und passende Verifizierungsdatei speichern
+        uses: actions/upload-artifact@v4
+        with:
+          name: chat-link-opener-android-debug
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            prototypes/chatgpt-link-opener/app/build/outputs/apk/debug/app-debug.apk
+            verification-output/assetlinks.json
+            verification-output/cert-sha256.txt
+
+# Sicherheit: kein push, kein workflow_dispatch, keine Secrets, nur contents:read.
+# Dieser Workflow erzeugt eine DEBUG-APK mit einem temporären Signaturzertifikat.
+# Nach einem neuen Build passt die alte assetlinks.json möglicherweise nicht mehr.
