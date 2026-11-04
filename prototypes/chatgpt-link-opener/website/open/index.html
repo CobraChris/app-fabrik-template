@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat-Link-Öffner · Fallback</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+  body{font:16px/1.55 system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1.5rem;background:#101622;color:#f7f8fc}
+  a{color:#8dd9ff} code{font-size:.9rem;overflow-wrap:anywhere}
+  .note{padding:1rem;border:1px solid #59687c;border-radius:12px}
+</style>
+</head>
+<body>
+<h1>Chat-Link-Öffner</h1>
+<p>Diese Seite erscheint nur, wenn Android den Link nicht automatisch an die installierte App übergeben hat.</p>
+<div class="note" id="status">Die Zuordnung von Website und Android-App muss überprüft werden.</div>
+<p>Prüfe in Android: <strong>Einstellungen → Apps → Chat-Link-Öffner → Als Standard festlegen → Unterstützte Links öffnen</strong>.</p>
+<p>Alternativ: <a id="destination" href="https://www.startpage.com/" rel="noopener noreferrer">Zieladresse im Browser öffnen</a>.</p>
+<script>
+  const raw = new URL(location.href).searchParams.get("url");
+  try {
+    const target = new URL(raw);
+    if ((target.protocol === "https:" || target.protocol === "http:") &&
+        !target.username && !target.password &&
+        target.hostname !== location.hostname) {
+      document.getElementById("destination").href = target.href;
+      document.getElementById("destination").textContent = "Zieladresse öffnen: " + target.hostname;
+    } else {
+      document.getElementById("status").textContent = "Kein gültiger externer Link übergeben.";
+    }
+  } catch {
+    document.getElementById("status").textContent = "Kein gültiger externer Link übergeben.";
+  }
+</script>
+</body>
+</html>
