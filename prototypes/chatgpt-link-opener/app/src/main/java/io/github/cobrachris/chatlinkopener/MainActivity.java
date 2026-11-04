@@ -1,7 +1,6 @@
 package io.github.cobrachris.chatlinkopener;
 
 import android.app.Activity;
-import android.app.role.RoleManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
@@ -11,7 +10,6 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.net.URI;
-import java.util.List;
 
 public final class MainActivity extends Activity {
     @Override
@@ -60,22 +58,16 @@ public final class MainActivity extends Activity {
     }
 
     private void openDefaultBrowser(URI target) {
+        // Opens another Android activity, not an embedded browser Custom Tab.
+        // Android normally selects the user's default browser for HTTP(S) URLs.
+        // Verified App Links may instead open an associated target application.
         Intent view = new Intent(Intent.ACTION_VIEW, Uri.parse(target.toString()));
         view.addCategory(Intent.CATEGORY_BROWSABLE);
-        RoleManager roles = (RoleManager) getSystemService(ROLE_SERVICE);
-        if (roles != null && roles.isRoleAvailable(RoleManager.ROLE_BROWSER)) {
-            List<String> browsers = roles.getRoleHolders(RoleManager.ROLE_BROWSER);
-            if (!browsers.isEmpty()) view.setPackage(browsers.get(0));
-        }
+        view.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             startActivity(view);
-        } catch (ActivityNotFoundException firstFailure) {
-            view.setPackage(null);
-            try {
-                startActivity(view);
-            } catch (ActivityNotFoundException failure) {
-                Toast.makeText(this, "Kein Browser verfügbar", Toast.LENGTH_LONG).show();
-            }
+        } catch (ActivityNotFoundException error) {
+            Toast.makeText(this, "Kein Browser verfügbar", Toast.LENGTH_LONG).show();
         }
     }
 }
