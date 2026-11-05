@@ -192,19 +192,23 @@ public final class RingingService extends Service {
     }
 
     private void startForegroundNotification() {
-        Notification running = new Notification.Builder(this, ACTIVE_CHANNEL)
+        Notification.Builder builder = new Notification.Builder(this, ACTIVE_CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle(profile.name + " klingelt")
-                .setContentText("Sanfter Ton • Stoppen oder " + profile.snoozeMinutes + " Min. schlummern")
+                .setContentTitle(toneOnlyPreview ? "Sanftwecker-Tonprobe" : profile.name+" klingelt")
+                .setContentText(toneOnlyPreview ? "Tonprobe – jederzeit stoppen" :
+                        "Sanfter Ton • Stoppen oder schlummern")
                 .setContentIntent(openApp())
                 .setCategory(Notification.CATEGORY_ALARM)
                 .setOngoing(true)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setFullScreenIntent(openApp(), true)
                 .setLocalOnly(true)
-                .addAction(action("Stoppen", STOP, android.R.drawable.ic_media_pause, 612))
-                .addAction(action("Schlummern", SNOOZE, android.R.drawable.ic_media_play, 613))
-                .build();
+                .addAction(action("Stoppen", STOP, android.R.drawable.ic_media_pause, 612));
+        if (!toneOnlyPreview) {
+            builder.setFullScreenIntent(openApp(), true);
+            if (profile.snoozeEnabled)
+                builder.addAction(action("Schlummern", SNOOZE, android.R.drawable.ic_media_play, 613));
+        }
+        Notification running = builder.build();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(ONGOING_ID, running,
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
@@ -215,18 +219,18 @@ public final class RingingService extends Service {
 
     private void sendWatchNotification(int index) {
         if (manager == null || !manager.areNotificationsEnabled()) return;
-        Notification watch = new Notification.Builder(this, WATCH_CHANNEL)
+        Notification.Builder builder = new Notification.Builder(this, WATCH_CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setContentTitle("Sanftwecker: " + profile.name)
                 .setContentText("Aufwachen – Erinnerung " + (index + 1)
                         + " von " + profile.watchPulses)
-                // Same category as the successful standalone notification proof of concept.
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setContentIntent(openApp())
                 .addAction(action("Stoppen", STOP, android.R.drawable.ic_media_pause, 612))
-                .addAction(action("Schlummern", SNOOZE, android.R.drawable.ic_media_play, 613))
-                .setAutoCancel(true)
-                .build();
+                .setAutoCancel(true);
+        if (profile.snoozeEnabled)
+            builder.addAction(action("Schlummern", SNOOZE, android.R.drawable.ic_media_play, 613));
+        Notification watch = builder.build();
         try {
             manager.notify(WATCH_BASE_ID + index, watch);
             AlarmRepository.diagnostic(this, "Watch-Benachrichtigung " + (index + 1) +

@@ -46,7 +46,10 @@ public final class MainActivity extends Activity {
     @Override public void onResume() {
         super.onResume();
         if (list != null) {
-            if (AlarmScheduler.canSchedule(this)) {
+            if (!AlarmScheduler.canSchedule(this)) {
+                for (AlarmProfile p : AlarmRepository.all(this))
+                    if (p.enabled) AlarmRepository.next(this,p.id,0L);
+            } else {
                 for (AlarmProfile p : AlarmRepository.all(this)) {
                     if (p.enabled && AlarmRepository.next(this,p.id)==0L) {
                         try { AlarmScheduler.reschedule(this,p.id); }
@@ -207,6 +210,11 @@ public final class MainActivity extends Activity {
         if (p.enabled && AlarmRepository.next(this,p.id)==earliest) {
             TextView next=UiKit.label(this,"NÄCHSTER ALARM · "+shortTime(earliest),12,UiKit.BLUE);
             card.addView(next);
+        }
+        if (p.enabled && AlarmRepository.next(this,p.id)==0L) {
+            card.addView(UiKit.label(this,
+                    "ACHTUNG: Wecker nicht eingeplant – Berechtigung prüfen",
+                    13,Color.rgb(255,171,128)));
         }
         if (p.skipAt > 0) {
             card.addView(UiKit.label(this,"Ein Termin wird übersprungen",12,UiKit.MUTED));

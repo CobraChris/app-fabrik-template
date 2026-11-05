@@ -198,6 +198,18 @@ public final class DetailActivity extends Activity {
         });
         Button settings=UiKit.button(this,"App-Berechtigungen",false);
         extra.addView(settings);
+        if (Build.VERSION.SDK_INT>=34) {
+            Button fullscreen=UiKit.button(this,"Vollbild-Wecker erlauben",false);
+            extra.addView(fullscreen);
+            fullscreen.setOnClickListener(v->{
+                try {
+                    startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                            .setData(Uri.parse("package:"+getPackageName())));
+                } catch (RuntimeException e) {
+                    notice("Bitte die Vollbild-Wecker-Berechtigung in Android prüfen.");
+                }
+            });
+        }
         settings.setOnClickListener(v->startActivity(new Intent(
                 Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 .setData(Uri.parse("package:"+getPackageName()))));
