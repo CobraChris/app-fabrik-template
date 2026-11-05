@@ -1,0 +1,40 @@
+# VORSCHLAG / NICHT AKTIV! Erst nach menschlicher Sicherheitsprüfung
+# und ausdrücklicher Freigabe nach .github/workflows/create-repository.yml kopieren.
+name: Neue GitHub-Repositories erstellen (freigegebener Auftrag)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'repo-requests/*.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-creation
+  cancel-in-progress: false
+
+jobs:
+  create-repository:
+    if: github.repository == 'CobraChris/app-fabrik-template'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Quellcode ohne gespeicherte Credentials laden
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Node 22 bereitstellen
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Neuen Auftrag prüfen und Repository erstellen
+        env:
+          GITHUB_BEFORE: ${{ github.event.before }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+          REPO_CREATOR_TOKEN: ${{ secrets.REPO_CREATOR_TOKEN }}
+        run: node scripts/create-repository.mjs
