@@ -1,4 +1,4 @@
-name: 'Android: Sanftwecker + Watch-Benachrichtigungstests'
+name: 'Android: Sanftwecker Beta und Watch-Benachrichtigungstest'
 
 on:
   pull_request:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Handy-APKs bauen und Alarmkalender prüfen
+    name: Android-APKs und Alarmtests
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -26,7 +26,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Android SDK 35 installieren
+      - name: Android SDK 35
         env:
           ANDROID_HOME: /usr/local/lib/android/sdk
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
@@ -35,25 +35,25 @@ jobs:
           test -n "$SDK_MANAGER"
           yes | "$SDK_MANAGER" --licenses >/dev/null || true
           "$SDK_MANAGER" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Sanftwecker und Benachrichtigungs-PoC bauen und testen
+      - name: Alarmtests und APKs kompilieren
         run: |
           gradle --no-daemon -p experiments/watch-vibration-poc \
             :alarm:testDebugUnitTest :alarm:assembleDebug :phone:assembleDebug
-      - name: Nur die beiden Handy-APKs bereitstellen
+      - name: Unnoetige Berechtigungen verhindern
         shell: bash
         run: |
+          MANIFEST=experiments/watch-vibration-poc/alarm/src/main/AndroidManifest.xml
+          if grep -Eq '(android.permission.INTERNET|android.permission.ACCESS_FINE_LOCATION|android.permission.READ_EXTERNAL_STORAGE|android.permission.WRITE_EXTERNAL_STORAGE)' "$MANIFEST"; then
+            echo 'Unexpected permission in Sanftwecker manifest' >&2; exit 1
+          fi
+          test -s experiments/watch-vibration-poc/alarm/build/outputs/apk/debug/alarm-debug.apk
+      - name: APK bereitstellen
+        run: |
           mkdir -p artifacts
-          cp experiments/watch-vibration-poc/alarm/build/outputs/apk/debug/alarm-debug.apk artifacts/sanftwecker-preview-debug.apk
-          cp experiments/watch-vibration-poc/phone/build/outputs/apk/debug/phone-debug.apk artifacts/watch-notification-debug.apk
+          cp experiments/watch-vibration-poc/alarm/build/outputs/apk/debug/alarm-debug.apk artifacts/sanftwecker-beta-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: sanftwecker-preview-apk
-          path: artifacts/sanftwecker-preview-debug.apk
-          if-no-files-found: error
+          name: sanftwecker-beta-apk
+          path: artifacts/sanftwecker-beta-debug.apk
           retention-days: 14
-      - uses: actions/upload-artifact@v4
-        with:
-          name: watch-notification-poc-apk
-          path: artifacts/watch-notification-debug.apk
           if-no-files-found: error
-          retention-days: 14

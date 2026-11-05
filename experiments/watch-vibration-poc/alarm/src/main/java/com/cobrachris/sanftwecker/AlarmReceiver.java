@@ -6,31 +6,41 @@ import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
 
-/** AlarmManager launches this receiver when the screen is locked. */
 public final class AlarmReceiver extends BroadcastReceiver {
-    public static final String DAILY = "com.cobrachris.sanftwecker.DAILY";
-    public static final String PREVIEW = "com.cobrachris.sanftwecker.PREVIEW";
-    public static final String SNOOZE = "com.cobrachris.sanftwecker.SNOOZE";
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
+    @Override public void onReceive(Context context, Intent intent) {
         if (intent == null) return;
         String action = intent.getAction();
-        if (!DAILY.equals(action) && !PREVIEW.equals(action) && !SNOOZE.equals(action)) return;
-        if (DAILY.equals(action)) {
-            if (!AlarmScheduler.prefs(context).getBoolean(AlarmScheduler.ENABLED, false)) return;
-            try { AlarmScheduler.scheduleDaily(context); }
-            catch (RuntimeException e) { Log.e("Sanftwecker", "Next alarm not scheduled", e); }
-        } else if (PREVIEW.equals(action)) {
-            AlarmScheduler.prefs(context).edit()
-                    .putLong(AlarmScheduler.PREVIEW_NEXT, 0L).apply();
-        }
-        Intent service = new Intent(context, RingingService.class)
-                .setAction(RingingService.START);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(service);
+        int id = intent.getIntExtra(AlarmScheduler.EXTRA_ID, 1);
+        if (id < 1 || id > AlarmProfile.COUNT) return;
+
+        if (AlarmScheduler.ACTION_WEEKLY.equals(action)) {
+            if (!AlarmRepository.get(context, id).enabled) return;
+            AlarmRepository.diagnostic(context, "Weckzeit ausgelöst: Wecker " + id);
+            // Re-arm immediately. The receiver itself does not play audio.
+            try { AlarmScheduler.reschedule(context, id); }
+            catch (RuntimeException e) {
+                Log.e("Sanftwecker", "Could not reschedule following alarm", e);
+            }
+        } else if (AlarmScheduler.ACTION_TEST.equals(action)) {
+            context.getSharedPreferences(AlarmScheduler.PREF, Context.MODE_PRIVATE)
+                    .edit().putLong(AlarmScheduler.TEST_WHEN, 0L).apply();
+            AlarmRepository.diagnostic(context, "Testwecker ausgelöst: Wecker " + id);
+        } else if (AlarmScheduler.ACTION_SNOOZE.equals(action)) {
+            AlarmRepository.diagnostic(context, "Schlummerwecker ausgelöst: Wecker " + id);
         } else {
-            context.startService(service);
+            return;
+        }
+
+        try {
+            Intent start = new Intent(context, RingingService.class)
+                    .setAction(RingingService.START)
+                    .putExtra(AlarmScheduler.EXTRA_ID, id);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                context.startForegroundService(start);
+            else context.startService(start);
+        } catch (RuntimeException e) {
+            AlarmRepository.diagnostic(context, "FEHLER: Hintergrundalarm konnte nicht starten");
+            Log.e("Sanftwecker", "Could not start ringing foreground service", e);
         }
     }
 }

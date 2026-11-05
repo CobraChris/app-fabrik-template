@@ -4,102 +4,98 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Build;
 import java.util.TimeZone;
 
-/** Single upcoming weekly alarm plus separate preview and snooze alarms. */
+/** Three independent weekly exact alarms plus one manual test and one snooze. */
 public final class AlarmScheduler {
-    public static final String PREF = "sanftwecker_settings_v1";
-    public static final String ENABLED = "enabled";
-    public static final String HOUR = "hour";
-    public static final String MINUTE = "minute";
-    public static final String DAYS = "days_mask";
-    public static final String RAMP = "ramp_seconds";
-    public static final String MAX_VOLUME = "max_volume";
-    public static final String NEXT = "next_trigger";
-    public static final String PREVIEW_NEXT = "preview_trigger";
-    public static final int DEFAULT_DAYS = 0x1f; // Mon-Fri
-
-    private static final int DAILY_REQUEST = 401;
-    private static final int PREVIEW_REQUEST = 402;
-    private static final int SNOOZE_REQUEST = 403;
+    public static final String ACTION_WEEKLY = "com.cobrachris.sanftwecker.ALARM";
+    public static final String ACTION_TEST = "com.cobrachris.sanftwecker.TEST";
+    public static final String ACTION_SNOOZE = "com.cobrachris.sanftwecker.SNOOZE_ALARM";
+    public static final String EXTRA_ID = "alarm_id";
+    public static final String PREF = "sanftwecker_runtime";
+    public static final String TEST_WHEN = "test_when";
 
     private AlarmScheduler() {}
 
-    public static SharedPreferences prefs(Context context) {
-        return context.getSharedPreferences(PREF, Context.MODE_PRIVATE);
-    }
-
-    public static boolean canSchedule(Context context) {
-        AlarmManager manager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+    public static boolean canSchedule(Context c) {
+        AlarmManager manager = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
         return manager != null && (Build.VERSION.SDK_INT < Build.VERSION_CODES.S
                 || manager.canScheduleExactAlarms());
     }
 
-    private static PendingIntent broadcast(Context context, String action, int requestCode) {
-        Intent alarm = new Intent(context, AlarmReceiver.class).setAction(action);
-        return PendingIntent.getBroadcast(context, requestCode, alarm,
+    private static PendingIntent pending(Context c, String action, int code, int alarmId) {
+        Intent intent = new Intent(c, AlarmReceiver.class).setAction(action)
+                .putExtra(EXTRA_ID, alarmId);
+        return PendingIntent.getBroadcast(c, code, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    private static void setAlarm(Context context, long when, String action, int requestCode) {
-        AlarmManager manager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (manager == null) throw new IllegalStateException("AlarmManager unavailable");
-        if (!canSchedule(context)) throw new SecurityException("Exact alarms not permitted");
-        Intent open = new Intent(context, MainActivity.class);
-        PendingIntent show = PendingIntent.getActivity(context, 405, open,
+    private static int requestCode(int id) { return 1000 + id; }
+
+    private static void schedule(Context c, long when, String action, int code, int id) {
+        AlarmManager manager = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        if (manager == null || !canSchedule(c)) throw new SecurityException("Exact alarm not allowed");
+        Intent intent = new Intent(c, MainActivity.class).putExtra(EXTRA_ID, id);
+        PendingIntent show = PendingIntent.getActivity(c, 1100 + id, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         manager.setAlarmClock(new AlarmManager.AlarmClockInfo(when, show),
-                broadcast(context, action, requestCode));
+                pending(c, action, code, id));
     }
 
-    public static long scheduleDaily(Context context) {
-        SharedPreferences p = prefs(context);
-        if (!p.getBoolean(ENABLED, false)) {
-            cancelDaily(context);
-            return 0L;
+    public static void reschedule(Context c, int id) {
+        AlarmProfile a = AlarmRepository.get(c, id);
+        cancel(c, ACTION_WEEKLY, requestCode(id), id);
+        if (!a.enabled || !canSchedule(c)) {
+            AlarmRepository.next(c, id, 0L);
+            return;
         }
-        if (!canSchedule(context)) {
-            p.edit().putLong(NEXT, 0L).apply();
-            return 0L;
+        long next = NextAlarmMath.nextWeekly(System.currentTimeMillis(),
+                TimeZone.getDefault(), a.hour, a.minute, a.days);
+        try {
+            schedule(c, next, ACTION_WEEKLY, requestCode(id), id);
+            AlarmRepository.next(c, id, next);
+        } catch (RuntimeException e) {
+            AlarmRepository.next(c, id, 0L);
+            throw e;
         }
-        long when = NextAlarmMath.nextWeekly(System.currentTimeMillis(),
-                TimeZone.getDefault(), p.getInt(HOUR, 7), p.getInt(MINUTE, 0),
-                p.getInt(DAYS, DEFAULT_DAYS));
-        setAlarm(context, when, AlarmReceiver.DAILY, DAILY_REQUEST);
-        p.edit().putLong(NEXT, when).apply();
-        return when;
     }
 
-    public static void cancelDaily(Context context) {
-        cancel(context, AlarmReceiver.DAILY, DAILY_REQUEST);
-        prefs(context).edit().putLong(NEXT, 0L).apply();
+    public static void rescheduleAll(Context c) {
+        for (int id = 1; id <= AlarmProfile.COUNT; id++) reschedule(c, id);
     }
 
-    public static long schedulePreview(Context context) {
+    public static long test(Context c, int profileId) {
+        if (!canSchedule(c)) throw new SecurityException("Exact alarm permission missing");
         long when = System.currentTimeMillis() + 30_000L;
-        setAlarm(context, when, AlarmReceiver.PREVIEW, PREVIEW_REQUEST);
-        prefs(context).edit().putLong(PREVIEW_NEXT, when).apply();
+        schedule(c, when, ACTION_TEST, 1901, profileId);
+        c.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit()
+                .putLong(TEST_WHEN, when).apply();
         return when;
     }
 
-    public static void cancelPreview(Context context) {
-        cancel(context, AlarmReceiver.PREVIEW, PREVIEW_REQUEST);
-        prefs(context).edit().putLong(PREVIEW_NEXT, 0L).apply();
+    public static void cancelTest(Context c) {
+        cancel(c, ACTION_TEST, 1901, 1);
+        c.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit()
+                .putLong(TEST_WHEN, 0L).apply();
     }
 
-    public static void scheduleSnooze(Context context) {
-        setAlarm(context, System.currentTimeMillis() + 5 * 60_000L,
-                AlarmReceiver.SNOOZE, SNOOZE_REQUEST);
+    public static long testWhen(Context c) {
+        return c.getSharedPreferences(PREF, Context.MODE_PRIVATE).getLong(TEST_WHEN, 0L);
     }
 
-    public static void cancelSnooze(Context context) {
-        cancel(context, AlarmReceiver.SNOOZE, SNOOZE_REQUEST);
+    public static void snooze(Context c, int id, int minutes) {
+        schedule(c, System.currentTimeMillis() + minutes * 60_000L,
+                ACTION_SNOOZE, 1951, id);
+        AlarmRepository.diagnostic(c, "Schlummern für " + minutes + " Minuten");
     }
 
-    private static void cancel(Context context, String action, int requestCode) {
-        AlarmManager manager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (manager != null) manager.cancel(broadcast(context, action, requestCode));
+    public static void cancelSnooze(Context c) {
+        cancel(c, ACTION_SNOOZE, 1951, 1);
+    }
+
+    private static void cancel(Context c, String action, int requestCode, int id) {
+        AlarmManager manager = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        if (manager != null) manager.cancel(pending(c, action, requestCode, id));
     }
 }
