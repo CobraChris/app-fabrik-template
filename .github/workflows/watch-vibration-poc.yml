@@ -1,4 +1,4 @@
-name: Android: Sanftwecker + Watch-Benachrichtigungstests
+name: 'Android: Sanftwecker + Watch-Benachrichtigungstests'
 
 on:
   pull_request:
