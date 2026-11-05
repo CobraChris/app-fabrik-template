@@ -1,4 +1,4 @@
-name: Galaxy Watch Vibration PoC (APKs)
+name: Galaxy Watch Benachrichtigungs-PoC (Handy-APK)
 
 on:
   pull_request:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Android- und Wear-OS-APKs bauen
+    name: Handy-Benachrichtigungs-APK bauen
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -35,17 +35,16 @@ jobs:
           test -n "$SDK_MANAGER"
           yes | "$SDK_MANAGER" --licenses >/dev/null || true
           "$SDK_MANAGER" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Phone und Watch in einem Job mit derselben Debug-Signatur bauen
-        run: gradle --no-daemon -p experiments/watch-vibration-poc :phone:assembleDebug :watch:assembleDebug
-      - name: APKs lesbar benennen
+      - name: Benachrichtigungs-PoC für das Handy bauen
+        run: gradle --no-daemon -p experiments/watch-vibration-poc :phone:assembleDebug
+      - name: APK benennen
         shell: bash
         run: |
           mkdir -p artifacts
-          cp experiments/watch-vibration-poc/phone/build/outputs/apk/debug/phone-debug.apk artifacts/
-          cp experiments/watch-vibration-poc/watch/build/outputs/apk/debug/watch-debug.apk artifacts/
+          cp experiments/watch-vibration-poc/phone/build/outputs/apk/debug/phone-debug.apk artifacts/watch-notification-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: watch-vibration-poc-apks
-          path: artifacts/*.apk
+          name: watch-notification-poc-apk
+          path: artifacts/watch-notification-debug.apk
           if-no-files-found: error
           retention-days: 14

@@ -1,34 +1,31 @@
-# Galaxy Watch Vibration – Proof of Concept
+# Galaxy Watch: Benachrichtigungs-PoC (ohne Watch-App)
 
-**Status:** Experiment, **kein** verlässlicher Wecker. Keine Hintergrund-Weckzeit, kein Ton, kein Schlaftracking.
+**Status:** Manueller Machbarkeitstest, **kein** Wecker und kein verlässlicher Alarm.
 
-## Ziel
-1. Auf Telefon und Galaxy Watch jeweils die passende **APK aus demselben GitHub-Actions-Build** installieren.
-2. Watch-App einmal öffnen. Knopf **Lokal vibrieren** muss 5 Sekunden Vibration auslösen.
-3. Handy-App öffnen, auf **Uhr 5 Sekunden vibrieren lassen** tippen.
-4. Die Uhr vibriert 5 Sekunden, das Handy zeigt die Empfangsbestätigung.
-5. App auf der Uhr schließen und Versuch wiederholen. Auch der manifestbasierte Hintergrund-Listener sollte reagieren.
+## Idee
+Wir wollen zunächst nur herausfinden, ob die Galaxy Watch durch **gespiegelte Smartphone-Benachrichtigungen** vibriert. Dies nutzt Samsung Galaxy Wearable statt eigener Wear-OS-Installation. Keine ADB-Verbindung, kein WLAN-Debugging, keine Watch-APK.
 
-## Technik
-- Natives Android (Java) + natives Wear OS (Java).
-- Google Play Services **Wearable Data Layer MessageClient**; keine direkten Bluetooth-Sockets, kein Internet-Backend.
-- Watch: `WearableListenerService`, `VIBRATE`-Berechtigung, `VibrationEffect`.
-- Antwortnachricht bestätigt, dass die Watch den Vibrationsaufruf ausgeführt hat. Nicht mit einer garantierten Alarmzustellung verwechseln.
-- **Identische applicationId und dieselbe Signatur** für Handy/Watch; GitHub Actions baut beide in **einem Job**.
-- Apps erzeugen weder Konto noch Kosten und erfassen keine persönlichen Daten.
+## Test
+1. Alte App `Watch-Vibrationstest` kann auf dem Handy bleiben; die neue APK hat absichtlich eine **andere applicationId** (kein Signaturkonflikt).
+2. Aus dem PR-GitHub-Actions-Build das Artefakt `watch-notification-poc-apk` herunterladen, entpacken und `watch-notification-debug.apk` **nur auf dem Smartphone** installieren.
+3. Die App **Watch-Benachrichtigungstest** öffnen und die Android-Benachrichtigungsberechtigung erteilen.
+4. Auf dem Smartphone in **Galaxy Wearable → Uhreneinstellungen → Benachrichtigungen → App-Benachrichtigungen** die Weiterleitung für **Watch-Benachrichtigungstest** erlauben. Bei Bedarf zusätzlich Anzeige auf der Uhr auch bei verwendetem Handy konfigurieren.
+5. Den Button **Testbenachrichtigung jetzt senden** antippen. Prüfen, ob auf der Uhr eine Benachrichtigung erscheint und ob sie vibriert.
+6. Den Button **In 10 Sekunden senden (Handy sperren)** antippen, sofort das Handy sperren und erneut prüfen.
+7. Falls die Uhr nicht vibriert: Watch-Benachrichtigungen, stumme Benachrichtigungen, DND/Schlafmodus sowie Benachrichtigungskanal prüfen. Das Hotel-WLAN spielt für diesen Versuch keine Rolle.
 
-## CI / Installation
-Workflow: `.github/workflows/watch-vibration-poc.yml`.
-Erzeugt ein GitHub-Artefakt `watch-vibration-poc-apks` mit:
-- `phone-debug.apk` (Smartphone)
-- `watch-debug.apk` (Galaxy Watch)
+## Technische Details
+- Handy: Android SDK 35, POST_NOTIFICATIONS (seit Android 13).
+- Lokal erstellte Android-Notification mit HIGH-Priority-Kanal, ohne Ton, mit kurzer Vibration.
+- Keine separate Watch-App, kein Cloudserver, kein Account, keine API und keine Datenübertragung durch den PoC selbst.
+- **Eine gesendete Benachrichtigung ist kein Beleg für eine Watch-Vibration.** Spiegelung und Vibrationsmuster werden durch Samsung/Wear OS und Nutzereinstellungen bestimmt.
+- Die Benachrichtigung kann auch das Smartphone kurz vibrieren lassen.
+- Die App enthält noch keine Zeitplanung, sanften Weckton, Alarmwiederholung oder Zuverlässigkeitsmechanismen.
+- Eine Watch-Benachrichtigung kann durch Ruhe-/Schlafmodus oder andere Benachrichtigungseinstellungen unterdrückt werden; deshalb vorerst nicht als Wecker verwenden.
+- Nach dem Test ADB-Debugging und kabelloses Debugging auf der Uhr deaktivieren. GeminiMan wird für diesen PoC nicht mehr gebraucht.
 
-Wear OS wird durch Installation einer APK auf dem Handy **nicht automatisch mitinstalliert**. Watch-Sideloading benötigt z. B. Wear-OS-WLAN-Debugging und einen ADB-Client. Für den späteren echten Wecker müssen wir die Installation und eine dauerhafte App-Signatur noch vereinfachen.
+## Build
+Der bestehende PR-Workflow `.github/workflows/watch-vibration-poc.yml` baut nur noch das Phone-Modul. Im Artefakt `watch-notification-poc-apk` liegt `watch-notification-debug.apk`. Wegen Debug-Signatur-Änderungen ist die APK nur ein Testprodukt.
 
-**Wichtig:** Die GitHub-Runner erzeugen Debug-Signaturen neu; APKs verschiedener Builds lassen sich eventuell nicht direkt übereinander installieren. Bei Signaturkonflikten die beiden PoC-Apps auf den jeweiligen Geräten erst deinstallieren; später einen beständigen Release-Key sicher hinterlegen, nicht im Repository.
-
-## Grenzen und Abnahme
-- Bei getrennter Watch kann die Nachricht nicht zuverlässig zugestellt werden. `sendMessage` bietet keine garantierte spätere Zustellung.
-- Bluetooth-/Datenverbindung, Do-not-disturb, Vibrationsintensität und die Installation der Watch-App beeinflussen den Test.
-- Erst nach erfolgreichem PoC folgen unabhängige zeitgesteuerte Alarme auf beiden Geräten, exakter Alarm, Neustartbehandlung und stufenloser Ton.
-- Niemals als alleinigen Wecker benutzen, bevor die spätere App umfassend unter Bildschirm-aus-, Schlaf-/Energiespar- und Neustartbedingungen geprüft wurde.
+## Historie
+Die ursprünglichen `watch/`-Dateien im Experiment dokumentieren den früheren, nicht mehr benötigten direkten Wear-OS-Ansatz und sind **nicht Teil dieses Builds**. Nichts davon muss auf der Galaxy Watch installiert werden.
