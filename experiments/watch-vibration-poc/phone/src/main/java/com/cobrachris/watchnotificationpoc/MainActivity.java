@@ -2,16 +2,15 @@ package com.cobrachris.watchnotificationpoc;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.Notification;
-import android.app.NotificationChannel;
+import android.app.AlarmManager;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.ViewGroup;
@@ -20,27 +19,30 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * Minimal notification mirroring PoC. A watch vibration is NOT guaranteed or
- * measurable here: Galaxy Wearable decides if and how to mirror notifications.
+ * Proof of concept: phone notification forwarded to a Samsung Galaxy Watch.
+ * The scheduled notification uses AlarmManager, not a UI Handler timer.
  */
 public final class MainActivity extends Activity {
-    private static final String CHANNEL_ID = "watch_notification_test_v1";
     private static final int NOTIFICATION_PERMISSION_REQUEST = 100;
-    private static final long DELAY_MILLIS = 10000L;
-    private final Handler handler = new Handler(Looper.getMainLooper());
+    private static final long DELAY_MILLIS = 20_000L;
+
     private NotificationManager notifications;
     private TextView status;
-    private Button immediate;
-    private Button delayed;
+    private TextView history;
     private long pendingDelayMillis = -1L;
-    private int notificationId = 1000;
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
         notifications = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        createNotificationChannel();
+        NotificationTest.createChannel(this);
         buildUi();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshHistory();
     }
 
     private void buildUi() {
@@ -51,33 +53,33 @@ public final class MainActivity extends Activity {
         screen.setBackgroundColor(Color.WHITE);
 
         TextView title = new TextView(this);
-        title.setText("Galaxy Watch: Benachrichtigungstest");
+        title.setText("Galaxy Watch: Standby-Test");
         title.setTextSize(23);
         title.setTextColor(Color.BLACK);
         screen.addView(title);
 
         TextView information = new TextView(this);
         information.setText(
-                "Keine Watch-App, kein WLAN-Debugging. Samsung Galaxy Wearable " +
-                "entscheidet, ob deine Uhr die Benachrichtigung empfängt und vibriert. " +
-                "Das ist noch kein Wecker. Dein Handy kann beim Test ebenfalls kurz vibrieren.");
+                "Prüft Benachrichtigungen bei gesperrtem Bildschirm. " +
+                "Keine Watch-App oder WLAN-Debugging nötig. " +
+                "Ein echter Wecker ist das noch nicht.");
         information.setTextColor(Color.DKGRAY);
         information.setTextSize(16);
         information.setPadding(0, 24, 0, 28);
         screen.addView(information);
 
-        immediate = new Button(this);
-        immediate.setText("Testbenachrichtigung jetzt senden");
+        Button immediate = new Button(this);
+        immediate.setText("Jetzt senden (Kontrolltest)");
         screen.addView(immediate, fullWidth());
         immediate.setOnClickListener(v -> requestOrSend(0L));
 
-        delayed = new Button(this);
-        delayed.setText("In 10 Sekunden senden (Handy sperren)");
+        Button delayed = new Button(this);
+        delayed.setText("In 20 Sekunden senden (Handy sperren)");
         screen.addView(delayed, fullWidth());
         delayed.setOnClickListener(v -> requestOrSend(DELAY_MILLIS));
 
         Button settings = new Button(this);
-        settings.setText("Benachrichtigungsrechte öffnen");
+        settings.setText("Benachrichtigungseinstellungen");
         screen.addView(settings, fullWidth());
         settings.setOnClickListener(v -> {
             Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS);
@@ -86,12 +88,18 @@ public final class MainActivity extends Activity {
         });
 
         status = new TextView(this);
-        status.setText("Bereit. Bitte Benachrichtigungen dieser App auf Handy UND Uhr erlauben.");
+        status.setText("Bereit. Watch-Benachrichtigungstest in Galaxy Wearable zulassen.");
         status.setTextColor(Color.BLACK);
         status.setTextSize(16);
-        status.setPadding(0, 28, 0, 0);
+        status.setPadding(0, 28, 0, 8);
         screen.addView(status);
+
+        history = new TextView(this);
+        history.setTextSize(16);
+        history.setTextColor(Color.DKGRAY);
+        screen.addView(history);
         setContentView(screen);
+        refreshHistory();
     }
 
     private LinearLayout.LayoutParams fullWidth() {
@@ -100,14 +108,17 @@ public final class MainActivity extends Activity {
                 ViewGroup.LayoutParams.WRAP_CONTENT);
     }
 
-    private void createNotificationChannel() {
-        NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID, "Watch-Vibrationstest", NotificationManager.IMPORTANCE_HIGH);
-        channel.setDescription("Nur manuelle Testbenachrichtigungen; keine Weckfunktion");
-        channel.enableVibration(true);
-        channel.setVibrationPattern(new long[] { 0L, 250L, 150L, 250L });
-        channel.setSound(null, null); // No alarm sound from the phone during this test.
-        notifications.createNotificationChannel(channel);
+    private void refreshHistory() {
+        if (history == null) return;
+        long posted = getSharedPreferences(NotificationTest.PREFS, MODE_PRIVATE)
+                .getLong(NotificationTest.LAST_TRIGGER, 0L);
+        long scheduled = getSharedPreferences(NotificationTest.PREFS, MODE_PRIVATE)
+                .getLong(NotificationTest.SCHEDULED_AT, 0L);
+        history.setText(
+                "Letzte Benachrichtigung vom Handy ausgelöst: " +
+                (posted == 0L ? "noch keine" : NotificationTest.localTime(posted)) +
+                "\nLetzter geplanter Test: " +
+                (scheduled == 0L ? "noch keiner" : NotificationTest.localTime(scheduled)));
     }
 
     private void requestOrSend(long delayMillis) {
@@ -121,42 +132,53 @@ public final class MainActivity extends Activity {
             return;
         }
         if (!notifications.areNotificationsEnabled()) {
-            status.setText("Benachrichtigungen sind deaktiviert. Bitte in den App-Einstellungen einschalten.");
+            status.setText("Benachrichtigungen sind deaktiviert. In den App-Einstellungen erlauben.");
             return;
         }
-        sendOrSchedule(delayMillis);
-    }
-
-    private void sendOrSchedule(long delayMillis) {
         if (delayMillis == 0L) {
-            postTestNotification();
-        } else {
-            delayed.setEnabled(false);
-            status.setText("Test startet in 10 Sekunden. Jetzt Handybildschirm sperren.");
-            handler.postDelayed(() -> {
-                delayed.setEnabled(true);
-                postTestNotification();
-            }, delayMillis);
+            boolean ok = NotificationTest.post(this);
+            status.setText(ok
+                    ? "Benachrichtigung jetzt ausgelöst. Prüfe die Uhr."
+                    : "Konnte keine Benachrichtigung senden.");
+            refreshHistory();
+            return;
         }
+        scheduleSystemAlarm(delayMillis);
     }
 
-    private void postTestNotification() {
-        try {
-            Notification notification = new Notification.Builder(this, CHANNEL_ID)
-                    .setSmallIcon(android.R.drawable.ic_dialog_info)
-                    .setContentTitle("Galaxy Watch – Vibrationstest")
-                    .setContentText("Vibriert deine Uhr? Testbenachrichtigung vom Handy.")
-                    .setCategory(Notification.CATEGORY_REMINDER)
-                    .setAutoCancel(true)
-                    .setOnlyAlertOnce(false)
-                    .build();
-            notifications.notify(notificationId++, notification);
+    private void scheduleSystemAlarm(long delayMillis) {
+        AlarmManager manager = (AlarmManager) getSystemService(ALARM_SERVICE);
+        if (manager == null) {
+            status.setText("Android-Alarmdienst nicht verfügbar.");
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !manager.canScheduleExactAlarms()) {
             status.setText(
-                    "Benachrichtigung am Handy ausgelöst. " +
-                    "Bitte selbst prüfen, ob die Uhr vibriert hat – " +
-                    "diese App erhält keine Watch-Empfangsbestätigung.");
-        } catch (SecurityException e) {
-            status.setText("Benachrichtigungsberechtigung fehlt. Bitte in Android erlauben.");
+                    "Einmalig 'Alarme und Erinnerungen' für Watch-Benachrichtigungstest erlauben. " +
+                    "Danach zurück zur App und den 20-Sekunden-Test erneut starten.");
+            try {
+                Intent permission = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                permission.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(permission);
+            } catch (RuntimeException error) {
+                status.setText("Bitte manuell in Android: Spezieller Zugriff → Alarme und Erinnerungen erlauben.");
+            }
+            return;
+        }
+        long trigger = System.currentTimeMillis() + delayMillis;
+        Intent intent = new Intent(this, TestNotificationReceiver.class)
+                .setAction(TestNotificationReceiver.ACTION);
+        PendingIntent operation = PendingIntent.getBroadcast(
+                this, 2200, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        try {
+            manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, operation);
+            getSharedPreferences(NotificationTest.PREFS, MODE_PRIVATE)
+                    .edit().putLong(NotificationTest.SCHEDULED_AT, trigger).apply();
+            status.setText("Android-Systemalarm für " + NotificationTest.localTime(trigger) +
+                    " geplant. Handy jetzt sperren.");
+            refreshHistory();
+        } catch (SecurityException error) {
+            status.setText("Exakte Alarmberechtigung fehlt. Bitte in den Einstellungen erlauben.");
         }
     }
 
@@ -167,12 +189,12 @@ public final class MainActivity extends Activity {
         boolean granted = grantResults.length > 0
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
         if (granted && pendingDelayMillis >= 0) {
-            long requested = pendingDelayMillis;
-            pendingDelayMillis = -1;
-            sendOrSchedule(requested);
+            long delay = pendingDelayMillis;
+            pendingDelayMillis = -1L;
+            requestOrSend(delay);
         } else {
-            pendingDelayMillis = -1;
-            status.setText("Benachrichtigungen wurden nicht erlaubt. Der Test kann so nicht starten.");
+            pendingDelayMillis = -1L;
+            status.setText("Benachrichtigungen wurden nicht erlaubt.");
         }
     }
 }
