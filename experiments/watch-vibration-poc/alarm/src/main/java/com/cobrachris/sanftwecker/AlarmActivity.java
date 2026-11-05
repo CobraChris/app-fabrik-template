@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -43,6 +44,7 @@ public final class AlarmActivity extends Activity {
         });
         Button snooze=UiKit.button(this,"Schlummern",false);
         root.addView(snooze);
+        if(p!=null && !p.snoozeEnabled) snooze.setVisibility(View.GONE);
         snooze.setOnClickListener(v->{
             startService(new Intent(this,RingingService.class).setAction(RingingService.SNOOZE));
             finish();

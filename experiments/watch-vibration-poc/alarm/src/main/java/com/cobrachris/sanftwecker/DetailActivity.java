@@ -24,7 +24,7 @@ public final class DetailActivity extends Activity {
     private TextView clock,status,advanced;
     private final TextView[] chips=new TextView[7];
     private final boolean[] days=new boolean[7];
-    private Switch enabled,rising,watch;
+    private Switch enabled,rising,watch,snoozeEnabled;
     private Spinner tone;
     private SeekBar delay,ramp,volume,pulses,interval,snooze,autoStop;
     private TextView delayLabel,rampLabel,volumeLabel,pulsesLabel,intervalLabel,snoozeLabel,stopLabel;
@@ -170,6 +170,12 @@ public final class DetailActivity extends Activity {
                 "Samsung entscheidet, ob sie vibriert.",13,UiKit.MUTED));
 
         LinearLayout end=section(root,"Schlummern & Stoppen");
+        snoozeEnabled=UiKit.toggle(this);
+        rowSwitch(end,"Schlummern aktiv",snoozeEnabled);
+        snoozeEnabled.setOnCheckedChangeListener((b,value)->{
+            if(snooze!=null)snooze.setEnabled(value);
+            changed();
+        });
         snoozeLabel=label("",15);end.addView(snoozeLabel);
         snooze=slider(end,29);
         stopLabel=label("",15);end.addView(stopLabel);
@@ -206,7 +212,11 @@ public final class DetailActivity extends Activity {
         setContentView(UiKit.scroll(this,root));
     }
 
-    private void changed(){if(!loading)dirty=true;}
+    private void changed(){
+        if (loading || saved == null || autoStop == null || snoozeEnabled == null) return;
+        try { dirty = !saved.sameConfiguration(read()); }
+        catch (RuntimeException invalid) { dirty = true; }
+    }
     private void showTime(){clock.setText(String.format(Locale.GERMANY,"%02d:%02d",hour,minute));}
     private void updateLabels(){
         if(delayLabel!=null&&delay!=null)delayLabel.setText("Tonstart: +"+delay.getProgress()*10+" Sekunden");
@@ -233,7 +243,9 @@ public final class DetailActivity extends Activity {
         delay.setProgress(p.delaySeconds/10);ramp.setProgress(p.rampSeconds/60-1);
         volume.setProgress(p.maxVolume-5);watch.setChecked(p.watchPulses>0);
         pulses.setProgress(p.watchPulses);interval.setProgress(p.watchIntervalSeconds/10-1);
-        snooze.setProgress(p.snoozeMinutes-1);autoStop.setProgress(p.autoStopMinutes-1);
+        snoozeEnabled.setChecked(p.snoozeEnabled);
+        snooze.setProgress(p.snoozeMinutes-1);snooze.setEnabled(p.snoozeEnabled);
+        autoStop.setProgress(p.autoStopMinutes-1);
         ramp.setEnabled(p.rampEnabled);
         pulses.setEnabled(p.watchPulses>0);interval.setEnabled(p.watchPulses>0);
         loading=false;dirty=false;updateLabels();diagnostics();
@@ -247,7 +259,8 @@ public final class DetailActivity extends Activity {
                 watch.isChecked()?pulses.getProgress():0,(interval.getProgress()+1)*10,
                 snooze.getProgress()+1,tone.getSelectedItemPosition(),rising.isChecked(),
                 autoStop.getProgress()+1,changedTime?0:saved.skipAt,
-                changedTime?0:saved.oneTimeAt,changedTime?0:saved.replacedAt);
+                changedTime?0:saved.oneTimeAt,changedTime?0:saved.replacedAt,
+                snoozeEnabled.isChecked());
     }
 
     private boolean save(){

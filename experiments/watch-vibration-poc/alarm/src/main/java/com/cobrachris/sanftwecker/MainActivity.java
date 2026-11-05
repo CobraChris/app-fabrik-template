@@ -45,7 +45,19 @@ public final class MainActivity extends Activity {
 
     @Override public void onResume() {
         super.onResume();
-        if (list != null) renderList();
+        if (list != null) {
+            if (AlarmScheduler.canSchedule(this)) {
+                for (AlarmProfile p : AlarmRepository.all(this)) {
+                    if (p.enabled && AlarmRepository.next(this,p.id)==0L) {
+                        try { AlarmScheduler.reschedule(this,p.id); }
+                        catch(RuntimeException e) {
+                            AlarmRepository.diagnostic(this,"WARNUNG: "+p.name+" nicht eingeplant");
+                        }
+                    }
+                }
+            }
+            renderList();
+        }
     }
 
     private void buildScreen() {

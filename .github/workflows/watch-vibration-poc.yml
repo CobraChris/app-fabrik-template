@@ -38,7 +38,7 @@ jobs:
       - name: Alarmtests und APKs kompilieren
         run: |
           gradle --no-daemon -p experiments/watch-vibration-poc \
-            :alarm:testDebugUnitTest :alarm:assembleDebug :phone:assembleDebug
+            :alarm:testDebugUnitTest :alarm:assembleDebug :alarm:lintDebug :phone:assembleDebug
       - name: Unnoetige Berechtigungen verhindern
         shell: bash
         run: |

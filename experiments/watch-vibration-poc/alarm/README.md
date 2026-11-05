@@ -1,57 +1,52 @@
-# Sanftwecker (Test) · Android-Beta v0.3.0
+# Sanftwecker (Test) – Beta 0.4.0
 
-**Status: fertig gebauter Entwicklungsstand, noch nicht auf Samsung-Hardware für Nachtbetrieb abgenommen.** Nicht als einzigen Wecker nutzen.
+**Stand: native Android-App, automatischer Build und Unit-Tests vorhanden. Samsung-Abnahme noch offen.**
 
 ## Ziel
 
-Eine werbefreie, rein lokale Android-Wecker-App, die **ab exakt 0 % eigenem Audio-Gain** startet und ihre Lautstärke sehr langsam steigert. Gleichzeitig erzeugt sie eigenständige, tonlose Benachrichtigungen zur Spiegelung auf Samsung Galaxy Watches. Der vorausgehende Test mit `Watch-Benachrichtigungstest` hat die Spiegelung bei gesperrtem Telefon bestätigt; ob diese neuen Alarmbenachrichtigungen im Schlafmodus vibrieren, ist noch offen.
+Eine ruhige, werbefreie Android-Wecker-App mit sanftem Start bei **0 % eigenem Audiogain** und Galaxy-Watch-Vibration über Samsung-Benachrichtigungsspiegelung. Keine Watch-APK, kein ADB, kein Konto und keine kostenpflichtigen Dienste.
 
-## Implementiert
+## Neue Oberfläche
 
-- Drei unabhängige Wecker (Werktage, Wochenende, Zusatz) mit Namen, Weckzeit, frei wählbaren Wochentagen und Aktivierung. Alle drei sind bei Neuinstallation **deaktiviert**.
-- `AlarmManager.setAlarmClock` für jede aktivierte Weckzeit mit separatem `PendingIntent`; Uhrzeit und Wochentag werden bei jedem Feuern neu geplant, nicht als starres 24-Stunden-Intervall.
-- Neuplanung nach Neustart, App-Update, Zeitzonen-/Uhrzeitwechsel und nach erneut erteilter exakter Alarmberechtigung.
-- **Ton-Verzögerung 0–300 Sekunden**: Galaxy Watch kann zuerst vibrieren, bevor der Handyton beginnt (abhängig von Samsungs Spiegelung).
-- Quadratischer, sehr sanfter Gain-Anstieg: `gain = maxGain × (elapsed / rampDuration)²`, beginnt exakt bei null. 1–30 Minuten einstellbar; App-Maximum 5–100 % des aktuellen Android-System-Weckerpegels. Kein Heraufsetzen der globalen Handylautstärke.
-- Drei ausschließlich im Code erzeugte Töne, keine Musikdateien, keine Medienrechte oder Server.
-- 0–12 eigenständige Benachrichtigungen im Abstand von 10–120 Sekunden, auf einem separaten Kanal `Vibration an Galaxy Watch` (hochpriorisiert, ohne Sound, mit Vibration). Die frühere Test-App nutzt eine andere Paket-ID und bleibt unverändert.
-- Stoppen, Schlummern 1–30 Minuten und automatisches Stoppen nach spätestens 20 Minuten; Bedienelemente in der App und Android-Benachrichtigung. Aktionen auf der Galaxy Watch sind über gespiegelt angezeigte Benachrichtigungsaktionen **möglicherweise**, aber nicht garantiert verfügbar.
-- WakeLock mit Zeitlimit, dauerhafte Vordergrund-Benachrichtigung nur während des aktiven Klingelns und gesonderte Zustandsprotokollierung (lokal).
-- Diagnostik: für jeden Wecker die nächste geplante Auslösung, letzter interner Alarmzustand, Benachrichtigungen, exakte Alarmberechtigung, null eingestellte Systemalarm-Lautstärke und Batteriesparmodus.
+Die bisherige Form mit drei festen Profilen wurde ersetzt durch:
+- Dunkle **Wecker-Liste** mit großen Uhrzeiten, sieben Wochentags-Chips, separatem Ein/Aus-Schalter, Kurzstatus, Menü und Plus-Button.
+- **Dynamisch viele Alarmprofile**, mindestens 20 unterstützt; maximale ID 1000. Feste Altprofile werden, sofern gespeichert, bei einem In-App-Update migriert.
+- **Menü** mit Bearbeiten, Duplizieren, einmaligem Überspringen, Rückgängig, einmaliger Änderung der nächsten Weckzeit und Löschen.
+- **Detailansicht** mit Namen, Uhrzeit, Tagen, Schaltern, drei Melodien, Tonverzögerung, Lautstärkeanstieg, Maximalpegel, Uhr-Vibration, Schlummern, Auto-Stopp, Testknöpfen und Diagnostik.
+- **Aktive Alarmansicht** mit großen Stoppen-/Schlummern-Tasten; Android-Benachrichtigung mit entsprechenden Aktionen.
 
-## Automatische Qualitätssicherung
+## Alarm-Engine
 
-`gradle -p experiments/watch-vibration-poc :alarm:testDebugUnitTest :alarm:assembleDebug`
+- Pro Wecker eine eigene stabile ID und ein eigenes `PendingIntent`, präzise mit `AlarmManager.setAlarmClock` geplant.
+- Einmalige Ausnahmen über `skipAt` sowie eine nächste abweichende Auslösung `oneTimeAt` und deren ersetzten Basiszeitpunkt.
+- Nach Auslösung wird ein normaler Wecker neu geplant; Neustart, App-Update, Uhrzeit-, Zeitzonen- und Berechtigungsänderungen führen zur Neuberechnung.
+- Eigener AudioTrack-Ton (keine fremden Audiodateien); Gain 0 bei Start und konfigurierbare quadratische Rampe.
+- Optionen: Tonverzögerung 0–300 s, Anstieg 1–30 Min., Maximalpegel 5–100 % des **System-Weckerpegels**, Auto-Stopp 1–30 Min., Schlummern an/aus 1–30 Min., 0–12 Uhrbenachrichtigungen im Abstand von 10–120 s.
+- Separater 30-Sekunden-Systemtest und 15-Sekunden-Tonprobe; keine dauerhafte Weckeraktivierung erforderlich.
+- Laufende Audiowiedergabe und Watch-Impulse werden beim Stoppen entfernt. Wenn Audioinitialisierung scheitert, können Watch-Impulse weiterhin gesendet werden.
 
-JUnit prüft Wochentagslogik, Werktag/Wochenende, die DST-Umstellungen in Deutschland, Null-Gain, sanfte Kurve, Grenzfälle und die Standardprofile. Der Github-Workflow prüft außerdem, dass keine Internet-/Speicherberechtigungen eingeführt werden und erstellt die APK.
+## Besonderheiten und Einschränkungen
 
-## Spätere Samsung-Abnahme
+- **Galaxy Watch:** Samsung Galaxy Wearable leitet einzelne Benachrichtigungen weiter. Die Uhr kann im Schlaf-/Nicht-stören-Modus stumm bleiben. Es gibt **keine** verbindliche Zustellbestätigung und keine garantierte Fernbedienung über die Uhr.
+- **Batterie und Neustart:** Herstellerseitige Einschränkungen lassen sich nicht allein durch Kompilierung prüfen. Realtests sind notwendig.
+- **Vollbild-Alarm:** Die App fordert `USE_FULL_SCREEN_INTENT`. Abhängig von Android-Version und Nutzerberechtigung erscheint ggf. nur eine deutlich sichtbare Alarmbenachrichtigung.
+- **Systemlautstärke:** App verändert weder System- noch Weckerlautstärke. Wenn die System-Weckerlautstärke 0 ist, bleibt sie auch beim steigenden App-Gain stumm.
+- **Stabile APK-Updates:** GitHub Actions signiert im Testmodus; neue Runner können verschiedene Debug-Signaturen erzeugen. Ein einfacher Austausch der APK kann daher eine Deinstallation erfordern. Für reale Nutzung braucht es eine sichere dauerhafte Releasesignatur.
+- **Sicherheitsfreigabe:** Nicht als einzigen Wecker verwenden, bis Tests mit gesperrtem Handy, Schlafmodus, Energiesparmodus und nach Neustart bestanden sind.
+- **Datenschutz:** Alle Einstellungen lokal, keine Internetberechtigung, keine Werbung, keine Analyse- oder Cloudbibliotheken.
 
-1. Nur `sanftwecker-beta-debug.apk` aus dem neuesten erfolgreich abgeschlossenen Build auf dem **Handy** installieren. Die App heißt ausdrücklich `Sanftwecker (Test)`.
-2. Android `Benachrichtigungen` und `Alarme und Erinnerungen` erlauben.
-3. In `Galaxy Wearable → Uhreneinstellungen → Benachrichtigungen → App-Benachrichtigungen` **Sanftwecker (Test)** aktivieren (nicht `Watch-Benachrichtigungstest`).
-4. Einen **Testwecker in 30 Sekunden** auslösen. Ton und Watch bei **gesperrtem** Handy prüfen. Bei gesetzter Tonverzögerung ertönt zunächst kein Ton; die Watch kann zuerst vibrieren.
-5. Stoppen/Schlummern ausprobieren; die Konfiguration eines Werktag- und eines Wochenendalarms testen.
-6. Später: Schlafmodus, Nicht stören, Batterierestriktionen, Neustart, Änderungen von Uhrzeit/Zeitzone, Bluetooth-Trennung und längere Nacht-Tests. Erst danach den bisherigen Wecker ersetzen.
+## Automatisierte Qualitätssicherung
 
-**Für den ersten Versuch:** Tonverzögerung 0–30 Sekunden, Lautstärkeanstieg 5–10 Minuten, maximale App-Lautstärke 30–45 %, sechs Watch-Impulse im 20-Sekunden-Abstand. Die richtige Lautstärke muss am Gerät ermittelt werden.
+`gradle -p experiments/watch-vibration-poc :alarm:testDebugUnitTest :alarm:assembleDebug :alarm:lintDebug`
 
-## Technische Grenzen und Risiko
+Die JUnit-Tests decken Kalenderlogik (Wochentage, DST), Gain-Kurve, Standardprofile, dynamische IDs sowie einmalige Ausnahmen ab. GitHub Actions erstellt ausschließlich das Phone-APK `sanftwecker-beta-debug.apk`. Unter anderem werden Internet-, Standort- und Speicherberechtigungen ausgeschlossen.
 
-- Galaxy Watch wird ausschließlich über Samsungs Standard-Benachrichtigungsspiegelung angesprochen. Keine Wear-OS-App, kein ADB, keine versteckten Schnittstellen. **Samsung kann Watch-Vibrationen filtern, gruppieren oder bei Schlafmodus/Nicht stören vollständig unterdrücken.** Die Android-App kann den tatsächlichen Empfang der Uhr nicht messen.
-- Die App prüft nicht, ob die Watch verbunden ist. Deshalb muss auch bei Verbindungsverlust der Handyton zuverlässig genug sein.
-- Die Gesamtlautstärke hängt von Samsungs System-Weckerpegel ab. Bei System-Weckerlautstärke 0 hört man trotz App-Kurve nichts.
-- Foreground-Service, Energiesparmodus und gerätespezifische Android-Beschränkungen benötigen einen realen Nacht-/Standby-Test. Ein erfolgreicher CI-Build ist **keine** Nachtfreigabe.
-- Debug-Signatur von GitHub Actions ist vorerst nicht stabil. Bei APK-Signaturkonflikten die alte **Sanftwecker (Test)**-App deinstallieren und neue Version installieren; dabei gehen lokale Wecker-Einstellungen verloren. Für spätere Updates wird eine sichere dauerhafte Releasesignatur benötigt, die **nicht** im öffentlichen Repository liegen darf.
-- Alle Daten bleiben auf dem Gerät. Keine Werbung, kein Account, kein Tracking, keine Netzwerkberechtigung, kein kostenpflichtiger Dienst.
+## Späterer Gerätetest (noch nicht ausführen)
 
-## Entwicklungsaufbau
+1. **Nur** `sanftwecker-beta-debug.apk` auf dem Samsung-Handy installieren. Die neue App heißt **„Sanftwecker (Test)“**, nicht „Watch-Benachrichtigungstest“.
+2. Android-Berechtigungen `Benachrichtigungen`, `Alarme und Erinnerungen` gewähren; optional Full-Screen-Intent zulassen.
+3. In Galaxy Wearable bei App-Benachrichtigungen **„Sanftwecker (Test)“** freigeben.
+4. 30-Sekunden-Test mit gesperrtem Handy, sanftem Ton und Watch-Vibration. Dann Stoppen und Schlummern prüfen.
+5. An mehreren Tagen und mit aktiver Schlafroutine sowie nach einem Neustart testen; bis zur Freigabe den bisherigen Wecker beibehalten.
 
-- `AlarmProfile` / `AlarmRepository`: drei unabhängige, validierte lokale Weckerprofile.
-- `NextAlarmMath` / `AlarmScheduler`: lokale Wochentagsrechnung und exakte Systemalarme.
-- `AlarmReceiver` / `RescheduleReceiver`: Auslösung und Systemereignisse.
-- `RingingService`: AudioTrack mit Null-Start, Gain-Kurve, Watch-Benachrichtigungen, Stop, Schlummern.
-- `MainActivity`: komplett ohne Drittanbieterbibliotheken programmierte Android-Bedienung.
-- `GentleGain`: reine, separat getestete Lautstärkekurve.
-
-Die Android- und Wear-OS-Dateien des früheren PoC bleiben als Forschungsergebnis im Repository, sind für diese Beta **nicht** nötig.
+Siehe `PRODUCT_REQUIREMENTS.md` für das vollständige Pflichtenheft.

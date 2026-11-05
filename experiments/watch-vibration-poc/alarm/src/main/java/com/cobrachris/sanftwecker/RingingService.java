@@ -97,16 +97,18 @@ public final class RingingService extends Service {
         if (STOP.equals(action) || SNOOZE.equals(action)) {
             int id = ringId;
             int minutes = profile == null ? 5 : profile.snoozeMinutes;
-            if (SNOOZE.equals(action) && active) {
+            boolean snoozing = SNOOZE.equals(action) && active && !toneOnlyPreview &&
+                    profile != null && profile.snoozeEnabled;
+            if (snoozing) {
                 try { AlarmScheduler.snooze(this, id, minutes); }
                 catch (RuntimeException e) {
                     AlarmRepository.diagnostic(this, "FEHLER: Schlummeralarm konnte nicht geplant werden");
                     Log.e("Sanftwecker", "Snooze failed", e);
                 }
             }
-            if (STOP.equals(action)) AlarmScheduler.cancelSnooze(this);
+            if (!snoozing) AlarmScheduler.cancelSnooze(this);
             AlarmRepository.diagnostic(this,
-                    SNOOZE.equals(action) ? "Schlummern aktiv" : "Alarm gestoppt");
+                    snoozing ? "Schlummern aktiv" : "Alarm gestoppt");
             stopPlaying();
             stopSelf();
             return START_NOT_STICKY;
