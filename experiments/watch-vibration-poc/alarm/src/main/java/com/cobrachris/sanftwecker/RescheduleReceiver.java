@@ -5,16 +5,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-/** Restores exact alarms after boot, app update, clock/timezone change or permission grant. */
+/** Correctly restore all stored alarm IDs after boot, update or timezone change. */
 public final class RescheduleReceiver extends BroadcastReceiver {
-    @Override public void onReceive(Context context, Intent intent) {
-        if (intent == null) return;
+    @Override public void onReceive(Context c, Intent event) {
+        if (event == null) return;
         try {
-            AlarmScheduler.rescheduleAll(context);
-            AlarmRepository.diagnostic(context, "Weckzeiten nach Systemereignis geprüft");
-        } catch (RuntimeException e) {
-            AlarmRepository.diagnostic(context, "WARNUNG: Weckzeiten konnten nicht geplant werden");
-            Log.e("Sanftwecker", "Reschedule failed: " + intent.getAction(), e);
+            AlarmScheduler.rescheduleAll(c);
+            AlarmRepository.diagnostic(c, "Wecker nach Systemänderung neu geplant");
+        } catch (RuntimeException ex) {
+            AlarmRepository.diagnostic(c, "WARNUNG: Neuplanung fehlgeschlagen");
+            Log.e("Sanftwecker", "Reschedule failure", ex);
         }
     }
 }

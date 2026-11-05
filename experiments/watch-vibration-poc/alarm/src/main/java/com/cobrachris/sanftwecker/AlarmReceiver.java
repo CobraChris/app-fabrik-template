@@ -7,40 +7,39 @@ import android.os.Build;
 import android.util.Log;
 
 public final class AlarmReceiver extends BroadcastReceiver {
-    @Override public void onReceive(Context context, Intent intent) {
+    @Override public void onReceive(Context c, Intent intent) {
         if (intent == null) return;
         String action = intent.getAction();
-        int id = intent.getIntExtra(AlarmScheduler.EXTRA_ID, 1);
-        if (id < 1 || id > AlarmProfile.COUNT) return;
+        int id = intent.getIntExtra(AlarmScheduler.EXTRA_ID, -1);
+        long when = intent.getLongExtra(AlarmScheduler.EXTRA_WHEN, 0L);
+        AlarmProfile profile = AlarmRepository.get(c, id);
+        if (profile == null) return;
 
         if (AlarmScheduler.ACTION_WEEKLY.equals(action)) {
-            if (!AlarmRepository.get(context, id).enabled) return;
-            AlarmRepository.diagnostic(context, "Weckzeit ausgelöst: Wecker " + id);
-            // Re-arm immediately. The receiver itself does not play audio.
-            try { AlarmScheduler.reschedule(context, id); }
+            if (!profile.enabled) return;
+            AlarmRepository.diagnostic(c, "Weckzeit ausgelöst: " + profile.name);
+            try { AlarmScheduler.onFired(c, id, when); }
             catch (RuntimeException e) {
-                Log.e("Sanftwecker", "Could not reschedule following alarm", e);
+                Log.e("Sanftwecker", "Next occurrence not scheduled", e);
+                AlarmRepository.diagnostic(c, "WARNUNG: nächster Alarm nicht planbar");
             }
         } else if (AlarmScheduler.ACTION_TEST.equals(action)) {
-            context.getSharedPreferences(AlarmScheduler.PREF, Context.MODE_PRIVATE)
-                    .edit().putLong(AlarmScheduler.TEST_WHEN, 0L).apply();
-            AlarmRepository.diagnostic(context, "Testwecker ausgelöst: Wecker " + id);
+            c.getSharedPreferences(AlarmScheduler.PREF, Context.MODE_PRIVATE).edit()
+                    .putLong(AlarmScheduler.TEST_WHEN, 0).apply();
+            AlarmRepository.diagnostic(c, "Testwecker ausgelöst: " + profile.name);
         } else if (AlarmScheduler.ACTION_SNOOZE.equals(action)) {
-            AlarmRepository.diagnostic(context, "Schlummerwecker ausgelöst: Wecker " + id);
-        } else {
-            return;
-        }
+            AlarmRepository.diagnostic(c, "Schlummerwecker ausgelöst: " + profile.name);
+        } else return;
 
         try {
-            Intent start = new Intent(context, RingingService.class)
+            Intent start = new Intent(c, RingingService.class)
                     .setAction(RingingService.START)
                     .putExtra(AlarmScheduler.EXTRA_ID, id);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                context.startForegroundService(start);
-            else context.startService(start);
-        } catch (RuntimeException e) {
-            AlarmRepository.diagnostic(context, "FEHLER: Hintergrundalarm konnte nicht starten");
-            Log.e("Sanftwecker", "Could not start ringing foreground service", e);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) c.startForegroundService(start);
+            else c.startService(start);
+        } catch (RuntimeException ex) {
+            AlarmRepository.diagnostic(c, "FEHLER: Alarmausgabe nicht gestartet");
+            Log.e("Sanftwecker", "Foreground service failed", ex);
         }
     }
 }

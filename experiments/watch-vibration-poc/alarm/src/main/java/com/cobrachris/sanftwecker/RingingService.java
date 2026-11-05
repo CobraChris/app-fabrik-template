@@ -27,10 +27,10 @@ public final class RingingService extends Service {
     public static final String STOP = "com.cobrachris.sanftwecker.STOP";
     public static final String SNOOZE = "com.cobrachris.sanftwecker.SNOOZE";
     public static final String WATCH_CHANNEL = "sanftwecker_watch_v2";
-    private static final String ACTIVE_CHANNEL = "sanftwecker_active_v2";
+    private static final String ACTIVE_CHANNEL = "sanftwecker_active_v3";
     private static final int ONGOING_ID = 601;
     private static final int WATCH_BASE_ID = 7200;
-    private static final long MAX_RING = 20L * 60_000L;
+    private static final long MAX_RING = 30L * 60_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private NotificationManager manager;
@@ -42,13 +42,15 @@ public final class RingingService extends Service {
     private int pulseCount;
     private int ringId = 1;
     private AlarmProfile profile;
+    private boolean toneOnlyPreview;
 
     private final Runnable gainTick = new Runnable() {
         @Override public void run() {
             if (!active || audio == null) return;
             long elapsed = SystemClock.elapsedRealtime() - startedAt;
             float gain = GentleGain.level(elapsed, profile.delaySeconds,
-                    profile.rampSeconds, profile.maxVolume);
+                    profile.rampEnabled ? profile.rampSeconds : 30,
+                    profile.maxVolume);
             try { audio.setVolume(gain); }
             catch (IllegalStateException e) { Log.w("Sanftwecker", "Audio gain update", e); }
             if (elapsed < MAX_RING) handler.postDelayed(this, 200L);
@@ -76,7 +78,7 @@ public final class RingingService extends Service {
         NotificationManager nm = (NotificationManager) c.getSystemService(NOTIFICATION_SERVICE);
         if (nm == null) return;
         NotificationChannel running = new NotificationChannel(
-                ACTIVE_CHANNEL, "Aktiver Alarm", NotificationManager.IMPORTANCE_LOW);
+                ACTIVE_CHANNEL, "Aktiver Alarm", NotificationManager.IMPORTANCE_HIGH);
         running.setSound(null, null);
         nm.createNotificationChannel(running);
         NotificationChannel watch = new NotificationChannel(
@@ -114,13 +116,19 @@ public final class RingingService extends Service {
             return START_NOT_STICKY;
         }
         int requestedId = intent.getIntExtra(AlarmScheduler.EXTRA_ID, 1);
-        if (requestedId < 1 || requestedId > AlarmProfile.COUNT) requestedId = 1;
+        if (requestedId < 1 || requestedId > AlarmProfile.MAX_ALARMS ||
+                AlarmRepository.get(this,requestedId)==null) {
+            stopSelf(); return START_NOT_STICKY;
+        }
         if (active) {
             // An overlapping alarm replaces the earlier ringtone, not a second audio stream.
             stopPlaying();
         }
         ringId = requestedId;
         profile = AlarmRepository.get(this, ringId);
+        toneOnlyPreview = intent.getBooleanExtra("tone_only_preview", false);
+        final long ringDuration = toneOnlyPreview ? 15_000L :
+                profile.autoStopMinutes * 60_000L;
         try {
             startForegroundNotification();
             active = true;
@@ -140,12 +148,12 @@ public final class RingingService extends Service {
                 Log.e("Sanftwecker", "Audio unavailable, watch alerts still active", audioError);
                 AlarmRepository.diagnostic(this, "WARNUNG: Audio fehlgeschlagen; Watch-Impulse laufen");
             }
-            handler.post(pulse);
+            if (!toneOnlyPreview) handler.post(pulse);
             handler.postDelayed(() -> {
-                AlarmRepository.diagnostic(this, "Alarm nach 20 Minuten automatisch beendet");
+                AlarmRepository.diagnostic(this, "Alarm automatisch beendet");
                 stopPlaying();
                 stopSelf();
-            }, MAX_RING);
+            }, ringDuration);
         } catch (RuntimeException e) {
             Log.e("Sanftwecker", "Could not launch foreground alarm", e);
             AlarmRepository.diagnostic(this, "FEHLER: Hintergrundalarm konnte nicht starten");
@@ -170,7 +178,7 @@ public final class RingingService extends Service {
     }
 
     private PendingIntent openApp() {
-        Intent open = new Intent(this, MainActivity.class)
+        Intent open = new Intent(this, AlarmActivity.class)
                 .putExtra(AlarmScheduler.EXTRA_ID, ringId)
                 .putExtra("from_alarm", true);
         return PendingIntent.getActivity(this, 1600 + ringId, open,
@@ -189,6 +197,8 @@ public final class RingingService extends Service {
                 .setContentIntent(openApp())
                 .setCategory(Notification.CATEGORY_ALARM)
                 .setOngoing(true)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setFullScreenIntent(openApp(), true)
                 .setLocalOnly(true)
                 .addAction(action("Stoppen", STOP, android.R.drawable.ic_media_pause, 612))
                 .addAction(action("Schlummern", SNOOZE, android.R.drawable.ic_media_play, 613))
