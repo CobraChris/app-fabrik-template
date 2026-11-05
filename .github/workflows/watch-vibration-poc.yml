@@ -1,4 +1,4 @@
-name: Galaxy Watch Benachrichtigungs-PoC (Handy-APK)
+name: Android: Sanftwecker + Watch-Benachrichtigungstests
 
 on:
   pull_request:
@@ -12,9 +12,9 @@ permissions:
 
 jobs:
   build:
-    name: Handy-Benachrichtigungs-APK bauen
+    name: Handy-APKs bauen und Alarmkalender prüfen
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,13 +35,22 @@ jobs:
           test -n "$SDK_MANAGER"
           yes | "$SDK_MANAGER" --licenses >/dev/null || true
           "$SDK_MANAGER" 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Benachrichtigungs-PoC für das Handy bauen
-        run: gradle --no-daemon -p experiments/watch-vibration-poc :phone:assembleDebug
-      - name: APK benennen
+      - name: Sanftwecker und Benachrichtigungs-PoC bauen und testen
+        run: |
+          gradle --no-daemon -p experiments/watch-vibration-poc \
+            :alarm:testDebugUnitTest :alarm:assembleDebug :phone:assembleDebug
+      - name: Nur die beiden Handy-APKs bereitstellen
         shell: bash
         run: |
           mkdir -p artifacts
+          cp experiments/watch-vibration-poc/alarm/build/outputs/apk/debug/alarm-debug.apk artifacts/sanftwecker-preview-debug.apk
           cp experiments/watch-vibration-poc/phone/build/outputs/apk/debug/phone-debug.apk artifacts/watch-notification-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sanftwecker-preview-apk
+          path: artifacts/sanftwecker-preview-debug.apk
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: watch-notification-poc-apk
