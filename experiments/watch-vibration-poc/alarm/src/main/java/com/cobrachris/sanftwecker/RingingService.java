@@ -126,19 +126,29 @@ public final class RingingService extends Service {
             active = true;
             startedAt = SystemClock.elapsedRealtime();
             pulseCount = 0;
-            acquireWakeLock();
-            beginAudio();
-            handler.post(gainTick);
+            try {
+                acquireWakeLock();
+            } catch (RuntimeException e) {
+                Log.w("Sanftwecker", "WakeLock unavailable; continue with active service", e);
+            }
+            // Even if audio hardware fails, keep the watch alerts and stop/snooze controls.
+            try {
+                beginAudio();
+                handler.post(gainTick);
+                AlarmRepository.diagnostic(this, "Weckton gestartet: " + profile.name);
+            } catch (RuntimeException audioError) {
+                Log.e("Sanftwecker", "Audio unavailable, watch alerts still active", audioError);
+                AlarmRepository.diagnostic(this, "WARNUNG: Audio fehlgeschlagen; Watch-Impulse laufen");
+            }
             handler.post(pulse);
             handler.postDelayed(() -> {
                 AlarmRepository.diagnostic(this, "Alarm nach 20 Minuten automatisch beendet");
                 stopPlaying();
                 stopSelf();
             }, MAX_RING);
-            AlarmRepository.diagnostic(this, "Alarmton gestartet: " + profile.name);
         } catch (RuntimeException e) {
-            Log.e("Sanftwecker", "Could not launch ringing", e);
-            AlarmRepository.diagnostic(this, "FEHLER: Weckton konnte nicht starten");
+            Log.e("Sanftwecker", "Could not launch foreground alarm", e);
+            AlarmRepository.diagnostic(this, "FEHLER: Hintergrundalarm konnte nicht starten");
             stopPlaying();
             stopSelf();
         }
