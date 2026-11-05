@@ -5,6 +5,7 @@ import android.app.*;
 import android.content.*;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.*;
 import android.provider.Settings;
@@ -21,7 +22,7 @@ public final class DetailActivity extends Activity {
     private boolean loading,dirty,advancedOpen;
     private AlarmProfile saved;
     private EditText name;
-    private TextView clock,status,advanced;
+    private TextView clock,status,advanced,nextDisplay;
     private final TextView[] chips=new TextView[7];
     private final boolean[] days=new boolean[7];
     private Switch enabled,rising,watch,snoozeEnabled;
@@ -122,7 +123,12 @@ public final class DetailActivity extends Activity {
                 changed();
             });
         }
-        top.addView(row);UiKit.placeCard(this,root,top);
+        top.addView(row);
+        nextDisplay=UiKit.label(this,"Noch nicht geplant",15,UiKit.MUTED);
+        top.addView(nextDisplay);
+        top.addView(UiKit.label(this,
+                "Uhrzeit ändern und anschließend mit ✓ speichern.",13,UiKit.MUTED));
+        UiKit.placeCard(this,root,top);
 
         LinearLayout music=section(root,"Melodie & sanfter Ton");
         tone=new Spinner(this);
@@ -144,7 +150,7 @@ public final class DetailActivity extends Activity {
         ramp=slider(music,29);
         volumeLabel=label("",15);music.addView(volumeLabel);
         volume=slider(music,95);
-        Button preview=UiKit.button(this,"Tonprobe starten (15 Sek.)",false);
+        Button preview=UiKit.button(this,"Tonprobe starten (20 Sek.)",false);
         music.addView(preview);
         preview.setOnClickListener(v->previewTone());
 
@@ -221,6 +227,14 @@ public final class DetailActivity extends Activity {
         stopTest.setOnClickListener(v->{AlarmScheduler.cancelTest(this);diagnostics();});
         status=UiKit.label(this,"",13,UiKit.MUTED);
         root.addView(status);
+        Button diagButton=UiKit.button(this,"Diagnose-Protokoll anzeigen",false);
+        root.addView(diagButton);
+        diagButton.setOnClickListener(v->{
+            diagnostics();
+            new AlertDialog.Builder(this).setTitle("Sanftwecker – Diagnose")
+                    .setMessage(advanced.getText().toString())
+                    .setPositiveButton("OK",null).show();
+        });
         setContentView(UiKit.scroll(this,root));
     }
 
@@ -312,7 +326,9 @@ public final class DetailActivity extends Activity {
         try{
             long when=AlarmScheduler.test(this,id);
             notice("Test geplant um "+new java.text.SimpleDateFormat("HH:mm:ss",
-                    Locale.GERMANY).format(new Date(when))+". Bitte Handy sperren.");
+                    Locale.GERMANY).format(new Date(when))+". Bitte Handy sperren. "+
+                    "Dieser Kurztest umgeht die Tonverzögerung und "+
+                    "steigt innerhalb von 8 Sekunden auf Testlautstärke an.");
         }catch(RuntimeException e){notice("Test konnte nicht starten: "+e.getMessage());}
     }
 
@@ -322,7 +338,9 @@ public final class DetailActivity extends Activity {
             startForegroundService(new Intent(this,RingingService.class)
                     .setAction(RingingService.START).putExtra(AlarmScheduler.EXTRA_ID,id)
                     .putExtra("tone_only_preview",true));
-            notice("Tonprobe läuft 15 Sekunden. Über die Alarmbenachrichtigung stoppen.");
+            notice("Tonprobe läuft 20 Sekunden: Start bei 0 %, ohne Tonverzögerung, "+
+                    "innerhalb von 8 Sekunden ansteigend. "+
+                    "Über die Alarmbenachrichtigung stoppen.");
         }catch(RuntimeException e){notice("Tonprobe fehlgeschlagen.");}
     }
 
@@ -341,6 +359,7 @@ public final class DetailActivity extends Activity {
                 .setCategory(Notification.CATEGORY_REMINDER).setAutoCancel(true).build();
         try{
             m.notify((int)(System.currentTimeMillis()&0x7fffffff),n);
+            AlarmRepository.diagnostic(this,"Watch-Einzeltest an Android übergeben");
             notice("Test gesendet. Ob die Uhr vibriert hat, bitte selbst prüfen.");
         }catch(SecurityException e){notice("Benachrichtigungsrecht fehlt.");}
     }
@@ -348,14 +367,34 @@ public final class DetailActivity extends Activity {
     private void diagnostics(){
         if(status==null)return;
         long upcoming=AlarmRepository.next(this,id);
-        status.setText("Nächster Termin: "+(upcoming<=0?"nicht eingeplant":
-                new java.text.SimpleDateFormat("dd.MM. HH:mm",Locale.GERMANY)
-                        .format(new Date(upcoming))));
+        String upcomingText="Nächster Termin: "+(upcoming<=0?"nicht eingeplant":
+                new java.text.SimpleDateFormat("EEE dd.MM. HH:mm",Locale.GERMANY)
+                        .format(new Date(upcoming)));
+        status.setText(upcomingText);
+        if(nextDisplay!=null) nextDisplay.setText(upcomingText);
         if(advanced!=null){
             NotificationManager m=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+            AudioManager audio=(AudioManager)getSystemService(AUDIO_SERVICE);
+            int level=audio==null?-1:audio.getStreamVolume(AudioManager.STREAM_ALARM);
+            int maximum=audio==null?-1:audio.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+            NotificationChannel channel=m==null?null:
+                    m.getNotificationChannel(RingingService.WATCH_CHANNEL);
+            boolean notifications=m!=null&&m.areNotificationsEnabled();
+            boolean watchChannel=channel!=null&&
+                    channel.getImportance()!=NotificationManager.IMPORTANCE_NONE;
+            long testTime=AlarmScheduler.testWhen(this);
             advanced.setText("Exakte Alarme: "+(AlarmScheduler.canSchedule(this)?"OK":"FEHLEN")+
-                    "\nBenachrichtigungen: "+(m!=null&&m.areNotificationsEnabled()?"OK":"FEHLEN")+
-                    "\nLetzter Status: "+AlarmRepository.lastEvent(this)+
+                    "\nAndroid-Benachrichtigungen: "+(notifications?"OK":"BLOCKIERT")+
+                    "\nWatch-Kanal: "+(watchChannel?"aktiv":"BLOCKIERT")+
+                    "\nSystem-Weckerlautstärke: "+level+" / "+maximum+
+                    (level==0?" – STUMM!":"")+
+                    "\nVollbild-Wecker: "+(Build.VERSION.SDK_INT<34||
+                    (m!=null&&m.canUseFullScreenIntent())?"OK":"prüfen")+
+                    "\nKurztest geplant: "+(testTime>System.currentTimeMillis()?
+                    new java.text.SimpleDateFormat("HH:mm:ss",Locale.GERMANY)
+                            .format(new Date(testTime)):"nein")+
+                    "\nLetzte Ereignisse (neueste zuerst):\n"+
+                    AlarmRepository.history(this)+
                     "\nUhr-Empfang: nicht messbar; Schlafmodus ungeprüft.");
         }
     }

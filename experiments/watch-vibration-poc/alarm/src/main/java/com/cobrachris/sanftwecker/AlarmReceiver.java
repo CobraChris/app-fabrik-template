@@ -31,10 +31,16 @@ public final class AlarmReceiver extends BroadcastReceiver {
             AlarmRepository.diagnostic(c, "Schlummerwecker ausgelöst: " + profile.name);
         } else return;
 
+        // Post the first watch alert directly from the exact-alarm receiver.
+        // Even a failed foreground-service startup must not silently skip the watch alert.
+        if (profile.watchPulses > 0) WatchAlert.send(c, profile, 0);
         try {
             Intent start = new Intent(c, RingingService.class)
                     .setAction(RingingService.START)
-                    .putExtra(AlarmScheduler.EXTRA_ID, id);
+                    .putExtra(AlarmScheduler.EXTRA_ID, id)
+                    .putExtra(RingingService.EXTRA_QUICK_TEST,
+                            AlarmScheduler.ACTION_TEST.equals(action));
+            AlarmRepository.diagnostic(c, "Audiodienst angefordert: " + profile.name);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) c.startForegroundService(start);
             else c.startService(start);
         } catch (RuntimeException ex) {

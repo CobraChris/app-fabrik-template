@@ -26,10 +26,11 @@ public final class RingingService extends Service {
     public static final String START = "com.cobrachris.sanftwecker.START";
     public static final String STOP = "com.cobrachris.sanftwecker.STOP";
     public static final String SNOOZE = "com.cobrachris.sanftwecker.SNOOZE";
-    public static final String WATCH_CHANNEL = "sanftwecker_watch_v2";
+    public static final String WATCH_CHANNEL = "sanftwecker_watch_v3";
+    public static final String EXTRA_QUICK_TEST = "quick_test";
     private static final String ACTIVE_CHANNEL = "sanftwecker_active_v3";
     private static final int ONGOING_ID = 601;
-    private static final int WATCH_BASE_ID = 7200;
+    // Watch notification IDs are owned by WatchAlert.
     private static final long MAX_RING = 30L * 60_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -43,14 +44,13 @@ public final class RingingService extends Service {
     private int ringId = 1;
     private AlarmProfile profile;
     private boolean toneOnlyPreview;
+    private boolean quickTest;
 
     private final Runnable gainTick = new Runnable() {
         @Override public void run() {
             if (!active || audio == null) return;
             long elapsed = SystemClock.elapsedRealtime() - startedAt;
-            float gain = GentleGain.level(elapsed, profile.delaySeconds,
-                    profile.rampEnabled ? profile.rampSeconds : 30,
-                    profile.maxVolume);
+            float gain = AlarmEnvelope.gain(profile, toneOnlyPreview || quickTest, elapsed);
             try { audio.setVolume(gain); }
             catch (IllegalStateException e) { Log.w("Sanftwecker", "Audio gain update", e); }
             if (elapsed < MAX_RING) handler.postDelayed(this, 200L);
@@ -61,7 +61,7 @@ public final class RingingService extends Service {
         @Override public void run() {
             if (!active || profile.watchPulses == 0 ||
                     pulseCount >= profile.watchPulses) return;
-            sendWatchNotification(pulseCount++);
+            WatchAlert.send(RingingService.this, profile, pulseCount++);
             if (pulseCount < profile.watchPulses) {
                 handler.postDelayed(this, profile.watchIntervalSeconds * 1000L);
             }
@@ -81,13 +81,7 @@ public final class RingingService extends Service {
                 ACTIVE_CHANNEL, "Aktiver Alarm", NotificationManager.IMPORTANCE_HIGH);
         running.setSound(null, null);
         nm.createNotificationChannel(running);
-        NotificationChannel watch = new NotificationChannel(
-                WATCH_CHANNEL, "Vibration an Galaxy Watch", NotificationManager.IMPORTANCE_HIGH);
-        watch.setDescription("Alarmbenachrichtigungen zur Weiterleitung durch Galaxy Wearable");
-        watch.enableVibration(true);
-        watch.setVibrationPattern(new long[]{0L, 300L, 160L, 300L});
-        watch.setSound(null, null);
-        nm.createNotificationChannel(watch);
+        WatchAlert.ensureChannel(c);
     }
 
     private void ensureChannels() { ensureChannels(this); }
@@ -129,13 +123,16 @@ public final class RingingService extends Service {
         ringId = requestedId;
         profile = AlarmRepository.get(this, ringId);
         toneOnlyPreview = intent.getBooleanExtra("tone_only_preview", false);
-        final long ringDuration = toneOnlyPreview ? 15_000L :
-                profile.autoStopMinutes * 60_000L;
+        quickTest = intent.getBooleanExtra(EXTRA_QUICK_TEST, false);
+        final long ringDuration = toneOnlyPreview ? 20_000L :
+                quickTest ? 30_000L : profile.autoStopMinutes * 60_000L;
         try {
             startForegroundNotification();
             active = true;
             startedAt = SystemClock.elapsedRealtime();
-            pulseCount = 0;
+            pulseCount = toneOnlyPreview ? 0 : Math.min(1, profile.watchPulses);
+            AlarmRepository.diagnostic(this, "Audiodienst gestartet: " + profile.name +
+                    (toneOnlyPreview ? " (Tonprobe)" : quickTest ? " (Kurztest)" : ""));
             try {
                 acquireWakeLock();
             } catch (RuntimeException e) {
@@ -145,12 +142,13 @@ public final class RingingService extends Service {
             try {
                 beginAudio();
                 handler.post(gainTick);
-                AlarmRepository.diagnostic(this, "Weckton gestartet: " + profile.name);
+                AlarmRepository.diagnostic(this, "AudioTrack initialisiert: " + profile.name);
             } catch (RuntimeException audioError) {
                 Log.e("Sanftwecker", "Audio unavailable, watch alerts still active", audioError);
                 AlarmRepository.diagnostic(this, "WARNUNG: Audio fehlgeschlagen; Watch-Impulse laufen");
             }
-            if (!toneOnlyPreview) handler.post(pulse);
+            if (!toneOnlyPreview && pulseCount < profile.watchPulses)
+                handler.postDelayed(pulse, profile.watchIntervalSeconds * 1000L);
             handler.postDelayed(() -> {
                 AlarmRepository.diagnostic(this, "Alarm automatisch beendet");
                 stopPlaying();
@@ -159,7 +157,8 @@ public final class RingingService extends Service {
         } catch (RuntimeException e) {
             Log.e("Sanftwecker", "Could not launch foreground alarm", e);
             AlarmRepository.diagnostic(this, "FEHLER: Hintergrundalarm konnte nicht starten");
-            stopPlaying();
+            // Retain the receiver-issued watch notification if foreground start failed.
+            stopPlaying(false);
             stopSelf();
         }
         return START_NOT_STICKY;
@@ -217,29 +216,6 @@ public final class RingingService extends Service {
         }
     }
 
-    private void sendWatchNotification(int index) {
-        if (manager == null || !manager.areNotificationsEnabled()) return;
-        Notification.Builder builder = new Notification.Builder(this, WATCH_CHANNEL)
-                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle("Sanftwecker: " + profile.name)
-                .setContentText("Aufwachen – Erinnerung " + (index + 1)
-                        + " von " + profile.watchPulses)
-                .setCategory(Notification.CATEGORY_REMINDER)
-                .setContentIntent(openApp())
-                .addAction(action("Stoppen", STOP, android.R.drawable.ic_media_pause, 612))
-                .setAutoCancel(true);
-        if (profile.snoozeEnabled)
-            builder.addAction(action("Schlummern", SNOOZE, android.R.drawable.ic_media_play, 613));
-        Notification watch = builder.build();
-        try {
-            manager.notify(WATCH_BASE_ID + index, watch);
-            AlarmRepository.diagnostic(this, "Watch-Benachrichtigung " + (index + 1) +
-                    " von " + profile.watchPulses + " gesendet (Empfang unbekannt)");
-        } catch (SecurityException e) {
-            Log.e("Sanftwecker", "Notification permission missing", e);
-        }
-    }
-
     private void beginAudio() {
         final int rate = 22050;
         int minBytes = AudioTrack.getMinBufferSize(rate,
@@ -291,7 +267,10 @@ public final class RingingService extends Service {
         writer.start();
     }
 
-    private void stopPlaying() {
+    private void stopPlaying() { stopPlaying(true); }
+
+    private void stopPlaying(boolean removeWatchNotifications) {
+        if (active) AlarmRepository.diagnostic(this, "Ton und Watch-Impulse beendet");
         active = false;
         handler.removeCallbacksAndMessages(null);
         AudioTrack old = audio;
@@ -312,7 +291,8 @@ public final class RingingService extends Service {
         }
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         wakeLock = null;
-        if (manager != null) for (int i = 0; i < 12; i++) manager.cancel(WATCH_BASE_ID + i);
+        if (removeWatchNotifications && manager != null)
+            for (int i = 0; i < 12; i++) manager.cancel(WatchAlert.ID_BASE + i);
         stopForeground(STOP_FOREGROUND_REMOVE);
     }
 

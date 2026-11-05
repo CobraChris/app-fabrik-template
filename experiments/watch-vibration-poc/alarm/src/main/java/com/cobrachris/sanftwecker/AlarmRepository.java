@@ -209,10 +209,21 @@ public final class AlarmRepository {
         return storage(c).getLong(k(id, "next"), 0);
     }
 
-    public static void diagnostic(Context c, String event) {
-        c.getSharedPreferences(LOG, Context.MODE_PRIVATE).edit()
-                .putString("last_event", event)
-                .putLong("last_event_time", System.currentTimeMillis()).apply();
+    public static synchronized void diagnostic(Context c, String event) {
+        SharedPreferences p = c.getSharedPreferences(LOG, Context.MODE_PRIVATE);
+        long now = System.currentTimeMillis();
+        String stamp = new SimpleDateFormat("dd.MM. HH:mm:ss", Locale.GERMANY)
+                .format(new Date(now));
+        String previous = p.getString("history", "");
+        String next = stamp + "  " + event + "\n" + (previous == null ? "" : previous);
+        p.edit().putString("last_event", event)
+                .putLong("last_event_time", now)
+                .putString("history", next.substring(0, Math.min(next.length(), 2400)))
+                .apply();
+    }
+    public static String history(Context c) {
+        return c.getSharedPreferences(LOG, Context.MODE_PRIVATE)
+                .getString("history", "Noch keine Alarm-Ereignisse");
     }
     public static String lastEvent(Context c) {
         SharedPreferences p = c.getSharedPreferences(LOG, Context.MODE_PRIVATE);
