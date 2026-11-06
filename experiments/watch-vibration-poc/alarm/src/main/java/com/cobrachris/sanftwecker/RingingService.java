@@ -29,7 +29,7 @@ public final class RingingService extends Service {
     public static final String RING_FINISHED = "com.cobrachris.sanftwecker.RING_FINISHED";
     public static final String WATCH_CHANNEL = "sanftwecker_watch_v3";
     public static final String EXTRA_QUICK_TEST = "quick_test";
-    private static final String ACTIVE_CHANNEL = "sanftwecker_active_v3";
+    private static final String ACTIVE_CHANNEL = "sanftwecker_active_v4";
     private static final int ONGOING_ID = 601;
     // Watch notification IDs are owned by WatchAlert.
     private static final long MAX_RING = 30L * 60_000L;
@@ -81,6 +81,8 @@ public final class RingingService extends Service {
         NotificationChannel running = new NotificationChannel(
                 ACTIVE_CHANNEL, "Aktiver Alarm", NotificationManager.IMPORTANCE_HIGH);
         running.setSound(null, null);
+        running.enableVibration(false);
+        running.setDescription("Laufender Wecker mit immer sichtbarer Stoppen-Aktion");
         nm.createNotificationChannel(running);
         WatchAlert.ensureChannel(c);
     }
@@ -202,6 +204,8 @@ public final class RingingService extends Service {
                 .setContentIntent(openApp())
                 .setCategory(Notification.CATEGORY_ALARM)
                 .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(Notification.PRIORITY_MAX)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setLocalOnly(true)
                 .addAction(action("Stoppen", STOP, android.R.drawable.ic_media_pause, 612));

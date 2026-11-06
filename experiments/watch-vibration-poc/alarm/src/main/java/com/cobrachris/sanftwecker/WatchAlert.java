@@ -13,8 +13,9 @@ public final class WatchAlert {
     private WatchAlert() {}
 
     public static String channelId(int mode) {
-        if(mode<0||mode>4)mode=0;
-        return mode==0?RingingService.WATCH_CHANNEL:"sanftwecker_watch_pattern_v1_"+mode;
+        // Reliability first: Samsung already forwarded this exact channel successfully.
+        // Mirroring cannot guarantee per-pattern haptics on the Galaxy Watch.
+        return RingingService.WATCH_CHANNEL;
     }
 
     public static void ensureChannel(Context c) {
@@ -28,18 +29,6 @@ public final class WatchAlert {
         channel.setVibrationPattern(new long[]{0,350,150,350});
         channel.setSound(null,null);
         nm.createNotificationChannel(channel);
-        // Create dedicated channels only once: Android prohibits changing the
-        // vibration pattern of an existing notification channel.
-        for(int mode=1;mode<=4;mode++) {
-            NotificationChannel custom=new NotificationChannel(
-                    channelId(mode), "Watch-Muster: "+VibrationPresets.LABELS[mode],
-                    NotificationManager.IMPORTANCE_HIGH);
-            custom.setDescription("Benachrichtigungen für Galaxy Wearable; Muster wird ggf. ersetzt");
-            custom.setSound(null,null);
-            custom.enableVibration(true);
-            custom.setVibrationPattern(VibrationPresets.pattern(mode));
-            nm.createNotificationChannel(custom);
-        }
     }
 
     public static boolean canSend(Context c,int mode) {

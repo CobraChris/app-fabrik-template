@@ -95,6 +95,42 @@ public final class MainActivity extends Activity {
         safetyParams.bottomMargin = UiKit.dp(this, 14);
         base.addView(safety, safetyParams);
 
+        Button stopNow=UiKit.button(this,"SOFORT STOPPEN – Ton und Vibration",true);
+        base.addView(stopNow);
+        stopNow.setOnClickListener(v->{
+            PhoneVibration.stop();
+            AlarmScheduler.cancelTest(this);
+            try{
+                startService(new Intent(this,RingingService.class).setAction(RingingService.STOP));
+                new android.app.AlertDialog.Builder(this)
+                        .setMessage("Not-Stopp angefordert: Ton und Handyvibration beenden.")
+                        .setPositiveButton("OK",null).show();
+            }catch(RuntimeException e){
+                new android.app.AlertDialog.Builder(this)
+                        .setMessage("Handyvibration gestoppt. Falls der Alarm weiterläuft: "+
+                                "Einstellungen → Apps → Sanftwecker (Test) → Stopp erzwingen.")
+                        .setPositiveButton("OK",null).show();
+            }
+        });
+        android.app.NotificationManager notificationManager=
+                (android.app.NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+        if(android.os.Build.VERSION.SDK_INT>=34 && notificationManager!=null &&
+                !notificationManager.canUseFullScreenIntent()){
+            Button allowScreen=UiKit.button(this,"Klingelbildschirm erlauben",false);
+            base.addView(allowScreen);
+            allowScreen.setOnClickListener(v->{
+                try{
+                    startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
+                            .setData(android.net.Uri.parse("package:"+getPackageName())));
+                }catch(RuntimeException e){
+                    new android.app.AlertDialog.Builder(this)
+                            .setMessage("Bitte Vollbild-Benachrichtigungen für Sanftwecker "+
+                                    "in den Android-Einstellungen freigeben.")
+                            .setPositiveButton("OK",null).show();
+                }
+            });
+        }
+
         list = UiKit.column(this);
         base.addView(list);
         page.addView(UiKit.scroll(this, base));

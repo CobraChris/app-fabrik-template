@@ -87,6 +87,9 @@ public final class DetailActivity extends Activity {
         header.addView(overflow);
         root.addView(header);
         root.addView(UiKit.label(this,"Beta – bisherigen zuverlässigen Wecker beibehalten",13,UiKit.MUTED));
+        Button emergencyStop=UiKit.button(this,"ALARM / VIBRATION SOFORT STOPPEN",true);
+        root.addView(emergencyStop);
+        emergencyStop.setOnClickListener(v->emergencyStop());
 
         LinearLayout top=UiKit.card(this);
         name=new EditText(this);
@@ -189,17 +192,28 @@ public final class DetailActivity extends Activity {
         Button vibrationPreview=UiKit.button(this,"Muster am Handy fühlen",false);
         vibrationCard.addView(vibrationPreview);
         vibrationPreview.setOnClickListener(v->{
-            boolean played=PhoneVibration.preview(this,vibration.getSelectedItemPosition());
-            android.widget.Toast.makeText(this,
-                    played?"Handy-Vibration wird einmal abgespielt":
-                            "Vibration nicht verfügbar – System-/Ruhemodus prüfen",
-                    android.widget.Toast.LENGTH_LONG).show();
+            AlertDialog stopDialog=new AlertDialog.Builder(this)
+                    .setTitle("Vibrationstest")
+                    .setMessage("Die Vorschau läuft maximal 5 Sekunden. "+
+                            "Du kannst sie hier jederzeit beenden.")
+                    .setPositiveButton("SOFORT STOPPEN",(dialog,which)->PhoneVibration.stop())
+                    .create();
+            stopDialog.setOnDismissListener(dialog->PhoneVibration.stop());
+            stopDialog.show(); // Always show the stop control before starting haptics.
+            if(!PhoneVibration.preview(this,vibration.getSelectedItemPosition())){
+                stopDialog.dismiss();
+                notice("Vibration nicht verfügbar oder ein Alarm ist bereits aktiv.");
+                return;
+            }
+            new Handler(Looper.getMainLooper()).postDelayed(()->{
+                if(!isFinishing() && stopDialog.isShowing())stopDialog.dismiss();
+            },PhoneVibration.MAX_PREVIEW_MS+200);
         });
         vibrationCard.addView(UiKit.label(this,
-                "Das gewählte Muster wird auf dem Handy direkt wiederholt. "+
-                "Bei „fast durchgehend“ maximal 60 Sekunden (4 s an, 0,5 s Pause). "+
-                "Auf der Uhr kann Samsung das Muster ersetzen: dort bleiben "+
-                "vor allem Anzahl und Abstand der Impulse maßgeblich.",
+                "Vorschau: maximal 5 Sekunden, mit sichtbarem Stoppknopf. "+
+                "Im Alarm: Handyvibration aus Sicherheitsgründen maximal 12 Sekunden. "+
+                "Die Uhr verwendet wieder den zuvor funktionierenden Benachrichtigungskanal. "+
+                "Ein bestimmtes Muster auf der Uhr kann Samsung nicht garantieren.",
                 13,UiKit.MUTED));
 
         LinearLayout wrist=section(root,"Galaxy Watch");
@@ -281,7 +295,11 @@ public final class DetailActivity extends Activity {
         root.addView(bottom);bottom.setOnClickListener(v->{if(save())finish();});
         Button stopTest=UiKit.button(this,"Geplanten Test abbrechen",false);
         root.addView(stopTest);
-        stopTest.setOnClickListener(v->{AlarmScheduler.cancelTest(this);diagnostics();});
+        stopTest.setOnClickListener(v->{
+            PhoneVibration.stop();
+            AlarmScheduler.cancelTest(this);
+            diagnostics();
+        });
         status=UiKit.label(this,"",13,UiKit.MUTED);
         root.addView(status);
         Button diagButton=UiKit.button(this,"Diagnose-Protokoll anzeigen",false);
@@ -373,6 +391,19 @@ public final class DetailActivity extends Activity {
             try{AlarmRepository.put(this,old);AlarmScheduler.reschedule(this,id);}
             catch(RuntimeException ignored){}
             notice("Speichern fehlgeschlagen: "+e.getMessage());return false;
+        }
+    }
+
+    private void emergencyStop(){
+        PhoneVibration.stop();
+        AlarmScheduler.cancelTest(this);
+        try{
+            startService(new Intent(this,RingingService.class).setAction(RingingService.STOP));
+            AlarmRepository.diagnostic(this,"Manueller Not-Stopp ausgeführt");
+            notice("Stopp gesendet. Ton und Handyvibration sollten jetzt beendet sein.");
+        }catch(RuntimeException e){
+            notice("Handyvibration gestoppt. Falls ein Alarm weiterläuft: "+
+                    "Einstellungen → Apps → Sanftwecker (Test) → Stopp erzwingen.");
         }
     }
 
