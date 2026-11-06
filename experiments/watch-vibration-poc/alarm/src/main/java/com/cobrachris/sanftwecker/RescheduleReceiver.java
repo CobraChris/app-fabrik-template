@@ -11,10 +11,19 @@ public final class RescheduleReceiver extends BroadcastReceiver {
         if (event == null) return;
         try {
             AlarmScheduler.rescheduleAll(c);
-            AlarmRepository.diagnostic(c, "Wecker nach Systemänderung neu geplant");
+            AlarmRepository.diagnostic(c,"Wecker nach Systemänderung neu geplant");
         } catch (RuntimeException ex) {
-            AlarmRepository.diagnostic(c, "WARNUNG: Neuplanung fehlgeschlagen");
-            Log.e("Sanftwecker", "Reschedule failure", ex);
+            AlarmRepository.diagnostic(c,"WARNUNG: Wecker-Neuplanung fehlgeschlagen");
+            Log.e("Sanftwecker","Alarm reschedule failure",ex);
+        }
+        try {
+            if (Intent.ACTION_BOOT_COMPLETED.equals(event.getAction()))
+                StopwatchRepository.pauseAllAfterBoot(c);
+            else StopwatchRepository.reconcile(c);
+            TimerScheduler.restoreAll(c);
+        } catch (RuntimeException ex) {
+            AlarmRepository.diagnostic(c,"WARNUNG: Timer-Neuplanung fehlgeschlagen");
+            Log.e("Sanftwecker","Timer reschedule failure",ex);
         }
     }
 }

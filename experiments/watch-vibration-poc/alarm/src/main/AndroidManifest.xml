@@ -19,9 +19,12 @@
             </intent-filter>
         </activity>
         <activity android:name=".DetailActivity" android:exported="false"/>
+        <activity android:name=".TimerActivity" android:exported="false"/>
+        <activity android:name=".StopwatchActivity" android:exported="false"/>
         <activity android:name=".AlarmActivity" android:exported="false"
             android:showWhenLocked="true" android:turnScreenOn="true"/>
         <receiver android:name=".AlarmReceiver" android:exported="false"/>
+        <receiver android:name=".TimerReceiver" android:exported="false"/>
         <receiver android:name=".RescheduleReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>

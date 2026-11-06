@@ -1,4 +1,4 @@
-# Sanftwecker (Test) – Beta 0.5.0
+# Sanftwecker (Test) – Beta 0.7.0
 
 ## Neues Klingel-Design (06.11.2026)
 
@@ -96,3 +96,4 @@ Die JUnit-Tests decken Kalenderlogik (Wochentage, DST), Gain-Kurve, Standardprof
 5. An mehreren Tagen und mit aktiver Schlafroutine sowie nach einem Neustart testen; bis zur Freigabe den bisherigen Wecker beibehalten.
 
 Siehe `PRODUCT_REQUIREMENTS.md` für das vollständige Pflichtenheft.
+\n\n## Multi-Timer und Stoppuhr\nSiehe [TIME_TOOLS.md](TIME_TOOLS.md) für Technik und Abnahmetests.\n

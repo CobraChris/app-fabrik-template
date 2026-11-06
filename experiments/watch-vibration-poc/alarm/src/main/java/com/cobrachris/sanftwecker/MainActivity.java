@@ -88,6 +88,7 @@ public final class MainActivity extends Activity {
             menu.show();
         });
         base.addView(header);
+        ClockTabs.add(this,base,ClockTabs.ALARMS);
         TextView safety = UiKit.label(this,
                 "Beta · bitte bisherigen Wecker weiterhin benutzen", 13, UiKit.MUTED);
         LinearLayout.LayoutParams safetyParams = new LinearLayout.LayoutParams(-1,-2);
