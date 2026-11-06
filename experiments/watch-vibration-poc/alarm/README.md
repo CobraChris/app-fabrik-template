@@ -1,4 +1,50 @@
-# Sanftwecker (Test) – Beta 0.4.0
+# Sanftwecker (Test) – Beta 0.5.0
+
+## Neues Klingel-Design (06.11.2026)
+
+Nach erfolgreichem Samsung-Praxistest (regulärer Alarm, Ton und Galaxy-Watch-Vibration wurden bestätigt) erhält die Android-App einen eigenständigen Weckbildschirm im Stil der vom Nutzer bereitgestellten Referenzbilder:
+
+- Vollflächiger, **original programmierter türkis-dunkler Facettenhintergrund** (keine fremden Bilddateien, keine Wetter-API).
+- Name des aktiven Alarms oben; **sehr große, zweizeilige aktuelle Uhrzeit** (HH über MM) in heller, dünner Schrift.
+- **Zum Abstellen nach rechts schieben:** großer, weißer Schieber mit Schloss-Symbol; Abstellen erst beim Loslassen ab 90 % Weg, damit unbeabsichtigtes Ziehen nicht ausschaltet.
+- Separater **Schlummern-Button**, der die zum Wecker passende Minutenzahl anzeigt und bei deaktivierter Schlummerfunktion verschwindet.
+- Erreichbare **„Alternativ: direkt stoppen“**-Aktion für Menschen, die nicht schieben können oder Screenreader nutzen.
+- Zeitanzeige aktualisiert sich im Vordergrund. Die Anzeige wird geschlossen, wenn der Alarmdienst ein Ende signalisiert, beispielsweise beim Stoppen über eine Benachrichtigung.
+- \`setShowWhenLocked\` und \`setTurnScreenOn\` bleiben erhalten, aber die Gerätesperre wird **nicht** programmgesteuert aufgehoben. Ob Android eine Fullscreen-Ansicht anzeigt, hängt weiterhin von der Systemberechtigung ab.
+
+## Schonende neue Standardwerte
+
+Nur für **neu angelegte** Wecker (bereits gespeicherte bleiben unverändert):
+- Galaxy-Watch-Benachrichtigungen: sofort, 6 Impulse alle 20 Sekunden
+- Handyton: **+10 Sekunden Verzögerung** statt direkt / sehr lange Wartezeit
+- Lautstärke: **1 Minute sanfter Anstieg** ab tatsächlichem Audio-Gain 0
+- Maximaler **App-Pegel 55 %** relativ zur Android-System-Weckerlautstärke
+
+Der Pegel ist kein absoluter Schalldruck: Bei zu niedriger Android-Weckerlautstärke bleibt die Ausgabe leise. Die Detailseite bietet deshalb die Aktion **„Sanft & sicher: empfohlene Werte übernehmen“** für einen vorhandenen Wecker – nur nach Bestätigung und anschließendem Speichern.
+
+## Schutz vor unbeabsichtigten Änderungen
+
+Bestehende Wecker behalten ihren bisherigen Namen, Uhrzeit, Wochentage, Aktivierung, Tonverzögerung, Kurve, Lautstärke-Obergrenze und Watch-Impulse. Keine automatische Migration der vorhandenen Pegel-/Alarmwerte. Die Test-APK wird nur auf dem separaten Entwicklungszweig gebaut; kein Merge in \`main\`.
+
+## Automatisierte Prüfung
+
+Gradle: \`:alarm:testDebugUnitTest :alarm:assembleDebug :alarm:lintDebug\`.
+Neue Tests: Startverzögerung, Rampenende, Maximalpegel und unverändertes Kopieren benutzerdefinierter Wecker. Ein erfolgreiches CI-Ergebnis bestätigt nicht die tatsächliche Darstellung auf einem Samsung-Gerät.
+
+## Noch zu testen
+
+1. Zeigt die neue **Vollbild-Klingelansicht** bei gesperrtem Handy zuverlässig die große, zweizeilige Uhrzeit? Android kann stattdessen auch eine Benachrichtigung zeigen.
+2. Wird ein Wisch unter 90 % abgebrochen, und stoppt ein Wisch über 90 % tatsächlich?
+3. Stoppt die separate Schlummertaste den Ton und plant sie korrekt die nächste Auslösung?
+4. Schließt die Ansicht auch beim Stoppen über die Android-Benachrichtigung?
+5. Vibriert die Galaxy Watch weiterhin, wenn der Bildschirm gesperrt ist?
+6. Sind die neuen Standardwerte angenehm und zugleich rechtzeitig hörbar? Der globale Android-Weckerpegel ist separat einzustellen.
+
+**Bis zur erfolgreichen Nacht-/Neustartabnahme den bisherigen zuverlässig funktionierenden Wecker parallel weiterverwenden.**
+
+---
+
+# Vorheriger Funktionsumfang (Beta 0.4.x)
 
 **Stand: native Android-App, automatischer Build und Unit-Tests vorhanden. Samsung-Abnahme noch offen.**
 

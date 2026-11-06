@@ -26,6 +26,7 @@ public final class RingingService extends Service {
     public static final String START = "com.cobrachris.sanftwecker.START";
     public static final String STOP = "com.cobrachris.sanftwecker.STOP";
     public static final String SNOOZE = "com.cobrachris.sanftwecker.SNOOZE";
+    public static final String RING_FINISHED = "com.cobrachris.sanftwecker.RING_FINISHED";
     public static final String WATCH_CHANNEL = "sanftwecker_watch_v3";
     public static final String EXTRA_QUICK_TEST = "quick_test";
     private static final String ACTIVE_CHANNEL = "sanftwecker_active_v3";
@@ -270,8 +271,10 @@ public final class RingingService extends Service {
     private void stopPlaying() { stopPlaying(true); }
 
     private void stopPlaying(boolean removeWatchNotifications) {
-        if (active) AlarmRepository.diagnostic(this, "Ton und Watch-Impulse beendet");
+        boolean wasActive=active;
+        if (wasActive) AlarmRepository.diagnostic(this, "Ton und Watch-Impulse beendet");
         active = false;
+        if(wasActive) sendBroadcast(new Intent(RING_FINISHED).setPackage(getPackageName()));
         handler.removeCallbacksAndMessages(null);
         AudioTrack old = audio;
         audio = null;

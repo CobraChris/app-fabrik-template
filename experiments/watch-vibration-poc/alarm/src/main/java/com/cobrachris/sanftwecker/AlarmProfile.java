@@ -104,7 +104,9 @@ public final class AlarmProfile {
     public static AlarmProfile defaults(int id) {
         int mask = id == 1 ? 0x1f : id == 2 ? 0x60 : 0x7f;
         String title = id == 1 ? "Werktage" : id == 2 ? "Wochenende" : "Wecker " + id;
+        // Defaults for newly created alarms only. Existing saved alarms are not modified.
+        // Watch alerts immediately, then a barely audible tone after 10 seconds.
         return new AlarmProfile(id, title, false, id == 2 ? 9 : 7, 0,
-                mask, 0, 600, 35, 6, 20, 5, 0);
+                mask, 10, 60, 55, 6, 20, 5, 0);
     }
 }

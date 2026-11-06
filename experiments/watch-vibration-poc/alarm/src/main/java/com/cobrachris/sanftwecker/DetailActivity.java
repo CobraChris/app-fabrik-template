@@ -131,6 +131,24 @@ public final class DetailActivity extends Activity {
         UiKit.placeCard(this,root,top);
 
         LinearLayout music=section(root,"Melodie & sanfter Ton");
+        Button recommended=UiKit.button(this,"Sanft & sicher: empfohlene Werte übernehmen",false);
+        music.addView(recommended);
+        recommended.setOnClickListener(v->new AlertDialog.Builder(this)
+                .setTitle("Empfohlene Weckwerte übernehmen?")
+                .setMessage("Nur für diesen Wecker: Uhr sofort benachrichtigen, "+
+                        "Handyton nach 10 Sekunden, Lautstärkeanstieg über 1 Minute "+
+                        "und maximal 55 % des Android-Weckerpegels. "+
+                        "Erst mit ✓ Speichern werden die Werte dauerhaft übernommen.")
+                .setNegativeButton("Abbrechen",null)
+                .setPositiveButton("Übernehmen",(dialog,which)->{
+                    delay.setProgress(1);   // 10 seconds
+                    ramp.setProgress(0);    // one minute
+                    volume.setProgress(50); // 55 %
+                    rising.setChecked(true);
+                    watch.setChecked(true);
+                    if(pulses.getProgress()==0) pulses.setProgress(6);
+                    changed();
+                }).show());
         tone=new Spinner(this);
         tone.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,
                 new String[]{"Sanftes Glockenspiel","Reiner weicher Ton","Tiefe Harmonie"}));
