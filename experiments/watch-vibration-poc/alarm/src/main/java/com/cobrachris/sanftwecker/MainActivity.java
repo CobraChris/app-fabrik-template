@@ -89,6 +89,10 @@ public final class MainActivity extends Activity {
         });
         base.addView(header);
         ClockTabs.add(this,base,ClockTabs.ALARMS);
+        Button updates=UiKit.button(this,"App aktualisieren",false);
+        base.addView(updates);
+        updates.setOnClickListener(v->startActivity(
+                new Intent(this,UpdateActivity.class)));
         TextView safety = UiKit.label(this,
                 "Beta · bitte bisherigen Wecker weiterhin benutzen", 13, UiKit.MUTED);
         LinearLayout.LayoutParams safetyParams = new LinearLayout.LayoutParams(-1,-2);

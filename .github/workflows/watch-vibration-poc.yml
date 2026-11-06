@@ -39,11 +39,11 @@ jobs:
         run: |
           gradle --no-daemon -p experiments/watch-vibration-poc \
             :alarm:testDebugUnitTest :alarm:assembleDebug :alarm:lintDebug :phone:assembleDebug
-      - name: Unnoetige Berechtigungen verhindern
+      - name: Unnoetige Berechtigungen verhindern (Internet nur für manuelle Updateprüfung)
         shell: bash
         run: |
           MANIFEST=experiments/watch-vibration-poc/alarm/src/main/AndroidManifest.xml
-          if grep -Eq '(android.permission.INTERNET|android.permission.ACCESS_FINE_LOCATION|android.permission.READ_EXTERNAL_STORAGE|android.permission.WRITE_EXTERNAL_STORAGE)' "$MANIFEST"; then
+          if grep -Eq '(android.permission.ACCESS_FINE_LOCATION|android.permission.READ_EXTERNAL_STORAGE|android.permission.WRITE_EXTERNAL_STORAGE)' "$MANIFEST"; then
             echo 'Unexpected permission in Sanftwecker manifest' >&2; exit 1
           fi
           test -s experiments/watch-vibration-poc/alarm/build/outputs/apk/debug/alarm-debug.apk

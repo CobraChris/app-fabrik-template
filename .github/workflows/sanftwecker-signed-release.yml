@@ -1,0 +1,115 @@
+name: 'Android: Sanftwecker signierte Update-APK veröffentlichen'
+
+# Manual, owner-initiated only. Never publish unsigned or ephemeral-debug APKs.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  signed-release:
+    name: Dauerhaft signierte Sanftwecker-APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Store these in GitHub Actions repository secrets, never in source code.
+      SANFTWECKER_KEYSTORE_BASE64: ${{ secrets.SANFTWECKER_KEYSTORE_BASE64 }}
+      SANFTWECKER_SIGNING_PASSWORD: ${{ secrets.SANFTWECKER_SIGNING_PASSWORD }}
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Geschuetzten Signierschluessel pruefen
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$SANFTWECKER_KEYSTORE_BASE64" || -z "$SANFTWECKER_SIGNING_PASSWORD" ]]; then
+            echo "::error::Signatur fehlt. Zuerst beide Repository-Secrets einrichten."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$SANFTWECKER_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/sanftwecker-signing.jks"
+          keytool -list -keystore "$RUNNER_TEMP/sanftwecker-signing.jks" \
+            -alias sanftwecker -storepass "$SANFTWECKER_SIGNING_PASSWORD" >/dev/null
+      - name: Android SDK 35
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_MANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)
+          test -n "$SDK_MANAGER"
+          yes | "$SDK_MANAGER" --licenses >/dev/null || true
+          "$SDK_MANAGER" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Tests und nicht signierte Release-APK bauen
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --no-daemon -p experiments/watch-vibration-poc \
+            :alarm:testDebugUnitTest :alarm:lintDebug :alarm:assembleRelease
+      - name: Mit festem Schluessel signieren und verifizieren
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="experiments/watch-vibration-poc/alarm/build/outputs/apk/release/alarm-release-unsigned.apk"
+          test -s "$APK"
+          mkdir -p signed
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/sanftwecker-signing.jks" \
+            --ks-key-alias sanftwecker \
+            --ks-pass env:SANFTWECKER_SIGNING_PASSWORD \
+            --key-pass env:SANFTWECKER_SIGNING_PASSWORD \
+            --out signed/sanftwecker-release.apk "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            --min-sdk-version 30 --verbose signed/sanftwecker-release.apk
+          sha256sum signed/sanftwecker-release.apk > signed/SHA256SUMS.txt
+          echo "Release APK verified."
+      - name: Version und GitHub Release-Tag lesen
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          GRADLE="experiments/watch-vibration-poc/alarm/build.gradle"
+          CODE=$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]+([0-9]+).*/\1/p' "$GRADLE")
+          NAME=$(sed -nE "s/^[[:space:]]*versionName[[:space:]]+'([^']+)'.*/\1/p" "$GRADLE")
+          test -n "$CODE"
+          test -n "$NAME"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=sanftwecker-v$CODE" >> "$GITHUB_OUTPUT"
+      - name: Verhindere Ueberschreiben bestehender Releases
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG existiert bereits. VersionCode zuerst erhöhen."
+            exit 1
+          fi
+      - name: Dauerhaft signierte APK direkt als Release veroeffentlichen
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" \
+            signed/sanftwecker-release.apk signed/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" \
+            --title "Sanftwecker $VERSION_NAME (signiert)" \
+            --notes "APK fuer direkte Android-Updates. Installation erfordert bestehende passende App-Signatur und eine Bestaetigung durch Android. Watch-Benachrichtigungen und Alarme nach Update pruefen." \
+            --prerelease
+      - name: Signing-Datei vom Runner entfernen
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/sanftwecker-signing.jks"
