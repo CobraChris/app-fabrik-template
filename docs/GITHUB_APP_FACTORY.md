@@ -43,3 +43,9 @@ Ein signierter Release-Lauf wurde **noch nicht** ausgefuehrt. Der PR ist Draft. 
 **Quellen:** https://docs.github.com/en/rest/actions/secrets ,
 https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows ,
 https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt
+
+## Privater GitHub-Steuerungsbereich (Vorlage, noch nicht installiert)
+
+Unter `templates/github-admin-controller/` liegt jetzt eine wiederverwendbare, **serverlose GitHub-Actions-Alternative** zum noch nicht anbietbaren MCP-Schreibzugang: Für jede neue Android-App werden dort eigene Signatur-Secrets erzeugt, in einem **separaten privaten** GitHub-Repository verschlüsselt gesichert und per kurzlebigem GitHub-App-Token in das Zielrepository eingetragen. Mehr Details in `templates/github-admin-controller/README.md`.
+
+Der Workflow ist vorläufig **ausschließlich manuell auslösbar** und prüft Repository, GitHub-Konto und privaten Status. Das ist absichtlich sicherer als eine unbeaufsichtigte Admin-Aktion aus dem öffentlichen PWA-Repository. Ohne neu angelegtes privates Controller-Repository, GitHub-App-Installation und gesicherte Zugangsdaten funktioniert er noch nicht. Nach der einmaligen Einrichtung entfallen künftig die vier manuellen Secret-Einträge pro App; ein manueller Workflow-Start pro App bleibt zunächst notwendig.

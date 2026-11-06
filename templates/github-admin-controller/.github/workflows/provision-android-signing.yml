@@ -1,0 +1,77 @@
+name: Android-App-Signierschluessel einmalig einrichten
+
+# Privater, manuell gestarteter Admin-Controller – niemals in einem oeffentlichen Repo aktivieren.
+on:
+  workflow_dispatch:
+    inputs:
+      target_repository:
+        description: 'CobraChris/REPOSITORY (nur bereits genehmigte GitHub-App-Installationen)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-signing-provision
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    if: github.repository == 'CobraChris/github-app-fabrik-control' && github.actor == 'CobraChris' && github.ref_name == github.event.repository.default_branch && github.event.repository.private == true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: signing-administration
+    steps:
+      - name: Eigenes privates Steuerungsrepository laden
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          ref: main
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Java verfuegbar machen
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Sicheres Backup vorbereiten (niemals Klartext committen)
+        env:
+          GH_APP_ID: ${{ secrets.GH_APP_ID }}
+          GH_APP_PRIVATE_KEY_PEM: ${{ secrets.GH_APP_PRIVATE_KEY_PEM }}
+          GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
+          BACKUP_KEY_BASE64: ${{ secrets.BACKUP_KEY_BASE64 }}
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+        run: |
+          set -euo pipefail
+          node scripts/provision.mjs prepare
+      - name: Verschluesseltes Backup dauerhaft speichern
+        env:
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME="$"+"{TARGET_REPOSITORY#CobraChris/}"
+          [[ "$NAME" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$ ]] || exit 1
+          test -s "backups/$NAME.json.enc"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "backups/$NAME.json.enc"
+          if ! git diff --cached --quiet; then
+            git commit -m "backup: encrypted signing identity for $NAME"
+            git push origin HEAD:main
+          fi
+      - name: Signatur-Secrets im Zielrepository anlegen – nie ueberschreiben
+        env:
+          GH_APP_ID: ${{ secrets.GH_APP_ID }}
+          GH_APP_PRIVATE_KEY_PEM: ${{ secrets.GH_APP_PRIVATE_KEY_PEM }}
+          GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
+          BACKUP_KEY_BASE64: ${{ secrets.BACKUP_KEY_BASE64 }}
+          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+        run: |
+          set -euo pipefail
+          node scripts/provision.mjs apply
+      - name: Statusmeldung
+        run: echo 'Die vier Signier-Secrets sind im Zielrepository vorhanden. Signatur-Backups bleiben verschluesselt.'
