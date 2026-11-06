@@ -6,6 +6,7 @@ import {
   targetRepository,backupFileName,protectBackup,recoverBackup,
   missingSecrets,SECRET_NAMES
 } from '../templates/github-admin-controller/scripts/provision-core.mjs';
+import { existingSecretNames } from '../templates/github-admin-controller/scripts/provision.mjs';
 
 const REPO='CobraChris/meine-app';
 const PASSWORD=randomBytes(32).toString('base64');
@@ -75,4 +76,25 @@ test('provisioner refuses key replacement if target has keys without backup',()=
   assert.ok(src.includes('for(const name of missing)'));
   assert.ok(src.includes("GH_TOKEN:token"));
   assert.doesNotMatch(src,/console\.log\(material|console\.log\(values/);
+});
+
+test('secret inventory pagination prevents accidental key rotation',async()=>{
+  const repo='CobraChris/long-list';
+  const page1=Array.from({length:100},(_,n)=>({name:'OTHER_'+n}));
+  const page2=[{name:'APP_SIGNING_KEYSTORE_BASE64'},{name:'APP_SIGNING_KEY_ALIAS'}];
+  const pages=[];
+  const fake=async(url)=>{
+    pages.push(url);
+    return {ok:true,json:async()=>({secrets:pages.length===1?page1:page2})};
+  };
+  const names=await existingSecretNames(repo,'ephemeral-test-token',fake);
+  assert.equal(pages.length,2);
+  assert.equal(names.length,102);
+  assert.deepEqual(missingSecrets(names),[
+    'APP_SIGNING_STORE_PASSWORD','APP_SIGNING_KEY_PASSWORD'
+  ]);
+});
+test('controller fails closed if inventory metadata cannot be read',async()=>{
+  await assert.rejects(existingSecretNames('CobraChris/app','token',
+    async()=>({ok:false,status:403})),/HTTP 403/);
 });
