@@ -38,7 +38,7 @@ jobs:
       - name: Alarmtests und APKs kompilieren
         run: |
           gradle --no-daemon -p experiments/watch-vibration-poc \
-            :alarm:testDebugUnitTest :alarm:assembleDebug :alarm:lintDebug :phone:assembleDebug
+            :alarm:testDebugUnitTest :alarm:assembleDebug :alarm:assembleRelease :alarm:lintDebug :phone:assembleDebug
       - name: Unnoetige Berechtigungen verhindern (Internet nur für manuelle Updateprüfung)
         shell: bash
         run: |
@@ -47,6 +47,7 @@ jobs:
             echo 'Unexpected permission in Sanftwecker manifest' >&2; exit 1
           fi
           test -s experiments/watch-vibration-poc/alarm/build/outputs/apk/debug/alarm-debug.apk
+          test -s experiments/watch-vibration-poc/alarm/build/outputs/apk/release/alarm-release-unsigned.apk
       - name: APK bereitstellen
         run: |
           mkdir -p artifacts
