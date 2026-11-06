@@ -18,7 +18,7 @@ Eine dauerhafte technische Grundlage fuer mehrere Android-Apps und PWAs, statt i
 - integrations/github-admin/: Node.js-Bausteine fuer GitHub-App-JWTs, kurzlebige Installationstokens und Actions-Secrets per GitHub Public-Key/Libsodium-Sealed-Box.
 - tests/github-admin.test.mjs und tests/android-factory-workflows.test.mjs: automatische Regressionstests.
 
-Ein signierter Release-Lauf wurde **noch nicht** ausgefuehrt. Der PR ist Draft. Er darf nicht ohne menschliche Sicherheitspruefung gemerged werden.
+Die Android-Beta aus PR #19 hat bereits erfolgreich als unsignierte Debug-/Release-APK gebaut. Das erste dauerhaft signierte Beta-Release ist als GitOps-Auftrag vorbereitet, wurde aber **noch nicht ausgefuehrt**. Sicherheitsrelevante Workflow-Aenderungen weiterhin reviewen, bevor sie auf main aktiviert werden.
 
 ## Sicherheit
 
@@ -44,8 +44,40 @@ Ein signierter Release-Lauf wurde **noch nicht** ausgefuehrt. Der PR ist Draft. 
 https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows ,
 https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt
 
-## Privater GitHub-Steuerungsbereich (Vorlage, noch nicht installiert)
+## Private GitHub-Steuerzentrale: installiert und im Ersttest erfolgreich
 
-Unter `templates/github-admin-controller/` liegt jetzt eine wiederverwendbare, **serverlose GitHub-Actions-Alternative** zum noch nicht anbietbaren MCP-Schreibzugang: Für jede neue Android-App werden dort eigene Signatur-Secrets erzeugt, in einem **separaten privaten** GitHub-Repository verschlüsselt gesichert und per kurzlebigem GitHub-App-Token in das Zielrepository eingetragen. Mehr Details in `templates/github-admin-controller/README.md`.
+Der private Controller ist bereits als eigenes Repository
+`CobraChris/github-app-fabrik-control` eingerichtet. Die GitHub-App
+`CobraChris-App-Fabrik-Admin` (App-ID `5640822`) besitzt im bereits
+freigegebenen Zielrepository `CobraChris/app-fabrik-template` ausschließlich
+`Secrets: write`. Die beiden Admin-Secrets wurden auf GitHub Actions geprüft.
+Ein geschützter GitOps-Push-Auftrag wurde bereits **erfolgreich ausgeführt**:
+vier `APP_SIGNING_*`-Secrets wurden im Zielrepository installiert und ein
+verschlüsseltes Signing-Backup im privaten Controller gespeichert.
 
-Der Workflow ist vorläufig **ausschließlich manuell auslösbar** und prüft Repository, GitHub-Konto und privaten Status. Das ist absichtlich sicherer als eine unbeaufsichtigte Admin-Aktion aus dem öffentlichen PWA-Repository. Ohne neu angelegtes privates Controller-Repository, GitHub-App-Installation und gesicherte Zugangsdaten funktioniert er noch nicht. Nach der einmaligen Einrichtung entfallen künftig die vier manuellen Secret-Einträge pro App; ein manueller Workflow-Start pro App bleibt zunächst notwendig.
+Die Verschlüsselung verwendet einen pro Zielrepository abgeleiteten Schlüssel,
+der die **private GitHub-App-PEM-Datei** einbezieht. Der zuvor in einem Chat
+sichtbare Backup-Wert kann damit alleine kein Signatur-Backup entschlüsseln.
+Den PEM-Schlüssel und einen Wiederherstellungsweg sicher extern aufbewahren;
+vor Key-Rotation vorhandene Backups kontrolliert migrieren.
+
+Für weitere freigegebene Repositories legt ChatGPT einen nachvollziehbaren
+Auftrag in `requests/provision.json` des privaten Controllers ab.
+Nicht zugelassene Zielrepositories werden abgewiesen. Eine neue
+GitHub-App-Installation/Berechtigungsfreigabe kann trotzdem einmalig
+den Benutzer erfordern. Niemals Keys in öffentliche Dateien kopieren.
+
+## Erstes signiertes Sanftwecker-Beta-Release
+
+Ein separater Main-Workflow `.github/workflows/sanftwecker-release-candidate.yml`
+reagiert auf `requests/sanftwecker-release.json`. Er akzeptiert nur den
+GitHub-Besitzer `CobraChris`, den geprüften Standardbranch und einen
+exakt freigegebenen Commit des Sanftwecker-Draftzweigs. Er führt
+Unit-Tests/Lint/Release-Build ohne Secrets aus und signiert die APK erst
+im getrennten `android-releases`-Job. Vor jedem weiteren Release
+werden Versionscode und Signaturzertifikat gegen bisherige APKs geprüft.
+
+Die eigentliche Sanftwecker-Implementierung bleibt in PR #19 bis zur
+Samsung-Abnahme getrennt von main. VersionCode 9 / Beta 0.8.0 ist als
+erster Auftrag vorbereitet. Weiterhin gilt: **Ein erfolgreicher Build ist
+kein Test der echten Weckerzuverlässigkeit am Samsung-Gerät.**
