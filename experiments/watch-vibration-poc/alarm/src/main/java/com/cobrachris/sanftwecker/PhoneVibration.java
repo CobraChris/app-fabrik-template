@@ -5,77 +5,112 @@ import android.media.AudioAttributes;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
 
-/** Independent direct handset haptics, unlike mirrored watch notifications. */
+/**
+ * Finite handset vibrations only. No infinitely repeating hardware waveform.
+ * A single motor phase lasts at most 4 seconds; every test has a cancel button.
+ */
 public final class PhoneVibration {
-    private static final Handler HANDLER=new Handler(Looper.getMainLooper());
-    private static boolean alarmRunning;
+    public static final int MAX_ALARM_MS = VibrationSafety.MAX_ALARM_MS;
+    public static final int MAX_PREVIEW_MS = VibrationSafety.MAX_PREVIEW_MS;
+    private static final Handler HANDLER = new Handler(Looper.getMainLooper());
     private static Vibrator activeVibrator;
+    private static boolean alarmRunning;
     private static int generation;
 
     private PhoneVibration() {}
 
     private static Vibrator find(Context context) {
-        if(Build.VERSION.SDK_INT>=31){
-            VibratorManager manager=(VibratorManager)context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
-            if(manager!=null) return manager.getDefaultVibrator();
+        if (Build.VERSION.SDK_INT >= 31) {
+            VibratorManager m = (VibratorManager)
+                    context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+            if (m != null) return m.getDefaultVibrator();
         }
-        return (Vibrator)context.getSystemService(Context.VIBRATOR_SERVICE);
+        return (Vibrator) context.getSystemService(Context.VIBRATOR_SERVICE);
     }
 
-    private static AudioAttributes alarmAttributes() {
+    private static AudioAttributes attributes() {
         return new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build();
     }
 
-    /** Mode 0 is intentionally legacy: existing alarms stay unchanged. */
-    public static synchronized void start(Context context,int mode) {
-        if(mode==0)return;
+    /** Play one finite rhythm. NEVER use an infinite repeat index. */
+    private static void once(Vibrator v, int mode) {
+        v.vibrate(VibrationEffect.createWaveform(
+                VibrationPresets.pattern(mode), VibrationSafety.NON_REPEATING), attributes());
+    }
+
+    public static synchronized void start(Context context, int mode) {
         stop();
+        if (mode == 0) return; // Old profiles remain notification-only.
         Vibrator v=find(context);
-        if(v==null||!v.hasVibrator()) {
-            AlarmRepository.diagnostic(context,"Handy-Vibration nicht verfügbar");
+        if (v == null || !v.hasVibrator()) {
+            AlarmRepository.diagnostic(context, "Handyvibration nicht verfügbar");
             return;
         }
+        activeVibrator=v;
+        alarmRunning=true;
+        final int token=generation;
+        final long deadline=SystemClock.elapsedRealtime()+MAX_ALARM_MS;
+        final Runnable[] cycle=new Runnable[1];
+        cycle[0]=()->{
+            synchronized(PhoneVibration.class) {
+                if (!alarmRunning || token != generation) return;
+                long remaining=deadline-SystemClock.elapsedRealtime();
+                if (remaining <= 0) { stop(); return; }
+                try {
+                    once(v,mode);
+                } catch (RuntimeException ex) {
+                    AlarmRepository.diagnostic(context,"Handyvibration durch Android blockiert");
+                    stop();
+                    return;
+                }
+                long oneCycle=VibrationPresets.duration(mode);
+                if(oneCycle<remaining)HANDLER.postDelayed(cycle[0],oneCycle);
+            }
+        };
+        HANDLER.post(cycle[0]);
+        HANDLER.postDelayed(()->{
+            synchronized(PhoneVibration.class) {
+                if(token==generation)stop();
+            }
+        },MAX_ALARM_MS);
+        AlarmRepository.diagnostic(context,
+                "Handyvibration gestartet – automatische Abschaltung nach 12 s");
+    }
+
+    /** One preview only; the activity shows the stop dialog BEFORE invoking this. */
+    public static synchronized boolean preview(Context context,int mode) {
+        if(alarmRunning)return false;
+        stop();
+        Vibrator v=find(context);
+        if(v==null || !v.hasVibrator())return false;
         try {
-            alarmRunning=true;
             activeVibrator=v;
-            int token=++generation;
-            v.vibrate(VibrationEffect.createWaveform(VibrationPresets.pattern(mode),0),alarmAttributes());
-            // Bounded continuous haptics: 4 s on, 0.5 s off, max 60 seconds.
-            // Other patterns stop with the service, max 120 seconds.
-            int maxDuration=mode==4?60_000:120_000;
+            int token=generation;
+            once(v,mode);
             HANDLER.postDelayed(()->{
                 synchronized(PhoneVibration.class) {
-                    if(alarmRunning && token==generation)stop();
+                    if(token==generation)stop();
                 }
-            },maxDuration);
-            AlarmRepository.diagnostic(context,"Handy-Vibration: "+
-                    VibrationPresets.LABELS[mode]);
-        }catch(RuntimeException e){
-            alarmRunning=false;
-            activeVibrator=null;
-            AlarmRepository.diagnostic(context,"Handy-Vibration vom System blockiert");
+            },VibrationSafety.previewDuration(mode));
+            return true;
+        }catch(RuntimeException ex){
+            stop();
+            return false;
         }
     }
 
-    public static synchronized boolean preview(Context context,int mode) {
-        if(alarmRunning)return false;
-        Vibrator v=find(context);
-        if(v==null||!v.hasVibrator())return false;
-        try {
-            v.vibrate(VibrationEffect.createWaveform(VibrationPresets.pattern(mode),-1),alarmAttributes());
-            return true;
-        }catch(RuntimeException error) {return false;}
-    }
-
+    /** Emergency stop always works independently of a foreground alarm service. */
     public static synchronized void stop() {
         generation++;
         alarmRunning=false;
+        HANDLER.removeCallbacksAndMessages(null);
         if(activeVibrator!=null){
             try{activeVibrator.cancel();}catch(RuntimeException ignored){}
             activeVibrator=null;
