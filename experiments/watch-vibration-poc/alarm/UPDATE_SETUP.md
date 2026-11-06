@@ -1,63 +1,90 @@
-# Sanftwecker: sichere und einfache App-Updates
+# Sanftwecker: dauerhaft signierte Updates (Stand: 06.11.2026)
 
-Stand: 06.11.2026 – Update-Grundlage implementiert, **noch nicht für Nutzer eingerichtet**.
+## Verifizierter Stand
 
-## Ziel
+Die **signierten GitHub-Releases** wurden bereits erfolgreich veröffentlicht:
 
-Eine vorhandene Android-Installation soll **ohne Deinstallation** aktualisiert werden. Gespeicherte Wecker, Timer, Stoppuhren und Freigaben bleiben bei einer normalen Aktualisierung erhalten.
+| Version | Android versionCode | GitHub-Release |
+|---|---:|---|
+| 0.8.0-beta | 9 | https://github.com/CobraChris/app-fabrik-template/releases/tag/sanftwecker-v9 |
+| 0.8.1-beta | 10 | https://github.com/CobraChris/app-fabrik-template/releases/tag/sanftwecker-v10 |
 
-Die Android-Plattform verlangt dafür:
-- Exakt dieselbe \`applicationId\` (\`com.cobrachris.sanftwecker\`)
-- Exakt dieselbe Signatur bzw. gültige Schlüsselrotation
-- Höheren Android-\`versionCode\`
-- Meist eine Bestätigung des Anwenders im Systeminstaller
+Beide Releases enthalten die signierte Datei `sanftwecker-release.apk`,
+`SHA256SUMS.txt` und `RELEASE_INFO.txt`. Der GitHub-Actions-Workflow hat
+beim zweiten Release vor Veröffentlichung das **gleiche SHA-256-Signaturzertifikat**
+wie beim ersten verifiziert. Außerdem sind die Android-Paket-ID
+`com.cobrachris.sanftwecker` und der steigende versionCode geprüft.
 
-Bisherige Debug-APKs kommen von **ephemeren GitHub-Runnern**, deren \`debug.keystore\` in jedem Runner unterschiedlich sein kann. Die alte private Signatur lässt sich aus einer bereits installierten APK nicht zuverlässig wiederherstellen. Daher ist bei Umstellung auf einen eigenen dauerhaften Schlüssel **voraussichtlich eine letzte Neuinstallation nötig**. Das löscht lokale App-Daten – vorher Wecker-Einstellungen dokumentieren.
+**Wichtig:** CI bestätigt Signaturidentität und Builds, aber noch **keinen
+erfolgreichen Android-In-place-Updateversuch** und keine zuverlässige Weckfunktion
+im Schlaf-/Energiesparmodus. PR #19 bleibt daher im Draft.
 
-## Bereits vorbereitet
+## Automatische Release-Fabrik – keine manuellen Secrets und Workflow-Starts
 
-1. **Button „App aktualisieren“** auf der Weckerliste öffnet die Update-Seite.
-2. **„Nach Update suchen“** ruft nur auf ausdrücklichen Klick öffentlich sichtbare GitHub-Releases ab (kein Hintergrunddienst).
-3. Als Update akzeptiert die App ausschließlich ein **direktes APK-Asset \`sanftwecker-release.apk\`** aus Releases dieses Repositories mit einem Tag wie \`sanftwecker-v9\`; ältere Releases werden ignoriert.
-4. Über **„APK im Browser herunterladen“** wird der **externe Android-Browser** geöffnet. Android führt die Installation nach Nutzereingabe durch. Es gibt **keine stille Installation**, keine automatische Deinstallation und keine unsignierte APK-Fallback-Installation.
-5. Ein eigener manueller GitHub-Workflow \`.github/workflows/sanftwecker-signed-release.yml\` erstellt die Release-APK, signiert sie, prüft die Signatur und lädt die APK **direkt** in ein GitHub-Release (nicht in ein ZIP).
-6. Die APK darf nur veröffentlicht werden, wenn die beiden Signier-Secrets vorhanden sind. Private Schlüssel werden **nie** ins Repository eingebaut oder in die App aufgenommen.
+Der aktive, sicherheitsbegrenzte GitHub-Actions-Workflow liegt auf `main` unter
+`.github/workflows/sanftwecker-release-candidate.yml`.
 
-**Beachte:** Die Update-Seite benötigt die Android-Berechtigung \`INTERNET\`, die ausschließlich beim manuellen Updatecheck genutzt wird. Ansonsten weiterhin kein Tracking, kein Konto, keine Werbung, keine kostenpflichtigen Dienste.
+1. Die Wecker-App bleibt in `feature/watch-vibration-poc`, damit sie nicht vor
+   Samsung-Abnahme in die Haupt-App übernommen wird.
+2. Nach erfolgreichen GitHub-Tests wird ein exakter, geprüfter Commit-SHA und
+   der höhere Android-versionCode in `requests/sanftwecker-release.json`
+   auf `main` eingetragen.
+3. Nur ein Push des Inhabers auf `main`, der diese Auftragsdatei ändert,
+   löst den Workflow aus. Fremde Pfade, Tags, Commits und fehlerhafte Angaben
+   werden abgewiesen.
+4. Der unsignierte Gradle-Build führt `:alarm:testDebugUnitTest`,
+   `:alarm:lintDebug` und `:alarm:assembleRelease` ohne Secrets aus.
+5. Der getrennte Signierjob `android-releases` verwendet die vier bereits
+   eingerichteten, vertraulichen Repository-Secrets
+   `APP_SIGNING_KEYSTORE_BASE64`, `APP_SIGNING_STORE_PASSWORD`,
+   `APP_SIGNING_KEY_ALIAS`, `APP_SIGNING_KEY_PASSWORD`.
+6. Vor einem Update wird das zuvor veröffentlichte Signaturzertifikat mit
+   dem neuen verglichen. Bei falschem Zertifikat, älterem versionCode oder
+   vorhandenem Release-Tag erfolgt **keine Veröffentlichung**.
+7. Der fertig signierte APK-Download wird als GitHub-*Prerelease* veröffentlicht;
+   das GitHub-Release-Asset ist keine ZIP-Datei.
 
-## Noch einmalige GitHub-Einrichtung erforderlich
+Eine zweite, ältere manuelle Signierpipeline mit zwei anderen
+`SANFTWECKER_*`-Secrets wurde aus dem Entwicklungszweig entfernt; sie ist
+überholt und soll nicht mehr für Releases verwendet werden. Die Verteilung
+bleibt kostenlos innerhalb der verfügbaren GitHub-Kontingente.
 
-Nur Repository-Inhaber bzw. berechtigte Administratoren können GitHub Actions Secrets eintragen. Es sind genau zwei nötig:
+## Samsung-Abnahme – kontrollierter Update-Test
 
-- \`SANFTWECKER_KEYSTORE_BASE64\`: Base64-Text einer dauerhaften, privaten PKCS12/JKS-Keystore-Datei
-- \`SANFTWECKER_SIGNING_PASSWORD\`: starkes Keystore-Passwort (gleiches Passwort für Store und Schlüssel)
+**Wichtig:** Wenn schon eine Debug-Version von „Sanftwecker (Test)“ installiert
+ist, lässt sie sich wegen der abweichenden Debug-Signatur wahrscheinlich nicht
+direkt mit einer signierten Release-APK ersetzen. Die vorhandene App
+**nicht ungeprüft deinstallieren**: Eine Deinstallation löscht Wecker,
+Timer und Stoppuhren. Die App hat `android:allowBackup="false"`.
 
-Der Keystore muss **einmalig** mit Alias \`sanftwecker\` erzeugt werden, \`RSA 3072\`, Gültigkeit mindestens 25 Jahre. Die erzeugte Schlüsseldatei und das Passwort unbedingt sicher sichern; falls verloren, werden zukünftige Updates unmöglich. Die Secrets niemals in GitHub-Issues, PRs, öffentlichen Dateien, Chat-Text oder Actions-Logs veröffentlichen.
+Für einen bewussten Test nach Sicherung beziehungsweise Notieren der Daten:
 
-Einrichten in GitHub im Repository: **Settings → Secrets and variables → Actions → New repository secret**. Weder ein GitHub-Token noch ein kostenpflichtiger Dienst ist notwendig.
+1. Die bestehende Installation und ihre gespeicherten Einstellungen prüfen.
+   Erst bei bewusst gewähltem Wechsel auf die Release-Signatur eventuell die
+   Debug-Version deinstallieren.
+2. **Build 9** als Ausgangsversion installieren:
+   https://github.com/CobraChris/app-fabrik-template/releases/download/sanftwecker-v9/sanftwecker-release.apk
+3. Einen Testwecker, Timer und Stoppuhr-Stand speichern. Berechtigungen und
+   Watch-Benachrichtigungsspiegelung prüfen.
+4. In der App auf **„App aktualisieren“** und **„Nach Update suchen“**
+   tippen oder **Build 10** über den externen Browser herunterladen:
+   https://github.com/CobraChris/app-fabrik-template/releases/download/sanftwecker-v10/sanftwecker-release.apk
+5. Android sollte **„Aktualisieren“ statt „Neu installieren“** anbieten.
+   Installationsbestätigung ist normal; stilles Installieren wird nicht
+   versucht.
+6. Nach dem Update prüfen: App-Version 0.8.1, gespeicherter Testwecker,
+   Timer/Stoppuhr, Android-Benachrichtigungen, Alarm nach Neustart,
+   gesperrtem Bildschirm, Energiesparmodus und Galaxy Watch.
 
-Nach Einrichtung: Den Release-Workflow in den **Standardzweig** überführen, damit GitHub \`workflow_dispatch\` anbieten kann, und beim ersten kontrollierten Release einmal manuell auslösen (gewünschten Revisionszweig wählen). Der Workflow baut und veröffentlicht ausschließlich, wenn die Secrets korrekt vorhanden sind. Der PR darf bis zur Samsung-Abnahme Draft bleiben.
+**Solange diese Tests nicht bestanden sind, den bisher zuverlässigen Wecker
+parallel verwenden.** Ein GitHub-Build ersetzt niemals einen echten Test mit
+geschütztem Handy und Galaxy Watch.
 
-## Warum die App Updates nicht selbst installiert
+## Grenzen
 
-Auf Android dürfen gewöhnliche Drittanbieter-Apps eine neue APK nicht still und unbeaufsichtigt installieren. Eine Nutzerbestätigung und bei Downloads eventuell die Freigabe zum Installieren aus dem jeweiligen Browser sind erforderlich. Ein Update mit gleichem Paketnamen, gleicher Signatur und höherem VersionCode lässt die Daten und die meisten Berechtigungen bestehen. Nach Updates kann Samsung Galaxy Wearable Benachrichtigungen weiterhin anders behandeln; deshalb Watch-Freigabe und Alarm-Tests nach dem ersten signierten Update überprüfen.
-
-## Grenzen und Sicherheitsbewertung
-
-Die bestehende Android-Anwendung zeigt den Update-Button, **aber es gibt noch kein signiertes GitHub Release**. Solange die GitHub-Secrets und der Workflow nicht eingerichtet sind, meldet die App „Noch keine dauerhaft signierte APK veröffentlicht“. Das ist beabsichtigt und verhindert eine falsche Erfolgsmeldung.
-
-Wecker-App bleibt in Beta. Den bisher zuverlässig funktionierenden anderen Wecker bis zur Samsung-Abnahme beibehalten.
-
-## Beta 0.8.1: Signaturkontinuität und Updateprüfung
-
-- Build 10 ersetzt Build 9 mit **identischer applicationId**
-  `com.cobrachris.sanftwecker`.
-- Die Updateprüfung akzeptiert nur noch ein APK-Asset, dessen tatsächlicher
-  GitHub-Release-Tag mit dem im JSON angegebenen Tag übereinstimmt.
-- Versionscodes werden auf den Android-Bereich 1 bis 2.100.000.000 begrenzt;
-  Versionen mit führenden Nullen werden zurückgewiesen.
-- Der GitHub-Release-Workflow prüft beim Übergang von Build 9 zu Build 10
-  vor Veröffentlichung den SHA-256-Fingerabdruck des Signaturzertifikats.
-- Für die spätere In-place-Installation ist zusätzlich ein praktischer
-  Gerätetest nötig. Die automatische CI kann keine echten Alarm- oder
-  Galaxy-Watch-Berechtigungen prüfen.
+Die Updateprüfung nutzt eine begrenzte GitHub-API-Abfrage ausschließlich nach
+Nutzerklick und akzeptiert nur eine direkte APK-URL aus dem bekannten
+Repository mit zum Release gehörigem numerischem Tag. Kein Login, keine
+Analytics, keine kostenpflichtigen Dienste. Android entscheidet selbst, ob
+Installation und Update zulässig sind. Browserbasierte APK-Installation
+benötigt gegebenenfalls einmalig die passende Android-Berechtigung.

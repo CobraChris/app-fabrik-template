@@ -1,4 +1,12 @@
-# Sanftwecker (Test) – Beta 0.7.0
+# Sanftwecker (Test) – Beta 0.8.1
+
+**Aktueller Stand, 06.11.2026:** Signierte Beta 0.8.0 (Build 9) und Beta 0.8.1 (Build 10) wurden automatisch erstellt und als GitHub-Prereleases veröffentlicht. Die Android-Build-Tests und der Zertifikatsvergleich für das In-place-Update sind erfolgreich. **Samsung-/Galaxy-Watch-Abnahme bleibt offen.** Siehe [aktuelle Update-Anleitung](UPDATE_SETUP.md).
+
+Die App verbleibt bis zur Abnahme im eigenen Entwicklungszweig und wird nicht produktiv in `main` übernommen.
+
+---
+
+## Entwicklungshistorie: Beta 0.7.0
 
 ## Neues Klingel-Design (06.11.2026)
 
