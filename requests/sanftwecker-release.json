@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "intent": "sanftwecker-signed-beta",
+  "request_id": "2026-11-06-first-signed-beta",
+  "source_sha": "b8191b3626dd368e3a4b59da088b46b94b8ebf3b",
+  "expected_version_code": 9
+}

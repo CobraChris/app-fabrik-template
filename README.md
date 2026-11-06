@@ -1,5 +1,11 @@
 # App-Fabrik: Universelle PWA-Vorlage
 
+## Zentrale GitHub-App-Fabrik (Android + PWA)
+
+Neue Android-Projekte koennen kuenftig dieselben **wiederverwendbaren GitHub-Actions-Workflows** fuer Tests, APK-Builds und signierte Releases verwenden. Der Build-Job bekommt keine Signierschluessel; der Signier-Job ist getrennt und darf nur nach bewusster Ausloesung auf einem geprueften Default-Branch arbeiten. Eine kuenftige GitHub-App-Integration zur Verwaltung geschuetzter Secrets ist als **serverseitige Bibliothek**, noch nicht als aktive ChatGPT-Schreibverbindung, vorbereitet.
+
+**Status: Android-Fabrik im Review, Signiercontroller bereits in Betrieb.** Das separate private Repository `CobraChris/github-app-fabrik-control` hat die vier Android-Signier-Secrets für dieses Repository nachweislich eingerichtet und verschlüsselt gesichert. Eine signierte Sanftwecker-Test-APK ist im [automatischen Beta-Release-Verfahren](requests/README.md) vorbereitet. Die noch nicht am Samsung abgenommene Wecker-App bleibt im separaten Draft-PR #19; das erste Release ist erst nach dem überprüften Main-Merge verfügbar. Siehe [Architektur](docs/GITHUB_APP_FACTORY.md).
+
 **Status:** Wiederverwendbares Template mit statischer PWA, Offline-Funktion, automatischen Tests, optionalem Codex-Vorschlagsworkflow und GitHub Pages. Keine Frameworks oder npm-Abhängigkeiten.
 
 ## Multi-App-Betrieb: neue Apps ohne neues Repository

@@ -1,0 +1,21 @@
+# Beispielvorlage: vor Produktiveinsatz Workflows auf geprueften SHA pinnen.
+# Fuer die Release-Publikation braucht der Aufrufer contents: write;
+# der Build-Job im wiederverwendbaren Workflow bleibt dennoch read-only.
+name: Android App signiert veroeffentlichen
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  release:
+    uses: CobraChris/app-fabrik-template/.github/workflows/reusable-android-release.yml@main
+    with:
+      project_path: '.'
+      module: 'app'
+      release_prefix: 'beispiel-app'
+      package_id: 'com.example.app'
+    secrets:
+      signing_keystore_base64: ${{ secrets.APP_SIGNING_KEYSTORE_BASE64 }}
+      signing_store_password: ${{ secrets.APP_SIGNING_STORE_PASSWORD }}
+      signing_key_alias: ${{ secrets.APP_SIGNING_KEY_ALIAS }}
+      signing_key_password: ${{ secrets.APP_SIGNING_KEY_PASSWORD }}

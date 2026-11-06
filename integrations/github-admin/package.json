@@ -1,0 +1,13 @@
+{
+  "name": "@app-fabrik/github-admin-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Server-only GitHub App Secrets adapter; not deployed as an MCP server",
+  "dependencies": {
+    "libsodium-wrappers": "0.8.4"
+  },
+  "scripts": {
+    "test": "node --test ../../tests/github-admin.test.mjs"
+  }
+}
