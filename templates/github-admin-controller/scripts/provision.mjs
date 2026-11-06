@@ -55,14 +55,22 @@ async function tokenFor(repository) {
   return data.token;
 }
 
-async function existingSecretNames(repository,token){
-  const r=await fetch(API+'/repos/'+repository+'/actions/secrets?per_page=100',{
-    headers:headers(token)
-  });
-  if(!r.ok)throw new Error('Cannot inspect target secret metadata: HTTP '+r.status);
-  const data=await r.json();
-  if(!Array.isArray(data.secrets))throw new Error('Unexpected GitHub Secrets response');
-  return data.secrets.map(v=>v.name);
+/** Read every page before deciding whether a key exists – never rotate by pagination bug. */
+export async function existingSecretNames(repository,token,fetchImpl=fetch){
+  targetRepository(repository);
+  const names=[];
+  for(let page=1;page<=50;page++){
+    const r=await fetchImpl(API+'/repos/'+repository+
+        '/actions/secrets?per_page=100&page='+page,{headers:headers(token)});
+    if(!r.ok)throw new Error('Cannot inspect target secret metadata: HTTP '+r.status);
+    const data=await r.json();
+    if(!Array.isArray(data.secrets) ||
+        data.secrets.some(item=>typeof item?.name!=='string'))
+      throw new Error('Unexpected GitHub Secrets response');
+    names.push(...data.secrets.map(v=>v.name));
+    if(data.secrets.length<100)return names;
+  }
+  throw new Error('Too many target secrets to validate safely');
 }
 
 function createKeyMaterial(repository){
@@ -111,9 +119,14 @@ async function prepare(repository,key){
 
 function setSecret(name,value,repository,token) {
   return new Promise((resolve,reject)=>{
+    // Child only receives the short-lived target token, not the controller keys.
+    const childEnv={...process.env,GH_TOKEN:token};
+    for(const key of ['GH_APP_PRIVATE_KEY_PEM','GH_APP_ID',
+                       'GH_APP_INSTALLATION_ID','BACKUP_KEY_BASE64','GITHUB_TOKEN'])
+      delete childEnv[key];
     const proc=spawn('gh',['secret','set',name,'--repo',repository],{
       stdio:['pipe','ignore','pipe'],
-      env:{...process.env,GH_TOKEN:token},
+      env:childEnv,
     });
     // Suppress stderr to avoid leaking payload from third-party error messages.
     proc.stderr.resume();
