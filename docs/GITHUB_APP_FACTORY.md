@@ -6,9 +6,9 @@ Eine dauerhafte technische Grundlage fuer mehrere Android-Apps und PWAs, statt i
 
 1. ChatGPT entwickelt im eigenen Branch, erstellt PR und prueft CI.
 2. Ein *wiederverwendbarer Android-Check* kompiliert, testet und prueft Lint ohne Signier-Secrets.
-3. Ein gesonderter, nur manuell auf dem geprueften Default-Branch startbarer Release-Workflow signiert die APK und veroeffentlicht sie als GitHub Release. Private Schluessel sind nur dem Signier-Job zugaenglich.
+3. Ein Main-Branch-GitOps-Auftrag baut einen freigegebenen Android-Commit automatisch; ein getrennter geschützter Signier-Job signiert und veröffentlicht die APK. Der Build-Job hat keinen Zugriff auf Signierschlüssel.
 4. Neue App-Versionen koennen ohne Deinstallation aktualisiert werden, **wenn** Android packageId, Signatur und steigenden versionCode akzeptiert; Android verlangt weiterhin eine Bestaetigung.
-5. Spaeter kann ein zusaetzlicher GitHub-App-Admin-Connector die Secrets aus einem geschuetzten Vault nach ausdruecklicher Besitzerfreigabe eintragen.
+5. Die private serverlose GitHub-Steuerzentrale ist bereits installiert und verwaltet Signier-Secrets für zuvor freigegebene Repositories.
 
 ## Bereits implementierte Komponenten
 
@@ -18,7 +18,7 @@ Eine dauerhafte technische Grundlage fuer mehrere Android-Apps und PWAs, statt i
 - integrations/github-admin/: Node.js-Bausteine fuer GitHub-App-JWTs, kurzlebige Installationstokens und Actions-Secrets per GitHub Public-Key/Libsodium-Sealed-Box.
 - tests/github-admin.test.mjs und tests/android-factory-workflows.test.mjs: automatische Regressionstests.
 
-Die Android-Beta aus PR #19 hat bereits erfolgreich als unsignierte Debug-/Release-APK gebaut. Das erste dauerhaft signierte Beta-Release ist als GitOps-Auftrag vorbereitet, wurde aber **noch nicht ausgefuehrt**. Sicherheitsrelevante Workflow-Aenderungen weiterhin reviewen, bevor sie auf main aktiviert werden.
+Die Android-Beta aus PR #19 wurde unabhängig erfolgreich gebaut und getestet. Am 06.11.2026 wurden **zwei echte signierte Pre-Releases** veröffentlicht: `sanftwecker-v9` (0.8.0-beta) und `sanftwecker-v10` (0.8.1-beta). Bei Build 10 wurde der **gleiche Zertifikats-Fingerabdruck** wie bei Build 9 bestätigt und eine niedrigere Versionsnummer ausgeschlossen. Ein echter Samsung-Installationstest steht noch aus.
 
 ## Sicherheit
 
