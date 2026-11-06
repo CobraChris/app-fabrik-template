@@ -20,12 +20,12 @@ const createClient=({fetchImpl,authorizeWrite=async()=>true}={})=>new GitHubSecr
     return 'encrypted-ciphertext';
   },
   authorizeWrite,
-  fetchImpl:fetchImpl||async(url,init)=>{
+  fetchImpl:fetchImpl||(async(url,init)=>{
     calls.push({url,init});
     if(url.endsWith('/public-key'))
       return {ok:true,json:async()=>({key:'QUJD',key_id:'key_123'})};
     return {ok:true,status:201};
-  },
+  }),
 });
 
 test('rejects repositories, secret names and vault references outside allowlists',async()=>{
