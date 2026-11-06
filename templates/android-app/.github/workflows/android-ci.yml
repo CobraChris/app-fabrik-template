@@ -1,0 +1,14 @@
+# Vorlage fuer ein neues Android-Repository; vor produktivem Einsatz SHA pinnen.
+name: Android App pruefen
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  android:
+    uses: CobraChris/app-fabrik-template/.github/workflows/reusable-android-check.yml@main
+    with:
+      project_path: '.'
+      module: 'app'

@@ -1,5 +1,11 @@
 # App-Fabrik: Universelle PWA-Vorlage
 
+## Zentrale GitHub-App-Fabrik (Android + PWA)
+
+Neue Android-Projekte koennen kuenftig dieselben **wiederverwendbaren GitHub-Actions-Workflows** fuer Tests, APK-Builds und signierte Releases verwenden. Der Build-Job bekommt keine Signierschluessel; der Signier-Job ist getrennt und darf nur nach bewusster Ausloesung auf einem geprueften Default-Branch arbeiten. Eine kuenftige GitHub-App-Integration zur Verwaltung geschuetzter Secrets ist als **serverseitige Bibliothek**, noch nicht als aktive ChatGPT-Schreibverbindung, vorbereitet.
+
+**Status: Draft, Sicherheitspruefung ausstehend.** Noch kein Produktiv-Release und kein aktiver Administrations-Connector. Die bisherige Wecker-/PWA-Funktion wird nicht ersetzt. Siehe [Architektur und offene Voraussetzungen](docs/GITHUB_APP_FACTORY.md).
+
 **Status:** Wiederverwendbares Template mit statischer PWA, Offline-Funktion, automatischen Tests, optionalem Codex-Vorschlagsworkflow und GitHub Pages. Keine Frameworks oder npm-Abhängigkeiten.
 
 ## Multi-App-Betrieb: neue Apps ohne neues Repository

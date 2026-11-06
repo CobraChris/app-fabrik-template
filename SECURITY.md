@@ -17,3 +17,11 @@
 - Im lesenden Codex-Job nur `issues: read` und `contents: read`; der Pull-Request-Job läuft getrennt mit Schreibrechten.
 - Kein automatischer Merge und kein versehentlicher API-Verbrauch beim Anlegen neuer Issues.
 - Öffentliche Issue-Texte sind öffentlich. Keine vertraulichen Projektinformationen in der öffentlichen Vorlage speichern.
+
+## Zentrale Android-Workflows und GitHub-App-Verwaltung
+
+- Android-Release nur nach manuellem Start auf dem geprueften Default-Branch; separate Build- und Signier-Jobs.
+- Signier-Secrets niemals in PR-/Debug-Builds; private APK-Signatur pro App getrennt, nicht im Quellcode.
+- GitHub-App-Administrationsbibliothek ist **noch nicht deployed**; notwendige Schreibrechte und ein sicherer Secret-Vault fehlen.
+- Nur bewusst freigegebene Repositories/Secrets, serverseitige Besitzerfreigabe, keine Klartextausgabe.
+- Alle Aenderungen an diesen Workflows benoetigen menschliche Sicherheitspruefung, keinen automatischen Merge. Details in docs/GITHUB_APP_FACTORY.md.

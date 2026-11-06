@@ -1,0 +1,182 @@
+name: 'App-Fabrik: Android signiert veroeffentlichen (wiederverwendbar)'
+# Kein PR-Trigger, keine Signier-Secrets im Build-Job.
+on:
+  workflow_call:
+    inputs:
+      project_path:
+        required: true
+        type: string
+      module:
+        required: true
+        type: string
+      release_prefix:
+        required: true
+        type: string
+      package_id:
+        required: true
+        type: string
+    secrets:
+      signing_keystore_base64:
+        required: true
+      signing_store_password:
+        required: true
+      signing_key_alias:
+        required: true
+      signing_key_password:
+        required: true
+permissions:
+  contents: read
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch && github.event.repository.fork == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    outputs:
+      version_code: ${{ steps.metadata.outputs.version_code }}
+      version_name: ${{ steps.metadata.outputs.version_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+          cache-disabled: true
+      - name: Pfade sicher validieren
+        shell: bash
+        env:
+          PROJECT: ${{ inputs.project_path }}
+          MODULE: ${{ inputs.module }}
+          PREFIX: ${{ inputs.release_prefix }}
+          PACKAGE_ID: ${{ inputs.package_id }}
+        run: |
+          set -euo pipefail
+          [[ "$PROJECT" =~ ^[a-zA-Z0-9_./-]+$ ]] || exit 1
+          [[ "$PROJECT" != /* && "$PROJECT" != *..* ]] || exit 1
+          [[ "$MODULE" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 1
+          [[ "$PREFIX" =~ ^[a-z][a-z0-9-]{1,40}$ ]] || exit 1
+          [[ "$PACKAGE_ID" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$ ]] || exit 1
+          test -f "$PROJECT/settings.gradle" -o -f "$PROJECT/settings.gradle.kts"
+          test -d "$PROJECT/$MODULE"
+      - name: Release bauen und testen (ohne Secrets)
+        shell: bash
+        env:
+          PROJECT: ${{ inputs.project_path }}
+          MODULE: ${{ inputs.module }}
+        run: |
+          set -euo pipefail
+          gradle --no-daemon -p "$PROJECT" \
+            ":$MODULE:testDebugUnitTest" ":$MODULE:lintDebug" ":$MODULE:assembleRelease"
+      - name: Android-Metadaten und Paketnamen pruefen
+        id: metadata
+        shell: bash
+        env:
+          PROJECT: ${{ inputs.project_path }}
+          MODULE: ${{ inputs.module }}
+          PACKAGE_ID: ${{ inputs.package_id }}
+        run: |
+          set -euo pipefail
+          JSON="$PROJECT/$MODULE/build/outputs/apk/release/output-metadata.json"
+          test -s "$JSON"
+          python3 - "$JSON" "$PACKAGE_ID" "$GITHUB_OUTPUT" <<'PY'
+          import json,sys,re
+          p,expected,output=sys.argv[1:]
+          with open(p,encoding='utf-8') as f: d=json.load(f)
+          assert d.get('applicationId')==expected, 'Android package mismatch'
+          items=d.get('elements',[])
+          assert len(items)==1, 'Expected exactly one release APK'
+          item=items[0]
+          code=item.get('versionCode')
+          name=item.get('versionName','')
+          assert isinstance(code,int) and 0<code<=2_100_000_000
+          assert isinstance(name,str) and re.fullmatch(r'[0-9A-Za-z._-]{1,64}',name)
+          with open(output,'a',encoding='utf-8') as f:
+              f.write(f'version_code={code}\nversion_name={name}\n')
+          PY
+          shopt -s nullglob
+          files=("$PROJECT/$MODULE/build/outputs/apk/release/"*-release-unsigned.apk)
+          test "$(find "$PROJECT/$MODULE/build/outputs/apk/release" -maxdepth 1 -name '*-release-unsigned.apk' | wc -l)" -eq 1
+          cp "$PROJECT/$MODULE/build/outputs/apk/release/"*-release-unsigned.apk unsigned-android.apk
+      - name: APK nur innerhalb dieses Runs uebergeben
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-unsigned-for-signing
+          path: unsigned-android.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  sign-and-publish:
+    needs: build
+    if: needs.build.result == 'success' && github.event_name == 'workflow_dispatch' && github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    environment: android-releases
+    env:
+      STORE_B64: ${{ secrets.signing_keystore_base64 }}
+      STORE_PASSWORD: ${{ secrets.signing_store_password }}
+      KEY_PASSWORD: ${{ secrets.signing_key_password }}
+      KEY_ALIAS: ${{ secrets.signing_key_alias }}
+      PREFIX: ${{ inputs.release_prefix }}
+      VERSION_CODE: ${{ needs.build.outputs.version_code }}
+      VERSION_NAME: ${{ needs.build.outputs.version_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-unsigned-for-signing
+          path: unsigned
+      - name: Schluessel pruefen (kein Checkout)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$STORE_B64" && test -n "$STORE_PASSWORD" && test -n "$KEY_PASSWORD" && test -n "$KEY_ALIAS"
+          umask 077
+          printf '%s' "$STORE_B64" | base64 --decode > "$RUNNER_TEMP/release-key.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release-key.jks" \
+            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+      - name: Buildtools bereitstellen
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDK"
+          "$SDK" 'build-tools;35.0.0' >/dev/null
+      - name: APK signieren und verifizieren
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s unsigned/unsigned-android.apk
+          mkdir -p signed
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/release-key.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out "signed/$PREFIX.apk" unsigned/unsigned-android.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            --min-sdk-version 30 --verbose "signed/$PREFIX.apk"
+          (cd signed && sha256sum "$PREFIX.apk" > SHA256SUMS.txt)
+      - name: Nur neue Releases veroeffentlichen
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="$PREFIX-v$VERSION_CODE"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release-Tag bereits vorhanden: $TAG"
+            exit 1
+          fi
+          gh release create "$TAG" "signed/$PREFIX.apk" signed/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "$PREFIX $VERSION_NAME (signiert)" \
+            --notes 'Dauerhaft signierte Android-APK, Samsung-Abnahme erforderlich.' \
+            --prerelease
+      - name: Temporaren Signierschluessel entfernen
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/release-key.jks"
