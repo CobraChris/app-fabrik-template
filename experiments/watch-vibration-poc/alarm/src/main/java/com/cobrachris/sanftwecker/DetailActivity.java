@@ -26,7 +26,7 @@ public final class DetailActivity extends Activity {
     private final TextView[] chips=new TextView[7];
     private final boolean[] days=new boolean[7];
     private Switch enabled,rising,watch,snoozeEnabled;
-    private Spinner tone;
+    private Spinner tone, vibration;
     private SeekBar delay,ramp,volume,pulses,interval,snooze,autoStop;
     private TextView delayLabel,rampLabel,volumeLabel,pulsesLabel,intervalLabel,snoozeLabel,stopLabel;
 
@@ -172,6 +172,36 @@ public final class DetailActivity extends Activity {
         music.addView(preview);
         preview.setOnClickListener(v->previewTone());
 
+        LinearLayout vibrationCard=section(root,"Vibration");
+        vibrationCard.addView(UiKit.label(this,
+                "Muster für Handy und Watch-Benachrichtigung",15,UiKit.MUTED));
+        vibration=new Spinner(this);
+        vibration.setContentDescription("Vibrationsrhythmus auswählen");
+        vibration.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_dropdown_item,VibrationPresets.LABELS));
+        vibrationCard.addView(vibration);
+        vibration.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){
+            public void onItemSelected(AdapterView<?> parent,View view,int pos,long key){
+                changed();
+            }
+            public void onNothingSelected(AdapterView<?> parent){}
+        });
+        Button vibrationPreview=UiKit.button(this,"Muster am Handy fühlen",false);
+        vibrationCard.addView(vibrationPreview);
+        vibrationPreview.setOnClickListener(v->{
+            boolean played=PhoneVibration.preview(this,vibration.getSelectedItemPosition());
+            android.widget.Toast.makeText(this,
+                    played?"Handy-Vibration wird einmal abgespielt":
+                            "Vibration nicht verfügbar – System-/Ruhemodus prüfen",
+                    android.widget.Toast.LENGTH_LONG).show();
+        });
+        vibrationCard.addView(UiKit.label(this,
+                "Das gewählte Muster wird auf dem Handy direkt wiederholt. "+
+                "Bei „fast durchgehend“ maximal 60 Sekunden (4 s an, 0,5 s Pause). "+
+                "Auf der Uhr kann Samsung das Muster ersetzen: dort bleiben "+
+                "vor allem Anzahl und Abstand der Impulse maßgeblich.",
+                13,UiKit.MUTED));
+
         LinearLayout wrist=section(root,"Galaxy Watch");
         watch=UiKit.toggle(this);
         watch.setOnCheckedChangeListener((b,value)->{
@@ -188,6 +218,15 @@ public final class DetailActivity extends Activity {
         pulses=slider(wrist,12);
         intervalLabel=label("",15);wrist.addView(intervalLabel);
         interval=slider(wrist,11);
+        Button repeatedWatch=UiKit.button(this,
+                "Watch stärker erinnern: 12 Impulse alle 10 Sek.",false);
+        wrist.addView(repeatedWatch);
+        repeatedWatch.setOnClickListener(v->{
+            watch.setChecked(true);
+            pulses.setProgress(12);
+            interval.setProgress(0);
+            changed();
+        });
         Button watchTest=UiKit.button(this,"Watch-Test senden",false);
         wrist.addView(watchTest);watchTest.setOnClickListener(v->watchTest());
         wrist.addView(UiKit.label(this,"Die Uhr empfängt gespiegelte Benachrichtigungen. "+
@@ -283,7 +322,9 @@ public final class DetailActivity extends Activity {
             days[i]=(p.days&(1<<i))!=0;
             UiKit.setChip(this,chips[i],days[i]);
         }
-        tone.setSelection(p.tone);rising.setChecked(p.rampEnabled);
+        tone.setSelection(p.tone);
+        vibration.setSelection(p.vibrationMode);
+        rising.setChecked(p.rampEnabled);
         delay.setProgress(p.delaySeconds/10);ramp.setProgress(p.rampSeconds/60-1);
         volume.setProgress(p.maxVolume-5);watch.setChecked(p.watchPulses>0);
         pulses.setProgress(p.watchPulses);interval.setProgress(p.watchIntervalSeconds/10-1);
@@ -304,7 +345,7 @@ public final class DetailActivity extends Activity {
                 snooze.getProgress()+1,tone.getSelectedItemPosition(),rising.isChecked(),
                 autoStop.getProgress()+1,changedTime?0:saved.skipAt,
                 changedTime?0:saved.oneTimeAt,changedTime?0:saved.replacedAt,
-                snoozeEnabled.isChecked());
+                snoozeEnabled.isChecked(),vibration.getSelectedItemPosition());
     }
 
     private boolean save(){
@@ -370,7 +411,8 @@ public final class DetailActivity extends Activity {
         NotificationManager m=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
         if(m==null||!m.areNotificationsEnabled()){notice("Benachrichtigungen deaktiviert.");return;}
         RingingService.ensureChannels(this);
-        Notification n=new Notification.Builder(this,RingingService.WATCH_CHANNEL)
+        Notification n=new Notification.Builder(this,
+                WatchAlert.channelId(vibration.getSelectedItemPosition()))
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setContentTitle("Sanftwecker – Watch-Test")
                 .setContentText("Bitte prüfen, ob deine Galaxy Watch vibriert.")
@@ -396,7 +438,8 @@ public final class DetailActivity extends Activity {
             int level=audio==null?-1:audio.getStreamVolume(AudioManager.STREAM_ALARM);
             int maximum=audio==null?-1:audio.getStreamMaxVolume(AudioManager.STREAM_ALARM);
             NotificationChannel channel=m==null?null:
-                    m.getNotificationChannel(RingingService.WATCH_CHANNEL);
+                    m.getNotificationChannel(WatchAlert.channelId(
+                            vibration==null?saved.vibrationMode:vibration.getSelectedItemPosition()));
             boolean notifications=m!=null&&m.areNotificationsEnabled();
             boolean watchChannel=channel!=null&&
                     channel.getImportance()!=NotificationManager.IMPORTANCE_NONE;
@@ -404,6 +447,8 @@ public final class DetailActivity extends Activity {
             advanced.setText("Exakte Alarme: "+(AlarmScheduler.canSchedule(this)?"OK":"FEHLEN")+
                     "\nAndroid-Benachrichtigungen: "+(notifications?"OK":"BLOCKIERT")+
                     "\nWatch-Kanal: "+(watchChannel?"aktiv":"BLOCKIERT")+
+                    "\nVibrationsmuster: "+
+                    VibrationPresets.LABELS[vibration.getSelectedItemPosition()]+
                     "\nSystem-Weckerlautstärke: "+level+" / "+maximum+
                     (level==0?" – STUMM!":"")+
                     "\nVollbild-Wecker: "+(Build.VERSION.SDK_INT<34||

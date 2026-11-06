@@ -139,6 +139,8 @@ public final class RingingService extends Service {
             } catch (RuntimeException e) {
                 Log.w("Sanftwecker", "WakeLock unavailable; continue with active service", e);
             }
+            // Direct handset vibration begins immediately, independently of delayed audio.
+            if(!toneOnlyPreview) PhoneVibration.start(this,profile.vibrationMode);
             // Even if audio hardware fails, keep the watch alerts and stop/snooze controls.
             try {
                 beginAudio();
@@ -274,6 +276,7 @@ public final class RingingService extends Service {
         boolean wasActive=active;
         if (wasActive) AlarmRepository.diagnostic(this, "Ton und Watch-Impulse beendet");
         active = false;
+        PhoneVibration.stop();
         if(wasActive) sendBroadcast(new Intent(RING_FINISHED).setPackage(getPackageName()));
         handler.removeCallbacksAndMessages(null);
         AudioTrack old = audio;

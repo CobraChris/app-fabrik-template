@@ -207,6 +207,11 @@ public final class MainActivity extends Activity {
                 " Min.  ·  Watch " + (p.watchPulses==0 ? "aus" : p.watchPulses+"×"),
                 13,UiKit.MUTED);
         card.addView(subtitle,pad);
+        if (p.vibrationMode != 0) {
+            card.addView(UiKit.label(this,
+                    "Vibration: "+VibrationPresets.LABELS[p.vibrationMode],
+                    12,UiKit.MUTED));
+        }
         if (p.enabled && AlarmRepository.next(this,p.id)==earliest) {
             TextView next=UiKit.label(this,"NÄCHSTER ALARM · "+shortTime(earliest),12,UiKit.BLUE);
             card.addView(next);

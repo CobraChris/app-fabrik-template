@@ -12,6 +12,11 @@ public final class WatchAlert {
     public static final int ID_BASE = 7200;
     private WatchAlert() {}
 
+    public static String channelId(int mode) {
+        if(mode<0||mode>4)mode=0;
+        return mode==0?RingingService.WATCH_CHANNEL:"sanftwecker_watch_pattern_v1_"+mode;
+    }
+
     public static void ensureChannel(Context c) {
         NotificationManager nm=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
         if(nm==null)return;
@@ -23,19 +28,31 @@ public final class WatchAlert {
         channel.setVibrationPattern(new long[]{0,350,150,350});
         channel.setSound(null,null);
         nm.createNotificationChannel(channel);
+        // Create dedicated channels only once: Android prohibits changing the
+        // vibration pattern of an existing notification channel.
+        for(int mode=1;mode<=4;mode++) {
+            NotificationChannel custom=new NotificationChannel(
+                    channelId(mode), "Watch-Muster: "+VibrationPresets.LABELS[mode],
+                    NotificationManager.IMPORTANCE_HIGH);
+            custom.setDescription("Benachrichtigungen für Galaxy Wearable; Muster wird ggf. ersetzt");
+            custom.setSound(null,null);
+            custom.enableVibration(true);
+            custom.setVibrationPattern(VibrationPresets.pattern(mode));
+            nm.createNotificationChannel(custom);
+        }
     }
 
-    public static boolean canSend(Context c) {
+    public static boolean canSend(Context c,int mode) {
         NotificationManager nm=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
         if(nm==null||!nm.areNotificationsEnabled())return false;
-        NotificationChannel channel=nm.getNotificationChannel(RingingService.WATCH_CHANNEL);
+        NotificationChannel channel=nm.getNotificationChannel(channelId(mode));
         return channel!=null&&channel.getImportance()!=NotificationManager.IMPORTANCE_NONE;
     }
 
     public static boolean send(Context c,AlarmProfile p,int index) {
         ensureChannel(c);
         NotificationManager nm=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
-        if(nm==null||!canSend(c)){
+        if(nm==null||!canSend(c,p.vibrationMode)){
             AlarmRepository.diagnostic(c,"WATCH BLOCKIERT: Android-/Kanal-Benachrichtigung aus");
             return false;
         }
@@ -46,7 +63,7 @@ public final class WatchAlert {
         PendingIntent stop=PendingIntent.getService(c,9012,
                 new Intent(c,RingingService.class).setAction(RingingService.STOP),
                 PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        Notification.Builder n=new Notification.Builder(c,RingingService.WATCH_CHANNEL)
+        Notification.Builder n=new Notification.Builder(c,channelId(p.vibrationMode))
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setContentTitle("Sanftwecker: "+p.name)
                 .setContentText("Aufwachen – Impuls "+(index+1)+" von "+p.watchPulses)
