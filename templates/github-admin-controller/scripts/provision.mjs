@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { backupFileName, missingSecrets, protectBackup, recoverBackup,
-         targetRepository, SECRET_NAMES } from './provision-core.mjs';
+         targetRepository, SECRET_NAMES, deriveBackupKey } from './provision-core.mjs';
 
 const BASE=path.resolve(fileURLToPath(new URL('../',import.meta.url)));
 const API='https://api.github.com';
@@ -38,20 +38,39 @@ function githubAppJwt(id,pem) {
   return msg+'.'+sign('RSA-SHA256',Buffer.from(msg),createPrivateKey(pem)).toString('base64url');
 }
 
-async function tokenFor(repository) {
-  const installationId=requireEnv('GH_APP_INSTALLATION_ID');
-  if(!/^\d{1,15}$/.test(installationId))throw new Error('Invalid installation ID');
-  const jwt=githubAppJwt(requireEnv('GH_APP_ID'),
-    requireEnv('GH_APP_PRIVATE_KEY_PEM').replaceAll('\\n','\n'));
-  const name=repository.split('/')[1];
-  const r=await fetch(API+'/app/installations/'+installationId+'/access_tokens',{
-    method:'POST',
-    headers:{...headers(jwt),'Content-Type':'application/json'},
-    body:JSON.stringify({repositories:[name],permissions:{secrets:'write'}})
+/**
+ * Automatically discover the app installation for the selected target repository.
+ * No manual Installation ID and no broad /app/installations inventory required.
+ */
+export async function tokenFor(repository,fetchImpl=fetch,env=process.env) {
+  targetRepository(repository);
+  const appId=env.GH_APP_ID;
+  const pem=env.GH_APP_PRIVATE_KEY_PEM;
+  if(typeof pem!=='string'||!pem)throw new Error('Controller private key not configured');
+  const jwt=githubAppJwt(appId,pem.replaceAll('\\n','\n'));
+  const installationResponse=await fetchImpl(API+'/repos/'+repository+'/installation',{
+    headers:headers(jwt)
   });
-  if(!r.ok)throw new Error('GitHub App authorization failed: HTTP '+r.status);
-  const data=await r.json();
-  if(typeof data.token!=='string'||!data.token)throw new Error('Missing installation token');
+  if(!installationResponse.ok)
+    throw new Error('GitHub App has no access to selected repository (HTTP '+installationResponse.status+')');
+  const installation=await installationResponse.json();
+  if(!Number.isSafeInteger(installation.id)||installation.id<1 ||
+     String(installation.app_id)!==String(appId) ||
+     installation.account?.login!=='CobraChris' ||
+     installation.permissions?.secrets!=='write')
+    throw new Error('Unexpected GitHub App installation or insufficient Secrets permission');
+  const name=repository.split('/')[1];
+  const tokenResponse=await fetchImpl(
+    API+'/app/installations/'+installation.id+'/access_tokens',{
+      method:'POST',
+      headers:{...headers(jwt),'Content-Type':'application/json'},
+      body:JSON.stringify({repositories:[name],permissions:{secrets:'write'}})
+    });
+  if(!tokenResponse.ok)
+    throw new Error('GitHub App authorization failed (HTTP '+tokenResponse.status+')');
+  const data=await tokenResponse.json();
+  if(typeof data.token!=='string'||!data.token)
+    throw new Error('Missing installation token');
   return data.token;
 }
 
@@ -122,7 +141,7 @@ function setSecret(name,value,repository,token) {
     // Child only receives the short-lived target token, not the controller keys.
     const childEnv={...process.env,GH_TOKEN:token};
     for(const key of ['GH_APP_PRIVATE_KEY_PEM','GH_APP_ID',
-                       'GH_APP_INSTALLATION_ID','BACKUP_KEY_BASE64','GITHUB_TOKEN'])
+                       'BACKUP_KEY_BASE64','GITHUB_TOKEN'])
       delete childEnv[key];
     const proc=spawn('gh',['secret','set',name,'--repo',repository],{
       stdio:['pipe','ignore','pipe'],
@@ -160,7 +179,9 @@ async function main(){
   const mode=process.argv[2];
   if(mode!=='prepare'&&mode!=='apply')throw new Error('Expected mode prepare or apply');
   const repository=targetRepository(requireEnv('TARGET_REPOSITORY'));
-  const key=requireEnv('BACKUP_KEY_BASE64');
+  // Never encrypt solely with the previously chat-exposed backup recovery value.
+  const key=deriveBackupKey(requireEnv('GH_APP_PRIVATE_KEY_PEM'),
+    requireEnv('BACKUP_KEY_BASE64'),repository);
   if(mode==='prepare')await prepare(repository,key);
   else await apply(repository,key);
 }

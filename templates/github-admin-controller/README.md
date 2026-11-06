@@ -99,3 +99,23 @@ Erst nach Code-Review und Einrichtung mit einem **leeren Testrepository**
 provisionieren, dann vier Secret-Namen und verschlüsseltes Backup prüfen.
 Anschließend zwei aufeinanderfolgende signierte APK-Releases erstellen und deren
 Zertifikatsidentität nachweisen, bevor bestehende Apps migriert werden.
+
+## Wichtige Anpassung an die bereits erprobte Steuerzentrale
+
+Die Live-Version unter `CobraChris/github-app-fabrik-control` nutzt eine
+streng validierte GitOps-Auftragsdatei und einen pro Android-Repository
+unterschiedlichen AES-256-Schlüssel, abgeleitet aus dem privaten GitHub-App-PEM
+(HKDF-SHA256) und einem 32-Byte-Backup-Salt. Der Salt allein reicht zum
+Entschlüsseln **nicht** aus. Schlüssel-Pem und Salt müssen dauerhaft gesichert
+und vor einer Rotation bestehende Backups migriert werden.
+
+Diese Vorlage wurde mit den geprüften Live-Skripten synchronisiert. Sie enthält
+bewusst **keine** privaten Schlüssel, Zielrepo-Secrets oder Signatur-Backups.
+Die Allowlist in `config/approved-targets.json` enthält als Beispiel nur
+`CobraChris/app-fabrik-template`. Bei einer Kopie in ein anderes privates
+Controller-Repository muss die fest im Workflow geprüfte Repository-Identität
+entsprechend angepasst werden, und die persönliche GitHub-App muss für die
+Zielrepositories installiert sein.
+
+`requests/provision.json` ist absichtlich **nicht vorbefüllt**, damit eine
+Vorlagenkopie keinen privilegierten Auftrag ohne klare Benutzeraktion auslöst.

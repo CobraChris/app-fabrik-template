@@ -8,6 +8,9 @@ on:
         description: 'CobraChris/REPOSITORY (nur bereits genehmigte GitHub-App-Installationen)'
         required: true
         type: string
+  push:
+    branches: [main]
+    paths: ['requests/provision.json']
 
 permissions:
   contents: write
@@ -28,6 +31,7 @@ jobs:
         with:
           persist-credentials: true
           ref: main
+          fetch-depth: 0
       - name: Node.js einrichten
         uses: actions/setup-node@v4
         with:
@@ -37,23 +41,31 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Freigegebenen App-Auftrag pruefen (ohne Secrets)
+        id: request
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_TARGET: ${{ inputs.target_repository }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          node scripts/validate-request.mjs
       - name: Sicheres Backup vorbereiten (niemals Klartext committen)
         env:
-          GH_APP_ID: ${{ secrets.GH_APP_ID }}
+          GH_APP_ID: '5640822'
           GH_APP_PRIVATE_KEY_PEM: ${{ secrets.GH_APP_PRIVATE_KEY_PEM }}
-          GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
           BACKUP_KEY_BASE64: ${{ secrets.BACKUP_KEY_BASE64 }}
-          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_REPOSITORY: ${{ steps.request.outputs.target_repository }}
         run: |
           set -euo pipefail
           node scripts/provision.mjs prepare
       - name: Verschluesseltes Backup dauerhaft speichern
         env:
-          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_REPOSITORY: ${{ steps.request.outputs.target_repository }}
         shell: bash
         run: |
           set -euo pipefail
-          NAME="$"+"{TARGET_REPOSITORY#CobraChris/}"
+          NAME="${TARGET_REPOSITORY#CobraChris/}"
           [[ "$NAME" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$ ]] || exit 1
           test -s "backups/$NAME.json.enc"
           git config user.name 'github-actions[bot]'
@@ -65,11 +77,10 @@ jobs:
           fi
       - name: Signatur-Secrets im Zielrepository anlegen – nie ueberschreiben
         env:
-          GH_APP_ID: ${{ secrets.GH_APP_ID }}
+          GH_APP_ID: '5640822'
           GH_APP_PRIVATE_KEY_PEM: ${{ secrets.GH_APP_PRIVATE_KEY_PEM }}
-          GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
           BACKUP_KEY_BASE64: ${{ secrets.BACKUP_KEY_BASE64 }}
-          TARGET_REPOSITORY: ${{ inputs.target_repository }}
+          TARGET_REPOSITORY: ${{ steps.request.outputs.target_repository }}
         run: |
           set -euo pipefail
           node scripts/provision.mjs apply

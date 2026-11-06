@@ -3,7 +3,7 @@
  * Intended ONLY for a private controller repository, not a browser/PWA.
  * Does not log secret values or return decrypted keys to a caller.
  */
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createPrivateKey, hkdfSync, randomBytes } from 'node:crypto';
 
 export const SECRET_NAMES=Object.freeze([
   'APP_SIGNING_KEYSTORE_BASE64',
@@ -32,6 +32,24 @@ export function masterKey(base64) {
     throw new TypeError('Invalid 32-byte recovery key');
   return key;
 }
+/**
+ * A past recovery-key value was printed in chat, so it MUST NOT independently
+ * decrypt signing backups. Derive a distinct 256-bit backup key from the PRIVATE
+ * GitHub App PEM plus the repository name. The user key acts only as HKDF salt.
+ * The original PEM must remain backed up for future restoration/rotation.
+ */
+export function deriveBackupKey(privateKeyPem, recoveryKeyBase64, repository) {
+  const name=targetRepository(repository);
+  const salt=masterKey(recoveryKeyBase64);
+  if(typeof privateKeyPem!=='string'||!privateKeyPem)
+    throw new TypeError('Missing private App key for backup encryption');
+  const key=createPrivateKey(privateKeyPem.replaceAll('\\n','\n'));
+  const canonicalDer=key.export({format:'der',type:'pkcs8'});
+  const keyBytes=Buffer.from(hkdfSync('sha256',canonicalDer,salt,
+    Buffer.from('App-Fabrik signing backup 2026 v2 | '+name,'utf8'),32));
+  return keyBytes.toString('base64');
+}
+
 export function protectBackup(repository,record,keyBase64) {
   const name=targetRepository(repository);
   if(!record || typeof record!=='object' ||
