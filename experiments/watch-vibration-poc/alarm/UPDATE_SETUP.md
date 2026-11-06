@@ -47,3 +47,17 @@ Auf Android dürfen gewöhnliche Drittanbieter-Apps eine neue APK nicht still un
 Die bestehende Android-Anwendung zeigt den Update-Button, **aber es gibt noch kein signiertes GitHub Release**. Solange die GitHub-Secrets und der Workflow nicht eingerichtet sind, meldet die App „Noch keine dauerhaft signierte APK veröffentlicht“. Das ist beabsichtigt und verhindert eine falsche Erfolgsmeldung.
 
 Wecker-App bleibt in Beta. Den bisher zuverlässig funktionierenden anderen Wecker bis zur Samsung-Abnahme beibehalten.
+
+## Beta 0.8.1: Signaturkontinuität und Updateprüfung
+
+- Build 10 ersetzt Build 9 mit **identischer applicationId**
+  `com.cobrachris.sanftwecker`.
+- Die Updateprüfung akzeptiert nur noch ein APK-Asset, dessen tatsächlicher
+  GitHub-Release-Tag mit dem im JSON angegebenen Tag übereinstimmt.
+- Versionscodes werden auf den Android-Bereich 1 bis 2.100.000.000 begrenzt;
+  Versionen mit führenden Nullen werden zurückgewiesen.
+- Der GitHub-Release-Workflow prüft beim Übergang von Build 9 zu Build 10
+  vor Veröffentlichung den SHA-256-Fingerabdruck des Signaturzertifikats.
+- Für die spätere In-place-Installation ist zusätzlich ein praktischer
+  Gerätetest nötig. Die automatische CI kann keine echten Alarm- oder
+  Galaxy-Watch-Berechtigungen prüfen.

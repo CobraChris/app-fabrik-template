@@ -111,7 +111,7 @@ public final class UpdateActivity extends Activity {
                     JSONObject asset=assets.getJSONObject(j);
                     if(!ASSET_NAME.equals(asset.optString("name","")))continue;
                     String url=asset.optString("browser_download_url","");
-                    if(!UpdateUrlPolicy.isAllowed(url))continue;
+                    if(!UpdateUrlPolicy.isForTag(url,tag))continue;
                     if(best==null||code>best.code)best=new Candidate(code,url);
                 }
             }
@@ -157,7 +157,7 @@ public final class UpdateActivity extends Activity {
                 if(error!=null){status.setText(error);return;}
                 if(selected==null){
                     status.setText("Noch keine dauerhaft signierte APK veröffentlicht. "+
-                            "Die einmalige Einrichtung des Signierschlüssels fehlt noch.");
+                            "Versuche es später erneut oder prüfe die GitHub-Releases.");
                 }else if(!UpdateUrlPolicy.isNewer(selected.code,getCurrentVersion())){
                     status.setText("Die installierte Version ist aktuell. "+
                             "(Veröffentlichter Build "+selected.code+")");

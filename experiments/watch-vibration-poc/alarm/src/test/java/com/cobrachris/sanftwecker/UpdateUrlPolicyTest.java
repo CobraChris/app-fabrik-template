@@ -20,6 +20,21 @@ public final class UpdateUrlPolicyTest {
         assertEquals(-1,UpdateUrlPolicy.versionCode("untrusted"));
         assertEquals(-1,UpdateUrlPolicy.versionCode("sanftwecker-v0.beta"));
     }
+    @Test public void releaseAssetMustMatchActualReleaseTag(){
+        assertTrue(UpdateUrlPolicy.isForTag(BASE+"sanftwecker-v10/sanftwecker-release.apk",
+                "sanftwecker-v10"));
+        assertFalse(UpdateUrlPolicy.isForTag(BASE+"sanftwecker-v9/sanftwecker-release.apk",
+                "sanftwecker-v10"));
+        assertFalse(UpdateUrlPolicy.isForTag(BASE+"sanftwecker-v10/sanftwecker-beta-debug.apk",
+                "sanftwecker-v10"));
+    }
+    @Test public void versionCodesStayInAndroidRange(){
+        assertEquals(10,UpdateUrlPolicy.versionCode("sanftwecker-v10"));
+        assertEquals(2100000000L,UpdateUrlPolicy.versionCode("sanftwecker-v2100000000"));
+        assertEquals(-1,UpdateUrlPolicy.versionCode("sanftwecker-v2100000001"));
+        assertEquals(-1,UpdateUrlPolicy.versionCode("sanftwecker-v01"));
+        assertEquals(-1,UpdateUrlPolicy.versionCode("sanftwecker-v0"));
+    }
     @Test public void neverSuggestsDowngrade(){
         assertFalse(UpdateUrlPolicy.isNewer(8,9));
         assertFalse(UpdateUrlPolicy.isNewer(9,9));
