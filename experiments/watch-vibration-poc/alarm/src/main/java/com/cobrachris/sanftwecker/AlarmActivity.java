@@ -219,6 +219,8 @@ public final class AlarmActivity extends Activity {
         }
     }
 
+    // API 30–32 have no exported-flag overload; API 33+ registers NOT_EXPORTED explicitly.
+    @android.annotation.SuppressLint("UnspecifiedRegisterReceiverFlag")
     @Override protected void onResume() {
         super.onResume();
         if(!receiverRegistered){
