@@ -68,9 +68,14 @@ public final class TimerMilestoneScheduler {
         long now=System.currentTimeMillis();
         if(timer==null||expectedDue!=timer.dueWallMs ||
                 expectedEvent<=0||expectedEvent>now+1500L||
-                now>expectedEvent+15_000L||
                 (timer.state!=TimerEntry.RUNNING&&timer.state!=TimerEntry.WAITING))
             return;
+        if(now>expectedEvent+15_000L){
+            // Do not make noise for a stale milestone after Doze; keep
+            // future intervals scheduled, if any remain.
+            if(!preparation)reschedule(c,id);
+            return;
+        }
         if(preparation){
             if(!TimerAlertSettings.prepareCue(c,id) ||
                     TimerMilestones.startWall(timer)-3000L!=expectedEvent ||
@@ -85,7 +90,8 @@ public final class TimerMilestoneScheduler {
                             (interval*1000L)!=0)return;
             // Set next event before showing notification to survive a transient UI failure.
             try{
-                long next=TimerMilestones.nextIntervalWall(timer,interval,now);
+                long next=TimerMilestones.nextIntervalWall(
+                        timer,interval,Math.max(now,expectedEvent));
                 if(next>0)schedule(c,timer,false,next);
             }catch(RuntimeException ex){
                 AlarmRepository.diagnostic(c,"Intervall-Alarm neu planen fehlgeschlagen");
