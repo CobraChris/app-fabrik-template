@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- App visibility only: no access to location or the other apps' user data. -->
+    <queries>
+        <package android:name="de.blitzer.plus" />
+        <package android:name="com.google.android.apps.maps" />
+    </queries>
+    <application
+        android:allowBackup="false"
+        android:icon="@android:drawable/ic_menu_compass"
+        android:label="FahrCockpit (Test)"
+        android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
