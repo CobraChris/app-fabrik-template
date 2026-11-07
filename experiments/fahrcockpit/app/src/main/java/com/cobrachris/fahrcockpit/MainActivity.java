@@ -75,6 +75,10 @@ public final class MainActivity extends Activity {
         status = text("", 15, ACCENT, false);
         root.addView(status);
 
+        // Stop works even if Blitzer.de was started independently of FahrCockpit.
+        Button stopNow = button("Blitzer.de jetzt beenden");
+        root.addView(stopNow);
+
         root.addView(text("Darstellung (nur nach Startbefehl)", 17, FG, true));
         LinearLayout modes = new LinearLayout(this);
         modes.setOrientation(LinearLayout.HORIZONTAL);
@@ -115,6 +119,7 @@ public final class MainActivity extends Activity {
                 sendMainCommand(isChecked);
             }
         });
+        stopNow.setOnClickListener(v -> sendMainCommand(false));
         backgroundButton.setOnClickListener(v ->
             sendMode(BlitzerContract.Command.BACKGROUND, "Hintergrund"));
         widgetButton.setOnClickListener(v ->
@@ -131,7 +136,7 @@ public final class MainActivity extends Activity {
         BlitzerBridge.SendResult result = BlitzerBridge.send(this, command);
         if (result != BlitzerBridge.SendResult.SENT_UNCONFIRMED) {
             changingProgrammatically = true;
-            enabledSwitch.setChecked(!requestOn);
+            enabledSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
             changingProgrammatically = false;
             status.setText(errorText(result));
             return;
@@ -141,6 +146,9 @@ public final class MainActivity extends Activity {
             .putBoolean(KEY_HAS_REQUEST, true)
             .putBoolean(KEY_LAST_START_REQUEST, requestOn)
             .apply();
+        changingProgrammatically = true;
+        enabledSwitch.setChecked(requestOn);
+        changingProgrammatically = false;
         status.setText(requestOn
             ? "START-Befehl gesendet – tatsächlichen Status in Blitzer.de prüfen."
             : "BEENDEN-Befehl gesendet – tatsächlichen Status in Blitzer.de prüfen.");
