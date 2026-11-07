@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "sanftwecker-signed-beta",
-  "request_id": "2026-11-07-longer-phone-vibration",
-  "source_sha": "e7e69dba680f18a687850431ed77c80a6fb2b2ef",
-  "expected_version_code": 11
+  "request_id": "2026-11-07-fast-watch-notification-intervals",
+  "source_sha": "31912f1e19e35aef48392460d7ba042c11f85219",
+  "expected_version_code": 12
 }
