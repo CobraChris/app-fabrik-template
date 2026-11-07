@@ -1,3 +1,31 @@
+# Sanftwecker (Test) – Beta 0.8.3 (Galaxy Watch Schnellimpulse)
+
+**Neues Watch-Intervall:** Wählbar ab 3 Sekunden und 5 Sekunden;
+10–120 Sekunden bleiben wie bisher auswählbar. Nach einem Update werden
+vorhandene Weckerwerte **nicht überschrieben**. Ein in 0.8.2 auf
+10 Sekunden eingestellter Wecker bleibt auf 10 Sekunden, bis du ihn änderst.
+Für neue Wecker sind 5 Sekunden vorausgewählt.
+
+Im Menü gibt es nun **„Watch schneller erinnern: 12 Impulse alle 5 Sek.“**;
+nach Tippen **Speichern**, um die Einstellung dauerhaft zu übernehmen.
+Für 3 Sekunden den Intervall-Regler ganz nach links ziehen.
+
+Die App sendet auf dem bisher erfolgreich getesteten Samsung-
+Benachrichtigungskanal einzelne Hinweise. **Galaxy Wearable entscheidet**
+über die tatsächliche Vibration der Uhr. Android kann schnell
+aufeinanderfolgende Benachrichtigungen dämpfen oder zusammenfassen;
+das Intervall ist eine Sendeplanung und **keine Zustellgarantie**.
+Die Vibrationsstärke und Handy-Haptik bleiben unverändert.
+Eine echte, kontinuierliche Watch-Vibration benötigt eine separate
+Wear-OS-Komponente.
+
+**Sicherheitsverhalten:** Stoppen/Schlummern entfernt die Handy-Vibration
+und geplanten Watch-Impulse. Maximal 12 Watch-Benachrichtigungen
+pro Alarm; bei Kurztest kann der 30-Sekunden-Test früher enden.
+Der Wecker bleibt bis zur Samsung-Praxisabnahme im Entwicklungszweig.
+
+---
+
 # Sanftwecker (Test) – Beta 0.8.2 (Haptik)
 
 **Vorbereitet am 07.11.2026:** Handyvibration von maximal 12 auf

@@ -53,8 +53,7 @@ public final class AlarmProfile {
                 || (days & 0x7f) == 0 || (days & ~0x7f) != 0
                 || delaySeconds < 0 || delaySeconds > 300 || rampSeconds < 60
                 || rampSeconds > 1800 || maxVolume < 1 || maxVolume > 100
-                || watchPulses < 0 || watchPulses > 12 || watchIntervalSeconds < 10
-                || watchIntervalSeconds > 120 || snoozeMinutes < 1 || snoozeMinutes > 30
+                || watchPulses < 0 || watchPulses > 12 || !WatchIntervals.isSupported(watchIntervalSeconds) || snoozeMinutes < 1 || snoozeMinutes > 30
                 || tone < 0 || tone > 2 || autoStopMinutes < 1
                 || autoStopMinutes > 30 || vibrationMode < 0 || vibrationMode > 4 || skipAt < 0 || oneTimeAt < 0 || replacedAt < 0) {
             throw new IllegalArgumentException("Invalid alarm configuration");
@@ -120,6 +119,6 @@ public final class AlarmProfile {
         // Defaults for newly created alarms only. Existing saved alarms are not modified.
         // Watch alerts immediately, then a barely audible tone after 10 seconds.
         return new AlarmProfile(id, title, false, id == 2 ? 9 : 7, 0,
-                mask, 10, 60, 55, 6, 20, 5, 0, true, 20, 0, 0, 0, true, 1);
+                mask, 10, 60, 55, 6, 5, 5, 0, true, 20, 0, 0, 0, true, 1);
     }
 }

@@ -231,23 +231,24 @@ public final class DetailActivity extends Activity {
         pulsesLabel=label("",15);wrist.addView(pulsesLabel);
         pulses=slider(wrist,12);
         intervalLabel=label("",15);wrist.addView(intervalLabel);
-        interval=slider(wrist,11);
+        interval=slider(wrist,WatchIntervals.maxProgress());
         Button repeatedWatch=UiKit.button(this,
-                "Watch stärker erinnern: 12 Impulse alle 10 Sek.",false);
+                "Watch schneller erinnern: 12 Impulse alle 5 Sek.",false);
         wrist.addView(repeatedWatch);
         repeatedWatch.setOnClickListener(v->{
             watch.setChecked(true);
             pulses.setProgress(12);
-            interval.setProgress(0);
+            interval.setProgress(WatchIntervals.progressFor(5));
             changed();
         });
         Button watchTest=UiKit.button(this,"Watch-Test senden",false);
         wrist.addView(watchTest);watchTest.setOnClickListener(v->watchTest());
-        wrist.addView(UiKit.label(this,"Galaxy Watch: Einstellungen → Töne und Vibration "+
-                "→ Vibration → Lang und Stark auswählen. Die Uhr spiegelt "+
-                "Benachrichtigungen; deren Länge/Intensität kann die Handy-App nicht "+
-                "erzwingen. Für durchgehende Watch-Vibration wäre eine eigene "+
-                "Wear-OS-App erforderlich.",13,UiKit.MUTED));
+        wrist.addView(UiKit.label(this,"Du kannst 3, 5, 10 bis 120 Sekunden "+
+                "Abstand wählen. Sehr schnelle Impulse werden eventuell durch "+
+                "Android oder Samsung gedämpft oder zusammengefasst. "+
+                "Die Watch-Stärke bleibt unverändert. "+
+                "Für durchgehende Watch-Vibration wäre eine Wear-OS-App erforderlich.",
+                13,UiKit.MUTED));
 
         LinearLayout end=section(root,"Schlummern & Stoppen");
         snoozeEnabled=UiKit.toggle(this);
@@ -329,7 +330,7 @@ public final class DetailActivity extends Activity {
                 (volume.getProgress()+5)+" % des Android-Weckerpegels");
         if(pulsesLabel!=null&&pulses!=null)pulsesLabel.setText("Watch-Impulse: "+pulses.getProgress());
         if(intervalLabel!=null&&interval!=null)intervalLabel.setText("Intervall: "+
-                (interval.getProgress()+1)*10+" Sekunden");
+                WatchIntervals.secondsAt(interval.getProgress())+" Sekunden");
         if(snoozeLabel!=null&&snooze!=null)snoozeLabel.setText("Schlummern: "+
                 (snooze.getProgress()+1)+" Minuten");
         if(stopLabel!=null&&autoStop!=null)stopLabel.setText("Auto-Stopp nach "+
@@ -348,7 +349,8 @@ public final class DetailActivity extends Activity {
         rising.setChecked(p.rampEnabled);
         delay.setProgress(p.delaySeconds/10);ramp.setProgress(p.rampSeconds/60-1);
         volume.setProgress(p.maxVolume-5);watch.setChecked(p.watchPulses>0);
-        pulses.setProgress(p.watchPulses);interval.setProgress(p.watchIntervalSeconds/10-1);
+        pulses.setProgress(p.watchPulses);
+        interval.setProgress(WatchIntervals.progressFor(p.watchIntervalSeconds));
         snoozeEnabled.setChecked(p.snoozeEnabled);
         snooze.setProgress(p.snoozeMinutes-1);snooze.setEnabled(p.snoozeEnabled);
         autoStop.setProgress(p.autoStopMinutes-1);
@@ -362,7 +364,7 @@ public final class DetailActivity extends Activity {
         boolean changedTime=hour!=saved.hour||minute!=saved.minute||mask!=saved.days;
         return new AlarmProfile(id,name.getText().toString(),enabled.isChecked(),hour,minute,mask,
                 delay.getProgress()*10,(ramp.getProgress()+1)*60,volume.getProgress()+5,
-                watch.isChecked()?pulses.getProgress():0,(interval.getProgress()+1)*10,
+                watch.isChecked()?pulses.getProgress():0,WatchIntervals.secondsAt(interval.getProgress()),
                 snooze.getProgress()+1,tone.getSelectedItemPosition(),rising.isChecked(),
                 autoStop.getProgress()+1,changedTime?0:saved.skipAt,
                 changedTime?0:saved.oneTimeAt,changedTime?0:saved.replacedAt,
