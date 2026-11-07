@@ -111,6 +111,7 @@ public final class TimerStartSchedule {
         if(item==null)return;
         if(!isOnTime(stored,expectedAt,now)){
             AlarmRepository.diagnostic(c,"Geplanter Timerstart verpasst: "+item.name);
+            TimerAlerts.showMissedSchedule(c,item);
             return;
         }
         if(item.state==TimerEntry.RUNNING||item.state==TimerEntry.WAITING)return;
@@ -120,6 +121,7 @@ public final class TimerStartSchedule {
             AlarmRepository.diagnostic(c,"Geplanter Timer gestartet: "+item.name);
         }catch(RuntimeException ex){
             AlarmRepository.diagnostic(c,"WARNUNG: geplanter Timer konnte nicht starten: "+item.name);
+            TimerAlerts.showMissedSchedule(c,item);
         }
     }
 
@@ -135,8 +137,10 @@ public final class TimerStartSchedule {
                 if(t==null||when<=System.currentTimeMillis() ||
                         t.state==TimerEntry.RUNNING||t.state==TimerEntry.WAITING){
                     cancel(c,id);
-                    if(t!=null&&when>0&&when<=System.currentTimeMillis())
+                    if(t!=null&&when>0&&when<=System.currentTimeMillis()){
                         AlarmRepository.diagnostic(c,"Geplanter Timerstart verpasst: "+t.name);
+                        TimerAlerts.showMissedSchedule(c,t);
+                    }
                 }else{
                     arm(c,id,when);
                 }
