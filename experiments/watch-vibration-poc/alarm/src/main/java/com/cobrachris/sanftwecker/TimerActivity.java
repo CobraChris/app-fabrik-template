@@ -30,6 +30,7 @@ import java.util.Map;
 public final class TimerActivity extends Activity {
     private LinearLayout cards;
     private final Map<Integer,TextView> clocks=new HashMap<>();
+    private final Map<Integer,TextView> statusViews=new HashMap<>();
     private final Map<Integer,Integer> lastStates=new HashMap<>();
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final Runnable ticker=new Runnable(){
@@ -37,7 +38,8 @@ public final class TimerActivity extends Activity {
             if(cards==null)return;
             long wall=System.currentTimeMillis(),elapsed=SystemClock.elapsedRealtime();
             for(TimerEntry t:TimerRepository.all(TimerActivity.this)){
-                if(t.state==TimerEntry.RUNNING && t.remaining(wall,elapsed)==0){
+                if((t.state==TimerEntry.RUNNING || t.state==TimerEntry.WAITING)
+                        && t.remaining(wall,elapsed)==0){
                     TimerScheduler.fired(TimerActivity.this,t.id,t.dueWallMs);
                     render();break;
                 }
@@ -47,6 +49,13 @@ public final class TimerActivity extends Activity {
                 TextView time=clocks.get(t.id);
                 if(time!=null)time.setText(TimerDisplay.time(t.remaining(wall,elapsed),
                         TimerAlertSettings.timeFormat(TimerActivity.this,t.id)));
+                TextView stateView=statusViews.get(t.id);
+                if(stateView!=null && t.state==TimerEntry.WAITING){
+                    long delay=t.delayRemaining(wall,elapsed);
+                    stateView.setText(delay>0?
+                            "Start in "+TimerDisplay.time(delay,TimerAlertSettings.FORMAT_MS):
+                            "Läuft");
+                }
             }
             handler.postDelayed(this,250);
         }
@@ -96,7 +105,7 @@ public final class TimerActivity extends Activity {
         root.addView(stopAll);
         stopAll.setOnClickListener(v->{
             for(TimerEntry t:TimerRepository.all(this))
-                if(t.state==TimerEntry.RUNNING)TimerScheduler.pause(this,t.id);
+                if(t.state==TimerEntry.RUNNING || t.state==TimerEntry.WAITING)TimerScheduler.pause(this,t.id);
             render();
         });
         cards=UiKit.column(this);
@@ -117,7 +126,7 @@ public final class TimerActivity extends Activity {
     }
     private void render(){
         if(cards==null)return;
-        cards.removeAllViews();clocks.clear();lastStates.clear();
+        cards.removeAllViews();clocks.clear();statusViews.clear();lastStates.clear();
         List<TimerEntry> timers=TimerRepository.all(this);
         if(timers.isEmpty()){
             LinearLayout empty=UiKit.card(this);
@@ -171,18 +180,24 @@ public final class TimerActivity extends Activity {
         card.addView(value);
         clocks.put(t.id,value);
         String status=t.state==TimerEntry.RUNNING?"Läuft":
+                t.state==TimerEntry.WAITING?
+                    (t.delayRemaining(System.currentTimeMillis(),SystemClock.elapsedRealtime())>0?
+                        "Start verzögert":"Läuft"):
                 t.state==TimerEntry.PAUSED?"Pausiert":
                 t.state==TimerEntry.FINISHED?"FERTIG":"Bereit";
         TextView state=UiKit.label(this,status,13,UiKit.MUTED);
         state.setGravity(Gravity.CENTER);card.addView(state);
+        statusViews.put(t.id,state);
         LinearLayout actions=UiKit.row(this);
         Button reset=UiKit.button(this,"↺",false);
         reset.setContentDescription("Timer zurücksetzen");
         reset.setMinWidth(UiKit.dp(this,45));
         actions.addView(reset,new LinearLayout.LayoutParams(0,UiKit.dp(this,54),1));
-        Button start=UiKit.button(this,t.state==TimerEntry.RUNNING?"Ⅱ":
+        Button start=UiKit.button(this,
+                (t.state==TimerEntry.RUNNING || t.state==TimerEntry.WAITING)?"Ⅱ":
                 t.state==TimerEntry.FINISHED?"Neu":"▶",true);
-        start.setContentDescription(t.state==TimerEntry.RUNNING?
+        start.setContentDescription(
+                (t.state==TimerEntry.RUNNING || t.state==TimerEntry.WAITING)?
                 "Timer pausieren":t.state==TimerEntry.FINISHED?"Timer neu starten":"Timer starten");
         actions.addView(start,new LinearLayout.LayoutParams(0,UiKit.dp(this,54),1));
         card.addView(actions);
@@ -199,7 +214,7 @@ public final class TimerActivity extends Activity {
     }
     private void toggle(TimerEntry t){
         try{
-            if(t.state==TimerEntry.RUNNING)TimerScheduler.pause(this,t.id);
+            if(t.state==TimerEntry.RUNNING || t.state==TimerEntry.WAITING)TimerScheduler.pause(this,t.id);
             else{
                 if(!canAlert())return;
                 if(t.state==TimerEntry.FINISHED)TimerScheduler.reset(this,t.id);
