@@ -67,6 +67,8 @@ public final class TimerScheduler {
         if(t==null)return;
         cancelPending(c,id);
         TimerRepository.put(c,t.edit(name,durationMs));
+        if(!TimerAlertSettings.canRepeat(durationMs) && TimerAlertSettings.autoRepeat(c,id))
+            TimerAlertSettings.setAutoRepeat(c,id,false);
         TimerAlerts.dismiss(c,id);
     }
     public static synchronized void delete(Context c,int id){
@@ -90,6 +92,21 @@ public final class TimerScheduler {
         TimerRepository.put(c,current.finish());
         TimerAlerts.show(c,current);
         AlarmRepository.diagnostic(c,"Timer beendet: "+current.name);
+        if(TimerAlertSettings.autoRepeat(c,id) &&
+                TimerAlertSettings.canRepeat(current.durationMs)){
+            TimerEntry restarted=current.reset().start(System.currentTimeMillis(),
+                    SystemClock.elapsedRealtime());
+            try{
+                arm(c,restarted);
+                TimerRepository.put(c,restarted);
+                AlarmRepository.diagnostic(c,"Timer automatisch wiederholt: "+current.name);
+            }catch(RuntimeException e){
+                cancelPending(c,id);
+                // Keep the finished timer visible; do not claim a repeat was scheduled.
+                AlarmRepository.diagnostic(c,"WARNUNG: Timer-Wiederholung fehlgeschlagen: "+
+                        current.name);
+            }
+        }
     }
     public static synchronized void restoreAll(Context c){
         for(TimerEntry t:TimerRepository.all(c)){
