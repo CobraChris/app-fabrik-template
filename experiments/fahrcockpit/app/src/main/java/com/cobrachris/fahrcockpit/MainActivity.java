@@ -154,6 +154,15 @@ public final class MainActivity extends Activity {
 
     @Override public void onResume() {
         super.onResume();
+        if (blitzerSwitch != null) {
+            programmatic = true;
+            blitzerSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
+            programmatic = false;
+            if (blitzerStatus != null && prefs.getBoolean(KEY_HAS_REQUEST, false)) {
+                blitzerStatus.setText("Zuletzt " + (blitzerSwitch.isChecked() ? "EIN" : "AUS") +
+                    " angefordert – tatsächlicher Zustand unbekannt.");
+            }
+        }
         if (permissions != null) {
             boolean draw = Settings.canDrawOverlays(this);
             boolean listener = Permissions.isMediaListenerEnabled(this);
@@ -231,6 +240,11 @@ public final class MainActivity extends Activity {
 
     private void blitzerMode(BlitzerContract.Command mode) {
         BlitzerBridge.SendResult result = BlitzerBridge.send(this, mode);
+        if (result == BlitzerBridge.SendResult.SENT_UNCONFIRMED) {
+            programmatic = true;
+            blitzerSwitch.setChecked(true);
+            programmatic = false;
+        }
         blitzerStatus.setText(result == BlitzerBridge.SendResult.SENT_UNCONFIRMED
             ? "Modus-Befehl gesendet – keine Empfangsbestätigung."
             : "Blitzer.de PRO fehlt oder Befehl wurde blockiert.");
