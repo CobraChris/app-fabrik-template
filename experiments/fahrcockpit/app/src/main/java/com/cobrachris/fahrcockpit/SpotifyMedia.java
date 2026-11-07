@@ -37,8 +37,7 @@ final class SpotifyMedia {
 
     private static MediaController spotify(Context context) {
         try {
-            if (!NotificationManager.getEnabledListenerPackages(context)
-                    .contains(context.getPackageName())) {
+            if (!Permissions.isMediaListenerEnabled(context)) {
                 return null;
             }
             MediaSessionManager manager = (MediaSessionManager)
