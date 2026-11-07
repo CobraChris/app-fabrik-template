@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "sanftwecker-signed-beta",
-  "request_id": "2026-11-07-screenshot-timer-presets",
-  "source_sha": "594c0ff80ec64bd546f2eb602ba5b87d47ed9801",
-  "expected_version_code": 15
+  "request_id": "2026-11-07-timer-detail-screen",
+  "source_sha": "80aefb82fcf561fdc2169a16e6e16c4bd6dbeae9",
+  "expected_version_code": 16
 }
