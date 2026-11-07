@@ -22,7 +22,8 @@ public final class DetailActivity extends Activity {
     private boolean loading,dirty,advancedOpen;
     private AlarmProfile saved;
     private EditText name;
-    private TextView clock,status,advanced,nextDisplay;
+    private TextView clock,status,advanced,nextDisplay,fullScreenPermissionStatus;
+    private Button fullScreenPermissionButton;
     private final TextView[] chips=new TextView[7];
     private final boolean[] days=new boolean[7];
     private Switch enabled,rising,watch,snoozeEnabled,audibleWhenMuted;
@@ -40,7 +41,11 @@ public final class DetailActivity extends Activity {
         build();
         load(saved);
     }
-    @Override public void onResume(){super.onResume();if(status!=null)diagnostics();}
+    @Override public void onResume(){
+        super.onResume();
+        refreshFullScreenPermissionUi();
+        if(status!=null)diagnostics();
+    }
     private TextView label(String s,int size){return UiKit.label(this,s,size,UiKit.TEXT);}
     private LinearLayout section(LinearLayout root,String title){
         LinearLayout card=UiKit.card(this);
@@ -290,9 +295,11 @@ public final class DetailActivity extends Activity {
         Button settings=UiKit.button(this,"App-Berechtigungen",false);
         extra.addView(settings);
         if (Build.VERSION.SDK_INT>=34) {
-            Button fullscreen=UiKit.button(this,"Vollbild-Wecker erlauben",false);
-            extra.addView(fullscreen);
-            fullscreen.setOnClickListener(v->{
+            fullScreenPermissionStatus=UiKit.label(this,"",14,UiKit.MUTED);
+            extra.addView(fullScreenPermissionStatus);
+            fullScreenPermissionButton=UiKit.button(this,"Vollbild-Wecker freigeben",false);
+            extra.addView(fullScreenPermissionButton);
+            fullScreenPermissionButton.setOnClickListener(v->{
                 try {
                     startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
                             .setData(Uri.parse("package:"+getPackageName())));
@@ -300,6 +307,7 @@ public final class DetailActivity extends Activity {
                     notice("Bitte die Vollbild-Wecker-Berechtigung in Android prüfen.");
                 }
             });
+            refreshFullScreenPermissionUi();
         }
         settings.setOnClickListener(v->startActivity(new Intent(
                 Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
@@ -509,6 +517,17 @@ public final class DetailActivity extends Activity {
                     AlarmRepository.history(this)+
                     "\nUhr-Empfang: nicht messbar; Schlafmodus ungeprüft.");
         }
+    }
+
+    private void refreshFullScreenPermissionUi(){
+        if(Build.VERSION.SDK_INT<34 || fullScreenPermissionStatus==null ||
+                fullScreenPermissionButton==null)return;
+        NotificationManager manager=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+        boolean allowed=manager!=null && manager.canUseFullScreenIntent();
+        fullScreenPermissionStatus.setText(allowed
+                ?"Vollbild-Wecker: bereits erlaubt – keine erneute Freigabe nötig."
+                :"Vollbild-Wecker: nicht erlaubt. Bitte einmalig in Android freigeben.");
+        fullScreenPermissionButton.setVisibility(allowed?View.GONE:View.VISIBLE);
     }
 
     private void more(View anchor){
