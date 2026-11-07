@@ -14,6 +14,12 @@ public final class TimerReceiver extends BroadcastReceiver {
         if(id<1)return;
         if(TimerScheduler.ACTION_FINISH.equals(intent.getAction())){
             TimerScheduler.fired(c,id,intent.getLongExtra(TimerScheduler.EXTRA_DUE,-1));
+        }else if(TimerMilestoneScheduler.ACTION_INTERVAL.equals(intent.getAction()) ||
+                TimerMilestoneScheduler.ACTION_PREPARE.equals(intent.getAction())){
+            TimerMilestoneScheduler.fired(c,id,
+                    TimerMilestoneScheduler.ACTION_PREPARE.equals(intent.getAction()),
+                    intent.getLongExtra(TimerScheduler.EXTRA_DUE,-1),
+                    intent.getLongExtra(TimerMilestoneScheduler.EXTRA_EVENT_AT,-1));
         }else if(ACTION_DISMISS.equals(intent.getAction())){
             TimerAlerts.dismiss(c,id);
         }
