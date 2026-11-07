@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "sanftwecker-signed-beta",
-  "request_id": "2026-11-07-timer-detail-followup",
-  "source_sha": "8de736724c5d5ddcda15bfe00c75c549384b80b6",
-  "expected_version_code": 17
+  "request_id": "2026-11-07-interval-preparation-one-shot",
+  "source_sha": "77cc3f2fc850d6a819d18c86f6ec9c081f518f63",
+  "expected_version_code": 18
 }
