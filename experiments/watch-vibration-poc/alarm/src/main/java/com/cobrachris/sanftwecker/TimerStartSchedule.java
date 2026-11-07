@@ -89,6 +89,12 @@ public final class TimerStartSchedule {
             throw new IllegalStateException("Geplante Startzeit konnte nicht gelöscht werden");
     }
 
+    /** Only the currently stored appointment may start; very late broadcasts
+     * must not unexpectedly launch a countdown after a reboot or Doze. */
+    public static boolean isOnTime(long stored,long expectedAt,long now){
+        return stored>0 && expectedAt==stored &&
+                now+1500L>=stored && now-stored<=MAX_LATE_MS;
+    }
     /** The receiver is deliberately idempotent; late or superseded starts are ignored. */
     public static synchronized void fired(Context c,int id,long expectedAt){
         long stored=get(c,id);
@@ -103,7 +109,7 @@ public final class TimerStartSchedule {
         cancel(c,id);
         TimerEntry item=TimerRepository.get(c,id);
         if(item==null)return;
-        if(now-stored>MAX_LATE_MS){
+        if(!isOnTime(stored,expectedAt,now)){
             AlarmRepository.diagnostic(c,"Geplanter Timerstart verpasst: "+item.name);
             return;
         }
