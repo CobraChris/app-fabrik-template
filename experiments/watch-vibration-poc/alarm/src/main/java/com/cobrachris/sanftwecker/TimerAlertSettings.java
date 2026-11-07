@@ -49,6 +49,16 @@ public final class TimerAlertSettings {
     public static boolean autoRepeat(Context c,int id){
         return prefs(c).getBoolean(key("repeat",id),false);
     }
+    public static int startDelaySeconds(Context c,int id){
+        int value=prefs(c).getInt(key("start_delay",id),0);
+        return value>=0&&value<=60?value:0;
+    }
+    public static void setStartDelaySeconds(Context c,int id,int seconds){
+        if(seconds!=0&&seconds!=3&&seconds!=5&&seconds!=10&&seconds!=30&&seconds!=60)
+            throw new IllegalArgumentException("Ungültige Startverzögerung");
+        if(!prefs(c).edit().putInt(key("start_delay",id),seconds).commit())
+            throw new IllegalStateException("Startverzögerung konnte nicht gespeichert werden");
+    }
     public static void setTimeFormat(Context c,int id,int value){
         if(value!=FORMAT_HMS&&value!=FORMAT_MS)
             throw new IllegalArgumentException("Unbekanntes Zeitformat");
@@ -75,7 +85,8 @@ public final class TimerAlertSettings {
         editor.putBoolean(key("tone",targetId),tone(c,sourceId))
               .putBoolean(key("vibration",targetId),vibration(c,sourceId))
               .putInt(key("format",targetId),timeFormat(c,sourceId))
-              .putInt(key("extra",targetId),extraInfo(c,sourceId));
+              .putInt(key("extra",targetId),extraInfo(c,sourceId))
+              .putInt(key("start_delay",targetId),startDelaySeconds(c,sourceId));
         TimerEntry target=TimerRepository.get(c,targetId);
         if(target!=null&&canRepeat(target.durationMs))
             editor.putBoolean(key("repeat",targetId),autoRepeat(c,sourceId));
@@ -84,7 +95,8 @@ public final class TimerAlertSettings {
     public static void delete(Context c,int id){
         if(!prefs(c).edit().remove(key("tone",id))
                 .remove(key("vibration",id)).remove(key("format",id))
-                .remove(key("extra",id)).remove(key("repeat",id)).commit())
+                .remove(key("extra",id)).remove(key("repeat",id))
+                .remove(key("start_delay",id)).commit())
             throw new IllegalStateException("Timer-Einstellungen konnten nicht gelöscht werden");
     }
     /** Unit-testable channel selector. The existing both-on channel is retained. */
