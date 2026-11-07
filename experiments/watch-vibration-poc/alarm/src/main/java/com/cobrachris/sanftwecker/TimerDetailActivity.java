@@ -46,7 +46,7 @@ public final class TimerDetailActivity extends Activity {
     private ProgressBar progress;
     private Button primary,reset;
     private Switch tone,vibration,repeat;
-    private TextView timeFormatChoice,extraInfoChoice;
+    private TextView timeFormatChoice,extraInfoChoice,startDelayChoice;
     private boolean updating;
 
     @Override public void onCreate(Bundle savedState){
@@ -175,6 +175,28 @@ public final class TimerDetailActivity extends Activity {
                     })
                 .setNegativeButton("Abbrechen",null).show();
         });
+        startDelayChoice=choiceRow(display,"Startverzögerung",
+                delayLabel(TimerAlertSettings.startDelaySeconds(this,timerId)),()->{
+            final int[] seconds={0,3,5,10,30,60};
+            final String[] labels={"Aus","3 Sekunden","5 Sekunden","10 Sekunden",
+                    "30 Sekunden","60 Sekunden"};
+            int current=0;
+            for(int i=0;i<seconds.length;i++){
+                if(seconds[i]==TimerAlertSettings.startDelaySeconds(this,timerId))
+                    current=i;
+            }
+            new AlertDialog.Builder(this).setTitle("Startverzögerung")
+                .setSingleChoiceItems(labels,current,(dialog,which)->{
+                    dialog.dismiss();
+                    try{
+                        TimerAlertSettings.setStartDelaySeconds(this,timerId,seconds[which]);
+                        updateState();
+                    }catch(RuntimeException e){showError(e.getMessage());}
+                })
+                .setNegativeButton("Abbrechen",null).show();
+        });
+        addHint(display,"Die Verzögerung gilt beim nächsten manuellen Start. "+
+                "Ein laufender Timer wird dadurch nicht verändert.");
         LinearLayout repeatRow=UiKit.row(this);
         repeatRow.addView(UiKit.label(this,"Automatische Wiederholung",16,UiKit.TEXT),
                 UiKit.weight());
@@ -232,7 +254,7 @@ public final class TimerDetailActivity extends Activity {
         Button delete=UiKit.button(this,"Timer löschen",false);
         extra.addView(delete);
         delete.setOnClickListener(v->deleteTimer());
-        addHint(extra,"Startverzögerung, Intervall, Sprachalarm und Zeitplan sind "+
+        addHint(extra,"Intervall, Sprachalarm und Zeitplan sind "+
                 "noch nicht enthalten. Android steuert weiterhin die Lautstärke "+
                 "der Ablauf-Benachrichtigungen.");
 
@@ -248,6 +270,9 @@ public final class TimerDetailActivity extends Activity {
         setContentView(page);
         if(Build.VERSION.SDK_INT>=35)page.requestApplyInsets();
         updateState();
+    }
+    private static String delayLabel(int seconds){
+        return seconds==0?"Aus":seconds+" Sekunden";
     }
     private TextView choiceRow(LinearLayout parent,String title,String subtitle,
             Runnable click){
@@ -306,6 +331,8 @@ public final class TimerDetailActivity extends Activity {
         timeFormatChoice.setText(TimerDisplay.formatLabel(
                 TimerAlertSettings.timeFormat(this,timerId))+"  ›");
         extraInfoChoice.setText(TimerDisplay.extraLabel(info)+"  ›");
+        startDelayChoice.setText(delayLabel(
+                TimerAlertSettings.startDelaySeconds(this,timerId))+"  ›");
         updating=true;
         tone.setChecked(TimerAlertSettings.tone(this,timerId));
         vibration.setChecked(TimerAlertSettings.vibration(this,timerId));
