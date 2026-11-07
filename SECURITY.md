@@ -31,9 +31,17 @@
 Bei jedem `npm test` wird zusätzlich `npm run security` ausgeführt. Der
 Scanner prüft getrackte Dateien auf hochwahrscheinliche Secrets,
 versehentlich eingecheckte private Schlüssel und besonders riskante
-GitHub-Actions-Auslöser. Veränderliche GitHub-Actions-Tags werden zunächst
-als Hinweis gemeldet (nicht blockiert). Details und Release-Gates:
+GitHub-Actions-Auslöser. Veränderliche externe GitHub-Actions-Referenzen werden nach
+separater Freigabe der SHA-Pinning-Änderung als Fehler blockiert.
+Details, aufgelöste Action-Versionen und Release-Gates:
 [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md).
 
 Diese Prüfung ist **keine** vollständige Code-/Datenschutzprüfung und ersetzt
 weder GitHub-App-Rechtekontrolle noch sicherheitskritisches Workflow-Review.
+
+## SHA-Pinning von GitHub Actions
+
+Die vollständigen, auf GitHub geprüften Commit-Referenzen der sieben
+Bestandsworkflows stehen in [docs/ACTIONS_PINNING.md](docs/ACTIONS_PINNING.md).
+Änderungen an diesen privilegierten Workflows bleiben reviewpflichtig;
+CI allein ist keine Produktivabnahme für Android-Signierung oder Deployment.
