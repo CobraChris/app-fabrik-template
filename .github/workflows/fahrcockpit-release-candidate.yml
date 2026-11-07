@@ -1,0 +1,169 @@
+name: FahrCockpit - signierte APK direkt veröffentlichen
+
+# Security review required before activation. No PR trigger.
+on:
+  push:
+    branches: [main]
+    paths: ['requests/fahrcockpit-release.json']
+permissions:
+  contents: read
+concurrency:
+  group: signed-fahrcockpit
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.repository == 'CobraChris/app-fabrik-template' && github.actor == 'CobraChris' && github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      source_sha: ${{ steps.request.outputs.sha }}
+      version_code: ${{ steps.request.outputs.code }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Review-gated, pinned source SHA
+        id: request
+        env:
+          REQUEST_BEFORE: ${{ github.event.before }}
+        run: node scripts/fahrcockpit-release-request.mjs
+
+  build:
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version_name: ${{ steps.meta.outputs.name }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ needs.validate.outputs.source_sha }}
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build and test without secrets
+        run: |
+          set -euo pipefail
+          gradle --no-daemon -p experiments/fahrcockpit \
+            :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+      - name: Exact package and version verification
+        id: meta
+        env:
+          CODE: ${{ needs.validate.outputs.version_code }}
+        run: |
+          set -euo pipefail
+          python3 - "$CODE" "$GITHUB_OUTPUT" <<'PY'
+          import json,sys,re
+          f='experiments/fahrcockpit/app/build/outputs/apk/release/output-metadata.json'
+          with open(f,encoding='utf8') as stream:d=json.load(stream)
+          assert d['applicationId']=='com.cobrachris.fahrcockpit'
+          assert len(d.get('elements',[]))==1
+          x=d['elements'][0]
+          assert str(x['versionCode'])==sys.argv[1]
+          assert x['outputFile']=='app-release-unsigned.apk'
+          assert re.fullmatch(r'[a-zA-Z0-9._-]{1,64}',x['versionName'])
+          with open(sys.argv[2],'a',encoding='utf8') as stream:
+              stream.write('name='+x['versionName']+'\n')
+          PY
+          cp experiments/fahrcockpit/app/build/outputs/apk/release/app-release-unsigned.apk unsigned-fahrcockpit.apk
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fahrcockpit-unsigned-for-signing
+          path: unsigned-fahrcockpit.apk
+          retention-days: 1
+          if-no-files-found: error
+
+  sign:
+    needs: [validate, build]
+    if: needs.validate.result == 'success' && needs.build.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    environment: android-releases
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: fahrcockpit-unsigned-for-signing
+          path: unsigned
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Sign with independent FahrCockpit keystore
+        env:
+          STORE_B64: ${{ secrets.FAHRCOCKPIT_SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.FAHRCOCKPIT_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.FAHRCOCKPIT_SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.FAHRCOCKPIT_SIGNING_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$STORE_B64" && test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD"
+          test -s unsigned/unsigned-fahrcockpit.apk
+          umask 077
+          printf '%s' "$STORE_B64" | base64 -d > "$RUNNER_TEMP/fahrcockpit.jks"
+          keytool -list -keystore "$RUNNER_TEMP/fahrcockpit.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;35.0.0' >/dev/null
+          mkdir -p signed
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/fahrcockpit.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD \
+            --out signed/fahrcockpit-release.apk unsigned/unsigned-fahrcockpit.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs \
+            signed/fahrcockpit-release.apk > signed/current-certs.txt
+          (cd signed && sha256sum fahrcockpit-release.apk > SHA256SUMS.txt)
+      - name: Reject duplicate tags, downgrades, and certificate changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODE: ${{ needs.validate.outputs.version_code }}
+        run: |
+          set -euo pipefail
+          TAG="fahrcockpit-v$CODE"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Tag already exists"; exit 1
+          fi
+          MAX=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName |
+            jq -r '[.[].tagName | select(test("^fahrcockpit-v[1-9][0-9]*$")) | split("-v")[-1] | tonumber] | max // 0')
+          if [ "$MAX" -gt 0 ]; then
+            test "$CODE" -gt "$MAX" || { echo "::error::Version downgrade"; exit 1; }
+            mkdir -p previous
+            gh release download "fahrcockpit-v$MAX" --repo "$GITHUB_REPOSITORY" \
+              --pattern 'fahrcockpit-release.apk' --dir previous
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs \
+              previous/fahrcockpit-release.apk > previous/certs.txt
+            grep -m1 'Signer #1 certificate SHA-256 digest:' previous/certs.txt > previous/fingerprint
+            grep -m1 'Signer #1 certificate SHA-256 digest:' signed/current-certs.txt > signed/fingerprint
+            test -s previous/fingerprint && test -s signed/fingerprint
+            cmp -s previous/fingerprint signed/fingerprint || {
+              echo "::error::Signing certificate mismatch"; exit 1;
+            }
+          fi
+      - name: Publish direct signed APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CODE: ${{ needs.validate.outputs.version_code }}
+          NAME: ${{ needs.build.outputs.version_name }}
+          SOURCE: ${{ needs.validate.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          printf 'App: FahrCockpit\nPackage: com.cobrachris.fahrcockpit\nVersion: %s\nVersionCode: %s\nSource: %s\n' \
+            "$NAME" "$CODE" "$SOURCE" > signed/RELEASE_INFO.txt
+          gh release create "fahrcockpit-v$CODE" \
+            signed/fahrcockpit-release.apk signed/SHA256SUMS.txt signed/RELEASE_INFO.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$SOURCE" \
+            --title "FahrCockpit $NAME (signierte Testversion)" \
+            --notes "Signierte APK für Android. Bei Wechsel von Debug zu Release ist eventuell eine Neuinstallation nötig." \
+            --prerelease
+      - name: Remove temporary signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/fahrcockpit.jks"
