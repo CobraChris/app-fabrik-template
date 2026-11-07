@@ -73,6 +73,7 @@ public final class TimerScheduler {
         cancelPending(c,id);
         TimerAlerts.dismiss(c,id);
         TimerRepository.delete(c,id);
+        TimerAlertSettings.delete(c,id);
     }
     public static synchronized void fired(Context c,int id,long expectedDue) {
         TimerEntry current=TimerRepository.get(c,id);
