@@ -99,6 +99,30 @@ public final class TimerAlerts {
             AlarmRepository.diagnostic(c,"Timer-Zwischenbenachrichtigung fehlgeschlagen");
         }
     }
+    /** A missed planned start is not silently treated as a successful countdown.
+     * Alert quietly; do not unexpectedly launch the timer minutes late.
+     */
+    public static void showMissedSchedule(Context c,TimerEntry item){
+        ensureChannel(c);
+        NotificationManager manager=
+                (NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
+        if(manager==null||!manager.areNotificationsEnabled())return;
+        Intent open=new Intent(c,TimerDetailActivity.class)
+                .putExtra(TimerScheduler.EXTRA_ID,item.id);
+        PendingIntent launch=PendingIntent.getActivity(c,BASE_ID+30000+item.id,open,
+                PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        Notification notification=new Notification.Builder(c,
+                TimerAlertSettings.channelId(false,false))
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle("Geplanter Timer nicht gestartet")
+                .setContentText(item.name+" – Zeitplan erneut festlegen")
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setContentIntent(launch).setAutoCancel(true).build();
+        try{manager.notify(BASE_ID+30000+item.id,notification);}
+        catch(RuntimeException ignored){
+            AlarmRepository.diagnostic(c,"Hinweis für verpassten Timer nicht angezeigt");
+        }
+    }
     public static void dismiss(Context c,int id){
         NotificationManager m=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
         if(m!=null){
