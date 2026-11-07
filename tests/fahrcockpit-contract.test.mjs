@@ -26,6 +26,7 @@ test('FahrCockpit avoids automatic start and privileged permissions', () => {
   assert.match(a, /KEY_LAST_START_REQUEST/);
   assert.match(a, /enabledSwitch\.setOnCheckedChangeListener/);
   assert.match(a, /BlitzerContract\.Command\.STOP/);
+  assert.match(a, /stopNow\.setOnClickListener\(v -> sendMainCommand\(false\)\)/);
   assert.doesNotMatch(m, /uses-permission/);
   assert.match(m, /<package android:name="de\.blitzer\.plus"/);
   assert.match(m, /android:allowBackup="false"/);
