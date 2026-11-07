@@ -68,6 +68,7 @@ public final class TimerMilestoneScheduler {
         long now=System.currentTimeMillis();
         if(timer==null||expectedDue!=timer.dueWallMs ||
                 expectedEvent<=0||expectedEvent>now+1500L||
+                now>=timer.dueWallMs ||
                 (timer.state!=TimerEntry.RUNNING&&timer.state!=TimerEntry.WAITING))
             return;
         if(now>expectedEvent+15_000L){
