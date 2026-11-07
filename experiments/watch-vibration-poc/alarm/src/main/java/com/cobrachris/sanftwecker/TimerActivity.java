@@ -188,8 +188,12 @@ public final class TimerActivity extends Activity {
             TimerScheduler.reset(this,t.id);render();
         });
         start.setOnClickListener(v->toggle(t));
-        card.setOnClickListener(v->TimerEditor.show(this,t,this::render));
+        card.setOnClickListener(v->openDetail(t.id));
         return card;
+    }
+    private void openDetail(int id){
+        startActivity(new Intent(this,TimerDetailActivity.class)
+                .putExtra(TimerScheduler.EXTRA_ID,id));
     }
     private void toggle(TimerEntry t){
         try{
@@ -231,8 +235,8 @@ public final class TimerActivity extends Activity {
     }
     private void menu(View view,TimerEntry t){
         PopupMenu m=new PopupMenu(this,view);
-        m.getMenu().add("Bearbeiten").setOnMenuItemClickListener(i->{
-            TimerEditor.show(this,t,this::render);return true;
+        m.getMenu().add("Timer-Details").setOnMenuItemClickListener(i->{
+            openDetail(t.id);return true;
         });
         m.getMenu().add("Duplizieren").setOnMenuItemClickListener(i->{
             quick(t.name+" Kopie",t.durationMs);return true;
