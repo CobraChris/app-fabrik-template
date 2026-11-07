@@ -53,10 +53,10 @@ export function inspectWorkflow(file,text) {
     issues.push(finding(file,'UNTRUSTED_PRIVILEGED_TRIGGER'));
   if(/^\s*permissions:\s*write-all\s*(?:#.*)?$/m.test(text))
     issues.push(finding(file,'WORKFLOW_WRITE_ALL'));
-  if(/^\s*run:\s*(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:ba)?sh\b/m.test(text))
+  if(/^\s*(?:-\s*)?(?:run:\s*)?(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:ba)?sh\b/m.test(text))
     issues.push(finding(file,'UNVERIFIED_REMOTE_SHELL'));
   // Advisory until current existing workflows are migrated to immutable SHAs.
-  const actions=[...text.matchAll(/^\s*-\s*uses:\s*([^\s#]+)/gm)];
+  const actions=[...text.matchAll(/^\s*(?:-\s*)?uses:\s*([^\s#]+)/gm)];
   if(actions.some(([,value])=>
     !value.startsWith('./') && !value.startsWith('docker://') &&
     !/@[0-9a-f]{40}$/i.test(value)))
@@ -83,7 +83,10 @@ export function auditTrackedFiles(root=ROOT) {
     if(!stat.isFile())continue;
     // Only read source-sized files; large media never needs to be printed.
     if(stat.size>SIZE_LIMIT){
-      if(SENSITIVE_FILE.test(file))issues.push(finding(file,'PRIVATE_MATERIAL_FILE'));
+      if(SENSITIVE_FILE.test(file))
+        issues.push(finding(file,'PRIVATE_MATERIAL_FILE'));
+      else if(!/\.(?:png|jpe?g|webp|gif|ico|pdf|mp3|mp4|woff2?|ttf|otf|zip|apk)$/i.test(file))
+        issues.push(finding(file,'UNSCANNED_LARGE_SOURCE'));
       continue;
     }
     issues.push(...inspectFile(file,readFileSync(full)));
