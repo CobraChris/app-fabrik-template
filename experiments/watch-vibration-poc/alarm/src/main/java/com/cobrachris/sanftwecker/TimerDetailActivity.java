@@ -14,6 +14,9 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
 import android.view.Gravity;
+import android.view.WindowInsets;
+import android.graphics.Insets;
+import android.widget.ScrollView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -42,7 +45,8 @@ public final class TimerDetailActivity extends Activity {
     private TextView title,time,target,state,star;
     private ProgressBar progress;
     private Button primary,reset;
-    private Switch tone,vibration;
+    private Switch tone,vibration,repeat;
+    private TextView timeFormatChoice,extraInfoChoice;
     private boolean updating;
 
     @Override public void onCreate(Bundle savedState){
@@ -81,8 +85,14 @@ public final class TimerDetailActivity extends Activity {
         root.addView(hint,p);
     }
     private void build(){
-        LinearLayout root=UiKit.mainColumn(this);
+        // A fixed header remains visible while scrolling. Android 15+ draws
+        // edge-to-edge; explicit system bar insets prevent the clipped title
+        // and bottom text seen on Samsung's Android 16.
+        LinearLayout page=UiKit.column(this);
+        page.setBackgroundColor(UiKit.BG);
         LinearLayout header=UiKit.row(this);
+        header.setPadding(UiKit.dp(this,12),UiKit.dp(this,2),
+                UiKit.dp(this,12),UiKit.dp(this,4));
         TextView back=UiKit.action(this,"‹");
         back.setContentDescription("Zur Timer-Liste zurück");
         back.setOnClickListener(v->finish());
@@ -91,7 +101,8 @@ public final class TimerDetailActivity extends Activity {
         star=UiKit.action(this,"☆");
         header.addView(star);
         star.setOnClickListener(v->toggleFavorite());
-        root.addView(header);
+        page.addView(header);
+        LinearLayout root=UiKit.mainColumn(this);
 
         LinearLayout overview=section(root,"");
         // Empty card heading is removed; the large timer title is the heading.
@@ -139,6 +150,46 @@ public final class TimerDetailActivity extends Activity {
         overview.addView(edit);
         edit.setOnClickListener(v->editTimer());
 
+        LinearLayout display=section(root,"Anzeige & Wiederholung");
+        timeFormatChoice=choiceRow(display,"Zeitformat",TimerDisplay.formatLabel(
+                TimerAlertSettings.timeFormat(this,timerId)),()->{
+            final String[] values={"Std.:Min.:Sek.","Min.:Sek."};
+            new AlertDialog.Builder(this).setTitle("Zeitformat")
+                .setSingleChoiceItems(values,TimerAlertSettings.timeFormat(this,timerId),
+                    (dialog,which)->{
+                        dialog.dismiss();
+                        try{TimerAlertSettings.setTimeFormat(this,timerId,which);updateState();}
+                        catch(RuntimeException e){showError(e.getMessage());}
+                    })
+                .setNegativeButton("Abbrechen",null).show();
+        });
+        extraInfoChoice=choiceRow(display,"Zusatz-Info unter dem Timer",
+                TimerDisplay.extraLabel(TimerAlertSettings.extraInfo(this,timerId)),()->{
+            final String[] values={"Ziel-Uhrzeit","Ursprüngliche Dauer","Keine"};
+            new AlertDialog.Builder(this).setTitle("Zusatz-Info")
+                .setSingleChoiceItems(values,TimerAlertSettings.extraInfo(this,timerId),
+                    (dialog,which)->{
+                        dialog.dismiss();
+                        try{TimerAlertSettings.setExtraInfo(this,timerId,which);updateState();}
+                        catch(RuntimeException e){showError(e.getMessage());}
+                    })
+                .setNegativeButton("Abbrechen",null).show();
+        });
+        LinearLayout repeatRow=UiKit.row(this);
+        repeatRow.addView(UiKit.label(this,"Automatische Wiederholung",16,UiKit.TEXT),
+                UiKit.weight());
+        repeat=UiKit.toggle(this);
+        repeatRow.addView(repeat);
+        display.addView(repeatRow);
+        addHint(display,"Nach dem Ablauf startet derselbe Timer automatisch neu. "+
+                "Nur ab 10 Sekunden; nicht für den Weckalarm.");
+        repeat.setOnCheckedChangeListener((view,enabled)->{
+            if(updating)return;
+            try{TimerAlertSettings.setAutoRepeat(this,timerId,enabled);}
+            catch(RuntimeException e){showError(e.getMessage());}
+            updateState();
+        });
+
         LinearLayout alert=section(root,"Alarm beim Ablauf");
         LinearLayout toneRow=UiKit.row(this);
         toneRow.addView(UiKit.label(this,"Alarmton",17,UiKit.TEXT),UiKit.weight());
@@ -181,12 +232,35 @@ public final class TimerDetailActivity extends Activity {
         Button delete=UiKit.button(this,"Timer löschen",false);
         extra.addView(delete);
         delete.setOnClickListener(v->deleteTimer());
-        addHint(extra,"Weitere Funktionen wie Intervall, Wiederholung, Sprachalarm "+
-                "und Zeitplan kommen in einem späteren Entwicklungsschritt. "+
-                "Diese Timer verwenden bis dahin weiterhin eine einmalige Ablauf-Benachrichtigung.");
+        addHint(extra,"Startverzögerung, Intervall, Sprachalarm und Zeitplan sind "+
+                "noch nicht enthalten. Android steuert weiterhin die Lautstärke "+
+                "der Ablauf-Benachrichtigungen.");
 
-        setContentView(UiKit.scroll(this,root));
+        ScrollView content=UiKit.scroll(this,root);
+        page.addView(content,new LinearLayout.LayoutParams(-1,0,1));
+        if(Build.VERSION.SDK_INT>=35){
+            page.setOnApplyWindowInsetsListener((view,insets)->{
+                Insets bars=insets.getInsets(WindowInsets.Type.systemBars());
+                view.setPadding(0,bars.top,0,bars.bottom);
+                return insets;
+            });
+        }
+        setContentView(page);
+        if(Build.VERSION.SDK_INT>=35)page.requestApplyInsets();
         updateState();
+    }
+    private TextView choiceRow(LinearLayout parent,String title,String subtitle,
+            Runnable click){
+        LinearLayout row=UiKit.column(this);
+        row.setPadding(UiKit.dp(this,2),UiKit.dp(this,8),
+                UiKit.dp(this,2),UiKit.dp(this,10));
+        row.addView(UiKit.label(this,title,16,UiKit.TEXT));
+        TextView sub=UiKit.label(this,subtitle+"  ›",14,UiKit.MUTED);
+        row.addView(sub);
+        row.setContentDescription(title+" – "+subtitle);
+        row.setOnClickListener(v->click.run());
+        parent.addView(row);
+        return sub;
     }
     private void updateState(){
         if(isFinishing()||title==null)return;
@@ -201,29 +275,42 @@ public final class TimerDetailActivity extends Activity {
             left=t.remaining(System.currentTimeMillis(),SystemClock.elapsedRealtime());
         }
         title.setText(t.name);
-        time.setText(ClockFormat.countdown(left));
+        time.setText(TimerDisplay.time(left,TimerAlertSettings.timeFormat(this,timerId)));
         star.setText(t.favorite?"★":"☆");
         star.setContentDescription(t.favorite?"Favorit entfernen":"Als Favorit markieren");
         int completed=(int)Math.max(0,Math.min(1000,
                 Math.round(1000.0*(t.durationMs-left)/t.durationMs)));
         progress.setProgress(completed);
         if(t.state==TimerEntry.RUNNING){
-            target.setText("Ziel-Uhrzeit: "+formatTime(t.dueWallMs));
             state.setText("Läuft");
             primary.setText("Ⅱ  Pausieren");
         }else if(t.state==TimerEntry.FINISHED){
-            target.setText("Timer abgelaufen");
             state.setText("Fertig");
             primary.setText("▶  Neu starten");
         }else{
-            target.setText("Ziel-Uhrzeit bei Start jetzt: "+
-                    formatTime(now+left));
             state.setText(t.state==TimerEntry.PAUSED?"Pausiert":"Bereit");
             primary.setText("▶  Starten");
         }
+        int info=TimerAlertSettings.extraInfo(this,timerId);
+        target.setVisibility(info==TimerAlertSettings.EXTRA_NONE?View.GONE:View.VISIBLE);
+        if(info==TimerAlertSettings.EXTRA_DURATION){
+            target.setText("Dauer: "+TimerDisplay.time(t.durationMs,
+                    TimerAlertSettings.timeFormat(this,timerId)));
+        }else if(info==TimerAlertSettings.EXTRA_TARGET){
+            target.setText(t.state==TimerEntry.FINISHED?
+                    "Timer abgelaufen":
+                    (t.state==TimerEntry.RUNNING?"Ziel-Uhrzeit: ":
+                    "Ziel-Uhrzeit bei Start jetzt: ")+
+                    formatTime(t.state==TimerEntry.RUNNING?t.dueWallMs:now+left));
+        }
+        timeFormatChoice.setText(TimerDisplay.formatLabel(
+                TimerAlertSettings.timeFormat(this,timerId))+"  ›");
+        extraInfoChoice.setText(TimerDisplay.extraLabel(info)+"  ›");
         updating=true;
         tone.setChecked(TimerAlertSettings.tone(this,timerId));
         vibration.setChecked(TimerAlertSettings.vibration(this,timerId));
+        repeat.setChecked(TimerAlertSettings.autoRepeat(this,timerId) &&
+                TimerAlertSettings.canRepeat(t.durationMs));
         updating=false;
     }
     private static String formatTime(long when){
@@ -288,8 +375,7 @@ public final class TimerDetailActivity extends Activity {
             if(old==null)return;
             TimerEntry copy=TimerRepository.create(this,old.name+" Kopie",old.durationMs);
             if(old.favorite)TimerRepository.put(this,copy.favorite(true));
-            TimerAlertSettings.setTone(this,copy.id,TimerAlertSettings.tone(this,old.id));
-            TimerAlertSettings.setVibration(this,copy.id,TimerAlertSettings.vibration(this,old.id));
+            TimerAlertSettings.copy(this,old.id,copy.id);
             startActivity(new Intent(this,TimerDetailActivity.class)
                     .putExtra(TimerScheduler.EXTRA_ID,copy.id));
             finish();
