@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "sanftwecker-signed-beta",
-  "request_id": "2026-11-07-optin-audible-muted-alarm",
-  "source_sha": "8078ba9b8b451cf406417afa5c2cdab7b96029e3",
-  "expected_version_code": 13
+  "request_id": "2026-11-07-fsi-permission-ui",
+  "source_sha": "932741729cfcdb370b694b255a839fed10f16c95",
+  "expected_version_code": 14
 }
