@@ -45,8 +45,8 @@ public final class TimerDetailActivity extends Activity {
     private TextView title,time,target,state,star;
     private ProgressBar progress;
     private Button primary,reset;
-    private Switch tone,vibration,repeat;
-    private TextView timeFormatChoice,extraInfoChoice,startDelayChoice;
+    private Switch tone,vibration,repeat,prepareCue,oneShot;
+    private TextView timeFormatChoice,extraInfoChoice,startDelayChoice,intervalChoice;
     private boolean updating;
 
     @Override public void onCreate(Bundle savedState){
@@ -197,6 +197,56 @@ public final class TimerDetailActivity extends Activity {
         });
         addHint(display,"Die Verzögerung gilt beim nächsten manuellen Start. "+
                 "Ein laufender Timer wird dadurch nicht verändert.");
+        intervalChoice=choiceRow(display,"Intervall-Timer",
+                intervalLabel(TimerAlertSettings.intervalSeconds(this,timerId)),()->{
+            final int[] seconds=TimerAlertSettings.INTERVAL_CHOICES;
+            final String[] labels={"Aus","Alle 30 Sekunden","Jede Minute",
+                    "Alle 2 Minuten","Alle 5 Minuten"};
+            int current=0;
+            for(int i=0;i<seconds.length;i++)
+                if(seconds[i]==TimerAlertSettings.intervalSeconds(this,timerId))
+                    current=i;
+            new AlertDialog.Builder(this).setTitle("Intervall-Timer")
+                .setSingleChoiceItems(labels,current,(dialog,which)->{
+                    dialog.dismiss();
+                    try{TimerAlertSettings.setIntervalSeconds(this,timerId,
+                            seconds[which]);updateState();}
+                    catch(RuntimeException ex){showError(ex.getMessage());}
+                }).setNegativeButton("Abbrechen",null).show();
+        });
+        addHint(display,"Kurzer Hinweis nach jedem Intervall; nicht gleichzeitig "+
+                "mit dem Abschlussalarm. Für längere Timer geeignet.");
+        LinearLayout preparationRow=UiKit.row(this);
+        preparationRow.addView(UiKit.label(this,"Vorbereitungsalarm",16,UiKit.TEXT),
+                UiKit.weight());
+        prepareCue=UiKit.toggle(this);
+        preparationRow.addView(prepareCue);
+        display.addView(preparationRow);
+        addHint(display,"Drei Sekunden vor dem Countdown-Start. "+
+                "Startverzögerung von mindestens fünf Sekunden nötig.");
+        prepareCue.setOnCheckedChangeListener((view,enabled)->{
+            if(updating)return;
+            try{
+                if(enabled&&TimerAlertSettings.startDelaySeconds(this,timerId)<5){
+                    updating=true;prepareCue.setChecked(false);updating=false;
+                    new AlertDialog.Builder(this)
+                            .setTitle("Startverzögerung erforderlich")
+                            .setMessage("Für den Vorbereitungsalarm sind mindestens "+
+                                    "5 Sekunden Startverzögerung erforderlich.")
+                            .setNegativeButton("Abbrechen",null)
+                            .setPositiveButton("5 Sekunden einstellen",(d,w)->{
+                                try{
+                                    TimerAlertSettings.setStartDelaySeconds(this,timerId,5);
+                                    TimerAlertSettings.setPrepareCue(this,timerId,true);
+                                    updateState();
+                                }catch(RuntimeException ex){showError(ex.getMessage());}
+                            }).show();
+                    return;
+                }
+                TimerAlertSettings.setPrepareCue(this,timerId,enabled);
+            }catch(RuntimeException ex){showError(ex.getMessage());}
+            updateState();
+        });
         LinearLayout repeatRow=UiKit.row(this);
         repeatRow.addView(UiKit.label(this,"Automatische Wiederholung",16,UiKit.TEXT),
                 UiKit.weight());
@@ -210,6 +260,33 @@ public final class TimerDetailActivity extends Activity {
             try{TimerAlertSettings.setAutoRepeat(this,timerId,enabled);}
             catch(RuntimeException e){showError(e.getMessage());}
             updateState();
+        });
+        LinearLayout oneShotRow=UiKit.row(this);
+        oneShotRow.addView(UiKit.label(this,"Einmal-Timer",16,UiKit.TEXT),
+                UiKit.weight());
+        oneShot=UiKit.toggle(this);
+        oneShotRow.addView(oneShot);
+        display.addView(oneShotRow);
+        addHint(display,"Entfernt diesen Timer nach dem nächsten vollständigen "+
+                "Ablauf automatisch aus der Liste. Nicht rückgängig zu machen.");
+        oneShot.setOnCheckedChangeListener((view,enabled)->{
+            if(updating)return;
+            if(enabled){
+                updating=true;oneShot.setChecked(false);updating=false;
+                new AlertDialog.Builder(this).setTitle("Einmal-Timer aktivieren?")
+                        .setMessage("Dieser Timer wird nach dem Ablauf automatisch "+
+                                "gelöscht. Die anderen Timer bleiben erhalten.")
+                        .setNegativeButton("Abbrechen",null)
+                        .setPositiveButton("Aktivieren",(d,w)->{
+                            try{TimerAlertSettings.setOneShot(this,timerId,true);}
+                            catch(RuntimeException ex){showError(ex.getMessage());}
+                            updateState();
+                        }).show();
+            }else{
+                try{TimerAlertSettings.setOneShot(this,timerId,false);}
+                catch(RuntimeException e){showError(e.getMessage());}
+                updateState();
+            }
         });
 
         LinearLayout alert=section(root,"Alarm beim Ablauf");
@@ -254,9 +331,9 @@ public final class TimerDetailActivity extends Activity {
         Button delete=UiKit.button(this,"Timer löschen",false);
         extra.addView(delete);
         delete.setOnClickListener(v->deleteTimer());
-        addHint(extra,"Intervall, Sprachalarm und Zeitplan sind "+
-                "noch nicht enthalten. Android steuert weiterhin die Lautstärke "+
-                "der Ablauf-Benachrichtigungen.");
+        addHint(extra,"Sprachalarm, fester Timer-Zeitplan und individuelle "+
+                "Alarmdauer werden separat ergänzt. Android kontrolliert weiterhin "+
+                "die Lautstärke der Benachrichtigungen.");
 
         ScrollView content=UiKit.scroll(this,root);
         page.addView(content,new LinearLayout.LayoutParams(-1,0,1));
@@ -270,6 +347,13 @@ public final class TimerDetailActivity extends Activity {
         setContentView(page);
         if(Build.VERSION.SDK_INT>=35)page.requestApplyInsets();
         updateState();
+    }
+    private static String intervalLabel(int seconds){
+        if(seconds==0)return "Aus";
+        if(seconds==60)return "Jede Minute";
+        if(seconds==120)return "Alle 2 Minuten";
+        if(seconds==300)return "Alle 5 Minuten";
+        return "Alle "+seconds+" Sekunden";
     }
     private static String delayLabel(int seconds){
         return seconds==0?"Aus":seconds+" Sekunden";
@@ -337,11 +421,15 @@ public final class TimerDetailActivity extends Activity {
         extraInfoChoice.setText(TimerDisplay.extraLabel(info)+"  ›");
         startDelayChoice.setText(delayLabel(
                 TimerAlertSettings.startDelaySeconds(this,timerId))+"  ›");
+        intervalChoice.setText(intervalLabel(
+                TimerAlertSettings.intervalSeconds(this,timerId))+"  ›");
         updating=true;
         tone.setChecked(TimerAlertSettings.tone(this,timerId));
         vibration.setChecked(TimerAlertSettings.vibration(this,timerId));
         repeat.setChecked(TimerAlertSettings.autoRepeat(this,timerId) &&
                 TimerAlertSettings.canRepeat(t.durationMs));
+        prepareCue.setChecked(TimerAlertSettings.prepareCue(this,timerId));
+        oneShot.setChecked(TimerAlertSettings.oneShot(this,timerId));
         updating=false;
     }
     private static String formatTime(long when){
