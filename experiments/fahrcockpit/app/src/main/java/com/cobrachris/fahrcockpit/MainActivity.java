@@ -52,7 +52,8 @@ public final class MainActivity extends Activity {
             "Google Maps bleibt deine Navigation. FahrCockpit legt eine verschiebbare " +
             "Steuerleiste darüber.", 15, Ui.MUTED, false));
 
-        Ui.section(this, root, "Schwebendes Cockpit", "Spotify • Tankstellen • Blitzer.de AUS");
+        Ui.section(this, root, "Schwebendes Cockpit",
+            "Spotify • Tankstellen • Warn-App (Saphe oder Blitzer.de)");
         Button overlay = Ui.button(this, "Cockpit über Google Maps starten");
         root.addView(overlay);
         overlay.setOnClickListener(v -> startOverlay());
@@ -76,8 +77,52 @@ public final class MainActivity extends Activity {
         });
         root.addView(notificationPermission);
 
-        Ui.section(this, root, "Blitzer.de PRO",
-            "Die Befehle werden an die installierte Blitzer.de PRO-App geschickt.");
+        Ui.section(this, root, "Warnsystem auswählen",
+            "Saphe ist voreingestellt. Die Auswahl startet keine Warn-App und " +
+            "ändert weder dein Gerät noch dessen Abonnement.");
+        android.widget.RadioGroup warningChoice = new android.widget.RadioGroup(this);
+        android.widget.RadioButton sapheChoice = new android.widget.RadioButton(this);
+        sapheChoice.setId(android.view.View.generateViewId());
+        sapheChoice.setText("Saphe Link (vorhandenes Gerät)");
+        sapheChoice.setTextColor(Ui.FG);
+        warningChoice.addView(sapheChoice);
+        android.widget.RadioButton blitzerChoice = new android.widget.RadioButton(this);
+        blitzerChoice.setId(android.view.View.generateViewId());
+        blitzerChoice.setText("Blitzer.de PRO (optional)");
+        blitzerChoice.setTextColor(Ui.FG);
+        warningChoice.addView(blitzerChoice);
+        android.widget.RadioButton noneChoice = new android.widget.RadioButton(this);
+        noneChoice.setId(android.view.View.generateViewId());
+        noneChoice.setText("Kein Warnsystem");
+        noneChoice.setTextColor(Ui.FG);
+        warningChoice.addView(noneChoice);
+        root.addView(warningChoice);
+        String selected = WarningSource.selected(this);
+        warningChoice.check(WarningSource.BLITZER.equals(selected) ? blitzerChoice.getId()
+            : WarningSource.NONE.equals(selected) ? noneChoice.getId() : sapheChoice.getId());
+        TextView warningStatus = Ui.text(this, "", 14, Ui.MUTED, false);
+        root.addView(warningStatus);
+        Button sapheLaunch = Ui.button(this, "Saphe Link öffnen");
+        root.addView(sapheLaunch);
+        sapheLaunch.setOnClickListener(v -> warningStatus.setText(
+            WarningSource.openSaphe(this) ? "Saphe Link geöffnet – Warnstatus wird von Saphe verwaltet."
+                : "Saphe Link ist auf diesem Handy nicht installiert."));
+        warningChoice.setOnCheckedChangeListener((group, checkedId) -> {
+            WarningSource.setSelected(this, checkedId == blitzerChoice.getId()
+                ? WarningSource.BLITZER : checkedId == noneChoice.getId()
+                ? WarningSource.NONE : WarningSource.SAPHE);
+            updateWarningStatus(warningStatus);
+        });
+        updateWarningStatus(warningStatus);
+        root.addView(Ui.text(this,
+            "Saphe lässt sich aktuell nur öffnen. Das FahrCockpit kontrolliert " +
+            "weder dein Saphe-Gerät noch dessen Warnstatus. Das Gerätemodell " +
+            "prüfen wir nach deiner Rückkehr nach Deutschland.",
+            13, Ui.MUTED, false));
+
+        Ui.section(this, root, "Blitzer.de PRO (optional)",
+            "Diese Funktionen benötigen die separat installierte Blitzer.de PRO-App. " +
+            "Sie funktionieren nicht über Saphe.");
         blitzerSwitch = new Switch(this);
         blitzerSwitch.setText("Zuletzt angeforderter Zustand: EIN / AUS");
         blitzerSwitch.setTextColor(Ui.FG);
@@ -168,6 +213,21 @@ public final class MainActivity extends Activity {
             boolean listener = Permissions.isMediaListenerEnabled(this);
             permissions.setText("Einblendung: " + (draw ? "freigegeben" : "fehlt") +
                 "  •  Spotify-Medienzugriff: " + (listener ? "freigegeben" : "fehlt"));
+        }
+    }
+
+    private void updateWarningStatus(TextView label) {
+        String chosen = WarningSource.selected(this);
+        if (WarningSource.SAPHE.equals(chosen)) {
+            label.setText(WarningSource.isSapheInstalled(this)
+                ? "Saphe ausgewählt · App installiert · Gerätestatus unbekannt."
+                : "Saphe ausgewählt · Saphe Link noch nicht installiert.");
+        } else if (WarningSource.BLITZER.equals(chosen)) {
+            label.setText(BlitzerBridge.installed(this)
+                ? "Blitzer.de PRO ausgewählt · App installiert · Warnstatus unbekannt."
+                : "Blitzer.de PRO ausgewählt · App fehlt.");
+        } else {
+            label.setText("Kein Warnsystem ausgewählt. Spotify und Karte funktionieren weiter.");
         }
     }
 

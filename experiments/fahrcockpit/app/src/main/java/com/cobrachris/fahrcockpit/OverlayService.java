@@ -42,6 +42,7 @@ public final class OverlayService extends Service {
     private Button forward;
     private Button previous;
     private Button next;
+    private Button warningButton;
     private boolean minimized;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final Runnable refresh = new Runnable() {
@@ -201,7 +202,8 @@ public final class OverlayService extends Service {
         tools.addView(map, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
         content.addView(tools);
         LinearLayout traffic = Ui.row(this);
-        Button on = small("Blitzer EIN");
+        Button on = small("Saphe öffnen");
+        warningButton = on;
         Button off = small("Blitzer AUS");
         traffic.addView(on, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
         traffic.addView(off, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
@@ -215,11 +217,20 @@ public final class OverlayService extends Service {
             } catch (RuntimeException e) { toast("Google Maps nicht erreichbar."); }
         });
         on.setOnClickListener(v -> {
-            BlitzerBridge.SendResult result = BlitzerBridge.send(
-                this, BlitzerContract.Command.START);
-            toast(result == BlitzerBridge.SendResult.SENT_UNCONFIRMED
-                ? "Blitzer.de Startbefehl gesendet (nicht bestätigt)"
-                : "Blitzer.de PRO nicht erreichbar.");
+            String warning = WarningSource.selected(this);
+            if (WarningSource.SAPHE.equals(warning)) {
+                toast(WarningSource.openSaphe(this)
+                    ? "Saphe Link geöffnet – Warnstatus wird nicht geprüft."
+                    : "Saphe Link nicht installiert. Bitte später einrichten.");
+            } else if (WarningSource.BLITZER.equals(warning)) {
+                BlitzerBridge.SendResult result = BlitzerBridge.send(
+                    this, BlitzerContract.Command.START);
+                toast(result == BlitzerBridge.SendResult.SENT_UNCONFIRMED
+                    ? "Blitzer.de Startbefehl gesendet (nicht bestätigt)"
+                    : "Blitzer.de PRO nicht erreichbar.");
+            } else {
+                toast("Kein Warnsystem ausgewählt.");
+            }
         });
         fuel.setOnClickListener(v -> {
             try {
@@ -255,8 +266,18 @@ public final class OverlayService extends Service {
         updateMusic();
     }
 
+    private void onWarningButtonLabel() {
+        if (warningButton == null) return;
+        String selected = WarningSource.selected(this);
+        warningButton.setText(WarningSource.SAPHE.equals(selected) ? "Saphe öffnen"
+            : WarningSource.BLITZER.equals(selected) ? "Blitzer EIN"
+            : "Warnung aus");
+        warningButton.setEnabled(!WarningSource.NONE.equals(selected));
+    }
+
     private void updateMusic() {
         SpotifyMedia.State state = SpotifyMedia.read(this);
+        onWarningButtonLabel();
         track.setText(state.line);
         play.setText(state.playing ? "⏸" : "▶");
         play.setEnabled(state.connected);

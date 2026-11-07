@@ -7,8 +7,8 @@ android {
         applicationId 'com.cobrachris.fahrcockpit'
         minSdk 30
         targetSdk 35
-        versionCode 2
-        versionName '0.9.0-test'
+        versionCode 3
+        versionName '0.9.1-test'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

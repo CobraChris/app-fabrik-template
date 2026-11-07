@@ -47,6 +47,23 @@ test('Spotify media uses the Android notification-listener session', () => {
   assert.doesNotMatch(manifest, /MEDIA_CONTENT_CONTROL/);
 });
 
+test('Saphe integration uses the official installed app package without fake remote control', () => {
+  const warning = java('WarningSource');
+  const overlay = java('OverlayService');
+  const main = java('MainActivity');
+  const manifest = read('app/src/main/AndroidManifest.xml');
+  assert.match(warning, /my\.saphelink/);
+  assert.match(warning, /getLaunchIntentForPackage/);
+  assert.match(warning, /getSharedPreferences/);
+  assert.match(warning, /"saphe"/);
+  assert.match(warning, /"blitzer"/);
+  assert.match(warning, /"none"/);
+  assert.match(main, /Saphe Link öffnen/);
+  assert.match(overlay, /WarningSource\.selected/);
+  assert.match(manifest, /<package android:name="my\.saphelink"/);
+  assert.doesNotMatch(warning, /BLUETOOTH_SCAN|BluetoothGatt|de\.blitzer\.APP_MODE/);
+});
+
 test('Fuel searches on user action, stores key locally and does not poll', () => {
   const fuel = java('FuelActivity');
   const rules = java('FuelRules');

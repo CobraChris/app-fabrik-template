@@ -10,6 +10,7 @@
 
     <queries>
         <package android:name="de.blitzer.plus" />
+        <package android:name="my.saphelink" />
         <package android:name="com.google.android.apps.maps" />
         <package android:name="com.spotify.music" />
     </queries>
