@@ -25,6 +25,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Date;
+import java.util.Locale;
+import java.text.SimpleDateFormat;
 
 /** Independent parallel countdowns. No direct vibrator or ringing-service reuse. */
 public final class TimerActivity extends Activity {
@@ -184,7 +187,11 @@ public final class TimerActivity extends Activity {
                     (t.delayRemaining(System.currentTimeMillis(),SystemClock.elapsedRealtime())>0?
                         "Start verzögert":"Läuft"):
                 t.state==TimerEntry.PAUSED?"Pausiert":
-                t.state==TimerEntry.FINISHED?"FERTIG":"Bereit";
+                t.state==TimerEntry.FINISHED?"FERTIG":
+                TimerStartSchedule.get(this,t.id)>0?
+                    "Start "+new SimpleDateFormat("dd.MM. HH:mm",Locale.GERMANY)
+                            .format(new Date(TimerStartSchedule.get(this,t.id))):
+                    "Bereit";
         TextView state=UiKit.label(this,status,13,UiKit.MUTED);
         state.setGravity(Gravity.CENTER);card.addView(state);
         statusViews.put(t.id,state);
