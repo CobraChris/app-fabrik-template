@@ -1,4 +1,4 @@
-# FahrCockpit 0.9.1-test – Android-Test-MVP
+# FahrCockpit 0.9.2-beta – Android-Test-MVP
 
 **Status:** Großer Funktionsumfang implementiert, aber noch kein Samsung-Realtest und keine dauerhaft signierte Release-APK. Der PR #27 bleibt Draft.
 
@@ -46,3 +46,9 @@ Quellen:
 - https://onboarding.tankerkoenig.de/
 
 FahrCockpit GitHub: https://github.com/CobraChris/app-fabrik-template/pull/27
+
+## Updates ohne ZIP
+
+Die Hauptansicht enthält \"Auf Updates prüfen\". Der Dialog fragt **nur auf Klick** die öffentlichen GitHub-Releases ab und erlaubt ausschließlich APKs namens `fahrcockpit-release.apk` aus einem passenden `fahrcockpit-v<versionCode>`-Tag. Der Download öffnet den Browser als normalen direkten APK-Link.
+
+**Wichtig:** Eine neue signierte Release-APK kann einen bestehenden Debug-Build mit anderer Signatur nicht direkt ersetzen; beim ersten Wechsel ist daher möglicherweise einmalig eine Neuinstallation erforderlich. Anschließend ermöglichen gleiches Paket, gleiche dauerhafte Signatur und steigender `versionCode` echte Updates ohne Deinstallation. Noch ist **keine** signierte FahrCockpit-Release-APK veröffentlicht. Die Bereitstellung wird durch einen gesondert sicherheitsgeprüften Release-Workflow vorbereitet.

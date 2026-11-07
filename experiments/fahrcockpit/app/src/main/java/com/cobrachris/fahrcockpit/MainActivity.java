@@ -180,6 +180,13 @@ public final class MainActivity extends Activity {
         root.addView(spotify);
         spotify.setOnClickListener(v -> openPackage("com.spotify.music", "Spotify"));
 
+        Ui.section(this, root, "App aktualisieren",
+            "Direkte, dauerhaft signierte APK über GitHub Releases – ohne ZIP.");
+        Button updateButton = Ui.button(this, "Auf Updates prüfen");
+        root.addView(updateButton);
+        updateButton.setOnClickListener(v ->
+            startActivity(new Intent(this, UpdateActivity.class)));
+
         Ui.section(this, root, "Hinweise", "");
         root.addView(Ui.text(this,
             "FahrCockpit startet keine Dienste beim Booten. Schließe das Cockpit über " +

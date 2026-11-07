@@ -28,6 +28,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".FuelActivity" android:exported="false" />
+        <activity android:name=".UpdateActivity" android:exported="false" />
 
         <service
             android:name=".SpotifyNotificationListener"
