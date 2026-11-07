@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "sanftwecker-signed-beta",
-  "request_id": "2026-11-06-second-signed-update",
-  "source_sha": "25f453a6bcab2e610d14ced0a5dc1d01aef119cb",
-  "expected_version_code": 10
+  "request_id": "2026-11-07-longer-phone-vibration",
+  "source_sha": "e7e69dba680f18a687850431ed77c80a6fb2b2ef",
+  "expected_version_code": 11
 }
