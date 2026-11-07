@@ -69,8 +69,42 @@ public final class TimerAlerts {
         try{m.notify(BASE_ID+timer.id,notification);}
         catch(RuntimeException ex){AlarmRepository.diagnostic(c,"Timer-Benachrichtigung fehlgeschlagen");}
     }
+    /** Brief, non-fullscreen event; Android notification channel respects user controls. */
+    public static void showMilestone(Context c,TimerEntry timer,boolean prepare){
+        ensureChannel(c);
+        NotificationManager manager=
+                (NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
+        if(manager==null||!manager.areNotificationsEnabled())return;
+        Intent open=new Intent(c,TimerDetailActivity.class)
+                .putExtra(TimerScheduler.EXTRA_ID,timer.id);
+        PendingIntent launch=PendingIntent.getActivity(c,BASE_ID+20000+timer.id,open,
+                PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        String channel=TimerAlertSettings.channelId(
+                TimerAlertSettings.tone(c,timer.id),
+                TimerAlertSettings.vibration(c,timer.id));
+        String title=prepare?"Startet gleich: "+timer.name:timer.name+" · Intervall";
+        String message=prepare?"Countdown beginnt in 3 Sekunden":
+                "Noch "+TimerDisplay.time(timer.remaining(
+                        System.currentTimeMillis(),android.os.SystemClock.elapsedRealtime()),
+                        TimerAlertSettings.FORMAT_MS);
+        Notification notification=new Notification.Builder(c,channel)
+                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(title).setContentText(message)
+                .setContentIntent(launch).setAutoCancel(true)
+                .setCategory(Notification.CATEGORY_REMINDER)
+                .setTimeoutAfter(5500L)
+                .build();
+        try{manager.notify(BASE_ID+(prepare?20000:10000)+timer.id,notification);}
+        catch(RuntimeException e){
+            AlarmRepository.diagnostic(c,"Timer-Zwischenbenachrichtigung fehlgeschlagen");
+        }
+    }
     public static void dismiss(Context c,int id){
         NotificationManager m=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
-        if(m!=null)m.cancel(BASE_ID+id);
+        if(m!=null){
+            m.cancel(BASE_ID+id);
+            m.cancel(BASE_ID+10000+id);
+            m.cancel(BASE_ID+20000+id);
+        }
     }
 }
