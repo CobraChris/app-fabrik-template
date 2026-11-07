@@ -49,7 +49,7 @@ public final class TimerRepository {
         for(TimerEntry t:all(c))if(t.id==id)return t;
         return null;
     }
-    private static void save(Context c,List<TimerEntry> timers) {
+    private static JSONArray toJson(List<TimerEntry> timers) {
         JSONArray arr=new JSONArray();
         for(TimerEntry t:timers){
             JSONObject j=new JSONObject();
@@ -62,8 +62,39 @@ public final class TimerRepository {
                 arr.put(j);
             }catch(Exception error){throw new IllegalStateException("Timer serialisieren",error);}
         }
-        if(!prefs(c).edit().putString(DATA,arr.toString()).commit())
+        return arr;
+    }
+    private static void save(Context c,List<TimerEntry> timers) {
+        if(!prefs(c).edit().putString(DATA,toJson(timers).toString()).commit())
             throw new IllegalStateException("Timer konnten nicht gespeichert werden");
+    }
+
+    /**
+     * A one-time import of screenshot timer presets. Preserves existing items,
+     * running countdowns, and IDs. Imported timers remain stopped. If the user
+     * later deletes a preset it must NOT reappear when the app opens again.
+     */
+    public static synchronized int importScreenshotPresets(Context c){
+        final String importedKey="screenshot_timers_20261107_imported";
+        SharedPreferences storage=prefs(c);
+        if(storage.getBoolean(importedKey,false))return 0;
+        List<TimerEntry> items=all(c);
+        List<TimerPresets.Preset> missing=TimerPresets.missing(items);
+        if(items.size()+missing.size()>LIMIT)
+            throw new IllegalStateException(
+                "Nicht genug Plätze für die 10 Screenshot-Timer (maximal 50).");
+        int next=storage.getInt(NEXT,1);
+        for(TimerEntry item:items)next=Math.max(next,item.id+1);
+        if(next+missing.size()-1>9999)
+            throw new IllegalStateException("Timer-ID-Kontingent erschöpft");
+        for(TimerPresets.Preset preset:missing){
+            TimerEntry item=TimerEntry.create(next++,preset.name,preset.durationMs);
+            items.add(preset.favorite?item.favorite(true):item);
+        }
+        if(!storage.edit().putString(DATA,toJson(items).toString())
+                .putInt(NEXT,next).putBoolean(importedKey,true).commit())
+            throw new IllegalStateException("Screenshot-Timer konnten nicht gespeichert werden");
+        return missing.size();
     }
     public static synchronized TimerEntry create(Context c,String name,long durationMs){
         List<TimerEntry> timers=all(c);
