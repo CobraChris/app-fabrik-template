@@ -22,6 +22,7 @@ public final class RescheduleReceiver extends BroadcastReceiver {
                 StopwatchRepository.pauseAllAfterBoot(c);
             else StopwatchRepository.reconcile(c);
             TimerScheduler.restoreAll(c);
+            TimerStartSchedule.restoreAll(c);
         } catch (RuntimeException ex) {
             AlarmRepository.diagnostic(c,"WARNUNG: Timer-Neuplanung fehlgeschlagen");
             Log.e("Sanftwecker","Timer reschedule failure",ex);
