@@ -35,8 +35,10 @@ public final class TimerScheduler {
     public static synchronized void start(Context c,int id){
         TimerEntry before=TimerRepository.get(c,id);
         if(before==null)return;
-        if(before.state==TimerEntry.RUNNING)return;
-        TimerEntry after=before.start(System.currentTimeMillis(),SystemClock.elapsedRealtime());
+        if(before.state==TimerEntry.RUNNING || before.state==TimerEntry.WAITING)return;
+        long delayMs=TimerAlertSettings.startDelaySeconds(c,id)*1000L;
+        TimerEntry after=before.startDelayed(System.currentTimeMillis(),
+                SystemClock.elapsedRealtime(),delayMs);
         if(after==before)return;
         try{
             arm(c,after);
@@ -51,7 +53,7 @@ public final class TimerScheduler {
         TimerEntry before=TimerRepository.get(c,id);
         if(before==null)return;
         cancelPending(c,id);
-        if(before.state==TimerEntry.RUNNING)
+        if(before.state==TimerEntry.RUNNING || before.state==TimerEntry.WAITING)
             TimerRepository.put(c,before.pause(System.currentTimeMillis(),
                     SystemClock.elapsedRealtime()));
     }
@@ -79,7 +81,8 @@ public final class TimerScheduler {
     }
     public static synchronized void fired(Context c,int id,long expectedDue) {
         TimerEntry current=TimerRepository.get(c,id);
-        if(current==null || current.state!=TimerEntry.RUNNING ||
+        if(current==null ||
+                (current.state!=TimerEntry.RUNNING && current.state!=TimerEntry.WAITING) ||
                 current.dueWallMs!=expectedDue)return; // stale/already paused
         long left=current.remaining(System.currentTimeMillis(),SystemClock.elapsedRealtime());
         if(left>1500){
@@ -110,7 +113,7 @@ public final class TimerScheduler {
     }
     public static synchronized void restoreAll(Context c){
         for(TimerEntry t:TimerRepository.all(c)){
-            if(t.state!=TimerEntry.RUNNING)continue;
+            if(t.state!=TimerEntry.RUNNING && t.state!=TimerEntry.WAITING)continue;
             if(t.dueWallMs<=System.currentTimeMillis()){
                 // Do not buzz unexpectedly just because the phone rebooted late.
                 TimerRepository.put(c,t.finish());
