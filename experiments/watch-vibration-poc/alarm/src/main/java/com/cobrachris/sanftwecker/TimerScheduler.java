@@ -44,6 +44,13 @@ public final class TimerScheduler {
             arm(c,after);
             TimerRepository.put(c,after);
             TimerMilestoneScheduler.reschedule(c,id);
+            // A manual start supersedes an outstanding one-time clock schedule.
+            if(TimerStartSchedule.get(c,id)>0){
+                try{TimerStartSchedule.cancel(c,id);}
+                catch(RuntimeException ex){
+                    AlarmRepository.diagnostic(c,"WARNUNG: Timer-Zeitplan konnte nicht entfernt werden");
+                }
+            }
         }catch(RuntimeException e){
             cancelPending(c,id);
             TimerRepository.put(c,before);
@@ -60,6 +67,7 @@ public final class TimerScheduler {
                     SystemClock.elapsedRealtime()));
     }
     public static synchronized void reset(Context c,int id){
+        if(TimerStartSchedule.get(c,id)>0)TimerStartSchedule.cancel(c,id);
         TimerMilestoneScheduler.cancel(c,id);
         TimerEntry before=TimerRepository.get(c,id);
         if(before==null)return;
@@ -68,6 +76,7 @@ public final class TimerScheduler {
         TimerAlerts.dismiss(c,id);
     }
     public static synchronized void edit(Context c,int id,String name,long durationMs){
+        if(TimerStartSchedule.get(c,id)>0)TimerStartSchedule.cancel(c,id);
         TimerMilestoneScheduler.cancel(c,id);
         TimerEntry t=TimerRepository.get(c,id);
         if(t==null)return;
@@ -78,6 +87,7 @@ public final class TimerScheduler {
         TimerAlerts.dismiss(c,id);
     }
     public static synchronized void delete(Context c,int id){
+        if(TimerStartSchedule.get(c,id)>0)TimerStartSchedule.cancel(c,id);
         TimerMilestoneScheduler.cancel(c,id);
         cancelPending(c,id);
         TimerAlerts.dismiss(c,id);
