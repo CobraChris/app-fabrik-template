@@ -25,7 +25,7 @@ public final class DetailActivity extends Activity {
     private TextView clock,status,advanced,nextDisplay;
     private final TextView[] chips=new TextView[7];
     private final boolean[] days=new boolean[7];
-    private Switch enabled,rising,watch,snoozeEnabled;
+    private Switch enabled,rising,watch,snoozeEnabled,audibleWhenMuted;
     private Spinner tone, vibration;
     private SeekBar delay,ramp,volume,pulses,interval,snooze,autoStop;
     private TextView delayLabel,rampLabel,volumeLabel,pulsesLabel,intervalLabel,snoozeLabel,stopLabel;
@@ -171,6 +171,16 @@ public final class DetailActivity extends Activity {
         ramp=slider(music,29);
         volumeLabel=label("",15);music.addView(volumeLabel);
         volume=slider(music,95);
+        audibleWhenMuted=UiKit.toggle(this);
+        audibleWhenMuted.setOnCheckedChangeListener((b,on)->changed());
+        rowSwitch(music,"Trotz stummem Android-Weckerpegel hörbar",audibleWhenMuted);
+        music.addView(UiKit.label(this,
+                "Optional: Ist die Android-Weckerlautstärke auf 0, wird sie beim "+
+                "Klingeln vorübergehend auf etwa 75 % gestellt und danach "+
+                "wiederhergestellt. Der sanfte Tonanstieg bleibt aktiv. "+
+                "Gilt nur für diesen Wecker und übergeht nicht 'Nicht stören'. "+
+                "Die Funktion kann von Android blockiert werden.",
+                13,UiKit.MUTED));
         Button preview=UiKit.button(this,"Tonprobe starten (20 Sek.)",false);
         music.addView(preview);
         preview.setOnClickListener(v->previewTone());
@@ -348,7 +358,9 @@ public final class DetailActivity extends Activity {
         vibration.setSelection(p.vibrationMode);
         rising.setChecked(p.rampEnabled);
         delay.setProgress(p.delaySeconds/10);ramp.setProgress(p.rampSeconds/60-1);
-        volume.setProgress(p.maxVolume-5);watch.setChecked(p.watchPulses>0);
+        volume.setProgress(p.maxVolume-5);
+        audibleWhenMuted.setChecked(p.audibleWhenMuted);
+        watch.setChecked(p.watchPulses>0);
         pulses.setProgress(p.watchPulses);
         interval.setProgress(WatchIntervals.progressFor(p.watchIntervalSeconds));
         snoozeEnabled.setChecked(p.snoozeEnabled);
@@ -368,7 +380,8 @@ public final class DetailActivity extends Activity {
                 snooze.getProgress()+1,tone.getSelectedItemPosition(),rising.isChecked(),
                 autoStop.getProgress()+1,changedTime?0:saved.skipAt,
                 changedTime?0:saved.oneTimeAt,changedTime?0:saved.replacedAt,
-                snoozeEnabled.isChecked(),vibration.getSelectedItemPosition());
+                snoozeEnabled.isChecked(),vibration.getSelectedItemPosition(),
+                audibleWhenMuted.isChecked());
     }
 
     private boolean save(){

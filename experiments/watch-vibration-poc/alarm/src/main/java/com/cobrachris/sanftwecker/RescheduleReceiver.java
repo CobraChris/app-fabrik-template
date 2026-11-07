@@ -9,6 +9,7 @@ import android.util.Log;
 public final class RescheduleReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context c, Intent event) {
         if (event == null) return;
+        AlarmVolumeGuard.recoverIfIdle(c);
         try {
             AlarmScheduler.rescheduleAll(c);
             AlarmRepository.diagnostic(c,"Wecker nach Systemänderung neu geplant");

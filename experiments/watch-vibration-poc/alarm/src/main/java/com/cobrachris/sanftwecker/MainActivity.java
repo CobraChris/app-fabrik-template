@@ -38,6 +38,7 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         UiKit.window(this);
+        AlarmVolumeGuard.recoverIfIdle(this);
         RingingService.ensureChannels(this);
         sortByNext = getPreferences(MODE_PRIVATE).getBoolean("next_sort", true);
         buildScreen();

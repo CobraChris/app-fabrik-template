@@ -1,3 +1,32 @@
+# Sanftwecker (Test) – Beta 0.8.4 (hörbarer Ton trotz Alarmlautstärke 0)
+
+**Neue, ausdrücklich freiwillige Einstellung pro Wecker:**
+„Trotz stummem Android-Weckerpegel hörbar“. Standardmäßig **aus**,
+bestehende Wecker bleiben unverändert. Bei Opt-in hebt der Alarmdienst
+nur dann, wenn `STREAM_ALARM` auf 0 steht, vorübergehend den Android-
+Weckerpegel auf rund 75 % an. Die eigentliche Melodie bleibt sanft
+einblendbar; Tonstart und Anstieg werden nicht übersprungen.
+
+Bei **Stoppen, Schlummern, Auto-Stopp und Dienstende** versucht die
+App die vorherige System-Weckerlautstärke wiederherzustellen. Vor der
+Änderung speichert sie Wiederherstellungsdaten und prüft diese beim
+nächsten App-Start/Systemneustart, falls der Prozess beendet wurde.
+Ändert der Nutzer während des Alarms selbst die Lautstärke, wird diese
+Änderung nicht überschrieben. Android kann den Eingriff verhindern;
+insbesondere wird **„Nicht stören“ nicht umgangen**. Systemweite
+Lautstärkeänderungen bleiben experimentell und sollen am Samsung
+mit abgeschaltetem Sicherungswecker getestet werden.
+Keine globale, ungefragte Lautstärkeänderung.
+
+**Sofortlösung ohne Update:** Im Samsung-Lautstärkemenü den Alarmpegel
+unabhängig von Klingeltönen hochstellen. Normales Stummschalten des
+Klingeltons muss den Alarmpegel nicht auf null setzen.
+
+**Vorgänger:** 0.8.3 mit 3-/5-Sekunden-Galaxy-Watch-Impulsen,
+0.8.2 mit 90-Sekunden-Handyvibration. Diese Funktionen bleiben erhalten.
+
+---
+
 # Sanftwecker (Test) – Beta 0.8.3 (Galaxy Watch Schnellimpulse)
 
 **Neues Watch-Intervall:** Wählbar ab 3 Sekunden und 5 Sekunden;

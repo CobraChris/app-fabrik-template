@@ -27,6 +27,19 @@ public class AlarmProfileTest {
         AlarmProfile a=new AlarmProfile(1,"Schnell",true,7,0,127,10,60,55,12,3,5,0);
         assertEquals(3,a.watchIntervalSeconds);
     }
+    @Test public void audibleOnMutedAlarmIsOptInAndSurvivesCopy() {
+        AlarmProfile old=AlarmProfile.defaults(1);
+        assertFalse(old.audibleWhenMuted);
+        AlarmProfile optIn=new AlarmProfile(old.id,old.name,old.enabled,old.hour,old.minute,
+                old.days,old.delaySeconds,old.rampSeconds,old.maxVolume,
+                old.watchPulses,old.watchIntervalSeconds,old.snoozeMinutes,old.tone,
+                old.rampEnabled,old.autoStopMinutes,old.skipAt,old.oneTimeAt,
+                old.replacedAt,old.snoozeEnabled,old.vibrationMode,true);
+        assertTrue(optIn.audibleWhenMuted);
+        assertTrue(optIn.withEnabled(true).audibleWhenMuted);
+        assertTrue(optIn.duplicateAs(2).audibleWhenMuted);
+        assertFalse(old.sameConfiguration(optIn));
+    }
     @Test public void enablesWithoutLosingValues() {
         AlarmProfile p = AlarmProfile.defaults(2);
         AlarmProfile q = p.withEnabled(true);

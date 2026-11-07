@@ -141,6 +141,15 @@ public final class RingingService extends Service {
             } catch (RuntimeException e) {
                 Log.w("Sanftwecker", "WakeLock unavailable; continue with active service", e);
             }
+            // Opt-in only: temporarily lift muted ALARM stream, never ringer mode / DND.
+            if(profile.audibleWhenMuted) {
+                if(AlarmVolumeGuard.ensureAudible(this))
+                    AlarmRepository.diagnostic(this,
+                            "Weckerlautstärke für Alarm vorübergehend angehoben");
+                else
+                    AlarmRepository.diagnostic(this,
+                            "Weckerlautstärke unverändert – Android-Alarmpegel prüfen");
+            }
             // Direct handset vibration begins immediately, independently of delayed audio.
             if(!toneOnlyPreview) PhoneVibration.start(this,profile.vibrationMode);
             // Even if audio hardware fails, keep the watch alerts and stop/snooze controls.
@@ -281,6 +290,7 @@ public final class RingingService extends Service {
         if (wasActive) AlarmRepository.diagnostic(this, "Ton und Watch-Impulse beendet");
         active = false;
         PhoneVibration.stop();
+        AlarmVolumeGuard.restore(this);
         if(wasActive) sendBroadcast(new Intent(RING_FINISHED).setPackage(getPackageName()));
         handler.removeCallbacksAndMessages(null);
         AudioTrack old = audio;
