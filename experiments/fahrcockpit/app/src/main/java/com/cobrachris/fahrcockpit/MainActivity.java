@@ -180,11 +180,27 @@ public final class MainActivity extends Activity {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 101);
+            return; // Do not cover the Android permission dialog with Google Maps.
         }
+        showCockpitAndMaps();
+    }
+
+    @Override public void onRequestPermissionsResult(
+        int requestCode, String[] names, int[] grants) {
+        super.onRequestPermissionsResult(requestCode, names, grants);
+        if (requestCode == 101) {
+            // Notifications may be denied. Android still permits an explicitly
+            // user-started foreground service, but the app cannot post alerts.
+            showCockpitAndMaps();
+        }
+    }
+
+    private void showCockpitAndMaps() {
         try {
             startForegroundService(new Intent(this, OverlayService.class)
                 .setAction(OverlayService.ACTION_SHOW));
-            openPackage("com.google.android.apps.maps", "Google Maps");
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                () -> openPackage("com.google.android.apps.maps", "Google Maps"), 450);
         } catch (RuntimeException e) {
             permissions.setText("Cockpit konnte nicht gestartet werden: " +
                 "Android-Berechtigungen und Akku-Einstellungen prüfen.");
