@@ -377,7 +377,7 @@ public final class TimerDetailActivity extends Activity {
         if(t==null){finish();return;}
         long now=System.currentTimeMillis();
         long left=t.remaining(now,SystemClock.elapsedRealtime());
-        if(t.state==TimerEntry.RUNNING && left==0){
+        if((t.state==TimerEntry.RUNNING || t.state==TimerEntry.WAITING) && left==0){
             TimerScheduler.fired(this,t.id,t.dueWallMs);
             t=TimerRepository.get(this,timerId);
             if(t==null)return;
