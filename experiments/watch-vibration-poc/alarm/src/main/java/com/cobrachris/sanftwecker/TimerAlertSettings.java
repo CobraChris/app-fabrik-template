@@ -53,6 +53,35 @@ public final class TimerAlertSettings {
         int value=prefs(c).getInt(key("start_delay",id),0);
         return value>=0&&value<=60?value:0;
     }
+    public static final int[] INTERVAL_CHOICES={0,30,60,120,300};
+    public static boolean validIntervalSeconds(int seconds){
+        for(int option:INTERVAL_CHOICES)if(option==seconds)return true;
+        return false;
+    }
+    public static int intervalSeconds(Context c,int id){
+        int seconds=prefs(c).getInt(key("interval",id),0);
+        return validIntervalSeconds(seconds)?seconds:0;
+    }
+    public static void setIntervalSeconds(Context c,int id,int seconds){
+        if(!validIntervalSeconds(seconds))
+            throw new IllegalArgumentException("Ungültiges Timer-Intervall");
+        if(!prefs(c).edit().putInt(key("interval",id),seconds).commit())
+            throw new IllegalStateException("Timer-Intervall konnte nicht gespeichert werden");
+    }
+    public static boolean prepareCue(Context c,int id){
+        return prefs(c).getBoolean(key("prepare_cue",id),false);
+    }
+    public static void setPrepareCue(Context c,int id,boolean enabled){
+        if(!prefs(c).edit().putBoolean(key("prepare_cue",id),enabled).commit())
+            throw new IllegalStateException("Vorbereitungsalarm konnte nicht gespeichert werden");
+    }
+    public static boolean oneShot(Context c,int id){
+        return prefs(c).getBoolean(key("one_shot",id),false);
+    }
+    public static void setOneShot(Context c,int id,boolean enabled){
+        if(!prefs(c).edit().putBoolean(key("one_shot",id),enabled).commit())
+            throw new IllegalStateException("Einmal-Timer konnte nicht gespeichert werden");
+    }
     public static void setStartDelaySeconds(Context c,int id,int seconds){
         if(seconds!=0&&seconds!=3&&seconds!=5&&seconds!=10&&seconds!=30&&seconds!=60)
             throw new IllegalArgumentException("Ungültige Startverzögerung");
@@ -86,7 +115,10 @@ public final class TimerAlertSettings {
               .putBoolean(key("vibration",targetId),vibration(c,sourceId))
               .putInt(key("format",targetId),timeFormat(c,sourceId))
               .putInt(key("extra",targetId),extraInfo(c,sourceId))
-              .putInt(key("start_delay",targetId),startDelaySeconds(c,sourceId));
+              .putInt(key("start_delay",targetId),startDelaySeconds(c,sourceId))
+              .putInt(key("interval",targetId),intervalSeconds(c,sourceId))
+              .putBoolean(key("prepare_cue",targetId),prepareCue(c,sourceId));
+        // One-shot deletion is deliberately not inherited when duplicating.
         TimerEntry target=TimerRepository.get(c,targetId);
         if(target!=null&&canRepeat(target.durationMs))
             editor.putBoolean(key("repeat",targetId),autoRepeat(c,sourceId));
@@ -96,7 +128,8 @@ public final class TimerAlertSettings {
         if(!prefs(c).edit().remove(key("tone",id))
                 .remove(key("vibration",id)).remove(key("format",id))
                 .remove(key("extra",id)).remove(key("repeat",id))
-                .remove(key("start_delay",id)).commit())
+                .remove(key("start_delay",id)).remove(key("interval",id))
+                .remove(key("prepare_cue",id)).remove(key("one_shot",id)).commit())
             throw new IllegalStateException("Timer-Einstellungen konnten nicht gelöscht werden");
     }
     /** Unit-testable channel selector. The existing both-on channel is retained. */
