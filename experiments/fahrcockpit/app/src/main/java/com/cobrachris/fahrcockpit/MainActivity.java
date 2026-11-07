@@ -1,242 +1,236 @@
 package com.cobrachris.fahrcockpit;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.graphics.Typeface;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.view.View;
-import android.view.ViewGroup;
-import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
-/**
- * First native FahrCockpit slice: a deliberate Blitzer.de PRO START/STOP switch
- * and separate mode commands. The active running state cannot be read back.
- */
 public final class MainActivity extends Activity {
     private static final String PREFS = "fahrcockpit_blitzer_v1";
     private static final String KEY_HAS_REQUEST = "has_request";
     private static final String KEY_LAST_START_REQUEST = "last_start_requested";
-    private static final int BG = Color.rgb(16, 19, 25);
-    private static final int FG = Color.rgb(245, 246, 249);
-    private static final int MUTED = Color.rgb(177, 181, 190);
-    private static final int ACCENT = Color.rgb(255, 196, 98);
-
     private SharedPreferences prefs;
-    private Switch enabledSwitch;
-    private Button backgroundButton;
-    private Button widgetButton;
-    private TextView status;
-    private boolean changingProgrammatically;
+    private Switch blitzerSwitch;
+    private TextView blitzerStatus;
+    private TextView permissions;
+    private boolean programmatic;
 
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
+    @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        getWindow().setStatusBarColor(BG);
-        getWindow().setNavigationBarColor(BG);
+        getWindow().setStatusBarColor(Ui.BG);
+        getWindow().setNavigationBarColor(Ui.BG);
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(BG);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(22), dp(24), dp(22), dp(36));
+        scroll.setBackgroundColor(Ui.BG);
+        LinearLayout root = Ui.column(this);
+        root.setPadding(Ui.dp(this, 22), Ui.dp(this, 20),
+            Ui.dp(this, 22), Ui.dp(this, 40));
         scroll.addView(root);
         setContentView(scroll);
-
-        // Android 15/16 edge-to-edge: keep controls outside system bars.
         getWindow().getDecorView().setOnApplyWindowInsetsListener((view, insets) -> {
-            android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars());
+            android.graphics.Insets bars =
+                insets.getInsets(android.view.WindowInsets.Type.systemBars());
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return insets;
         });
 
-        root.addView(text("FahrCockpit", 30, FG, true));
-        root.addView(text("Erster Android-Test: Blitzer.de PRO steuern", 16, MUTED, false));
-        root.addView(text("Blitzer.de PRO", 22, FG, true));
+        root.addView(Ui.text(this, "FahrCockpit", 30, Ui.FG, true));
+        root.addView(Ui.text(this,
+            "Google Maps bleibt deine Navigation. FahrCockpit legt eine verschiebbare " +
+            "Steuerleiste darüber.", 15, Ui.MUTED, false));
 
-        enabledSwitch = new Switch(this);
-        enabledSwitch.setText("Blitzerwarnungen EIN / AUS");
-        enabledSwitch.setTextColor(FG);
-        enabledSwitch.setTextSize(17);
-        enabledSwitch.setPadding(0, dp(16), 0, dp(16));
-        enabledSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
-        root.addView(enabledSwitch);
+        Ui.section(this, root, "Schwebendes Cockpit", "Spotify • Tankstellen • Blitzer.de AUS");
+        Button overlay = Ui.button(this, "Cockpit über Google Maps starten");
+        root.addView(overlay);
+        overlay.setOnClickListener(v -> startOverlay());
+        Button stopOverlay = Ui.button(this, "Schwebendes Cockpit schließen");
+        root.addView(stopOverlay);
+        stopOverlay.setOnClickListener(v -> stopService(
+            new Intent(this, OverlayService.class)));
 
-        status = text("", 15, ACCENT, false);
-        root.addView(status);
-
-        // Stop works even if Blitzer.de was started independently of FahrCockpit.
-        Button stopNow = button("Blitzer.de jetzt beenden");
-        root.addView(stopNow);
-
-        root.addView(text("Darstellung (nur nach Startbefehl)", 17, FG, true));
-        LinearLayout modes = new LinearLayout(this);
-        modes.setOrientation(LinearLayout.HORIZONTAL);
-        backgroundButton = button("Hintergrund");
-        widgetButton = button("Mini-App");
-        modes.addView(backgroundButton,
-            new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        modes.addView(widgetButton,
-            new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
-        root.addView(modes);
-
-        root.addView(text(
-            "EIN sendet den dokumentierten START-Befehl. Mit 'Hintergrund' oder 'Mini-App' " +
-            "forderst du anschließend den jeweiligen Blitzer.de-Modus an. " +
-            "AUS sendet den dokumentierten Beenden-Befehl.",
-            14, MUTED, false));
-
-        root.addView(text("Andere Apps", 20, FG, true));
-        Button maps = button("Google Maps öffnen");
-        root.addView(maps);
-        Button settings = button("Blitzer.de-Berechtigungen öffnen");
-        root.addView(settings);
-
-        root.addView(text(
-            "Der Schalter zeigt nur deinen letzten angeforderten Zustand. " +
-            "Blitzer.de bestätigt den tatsächlichen Betriebszustand nicht. " +
-            "Ein Neustart von FahrCockpit löst keine Befehle aus.",
-            14, MUTED, false));
-
-        root.addView(text(
-            "Deutschland: Die Benutzung aktiver Blitzerwarnfunktionen durch " +
-            "Fahrzeugführende ist nach § 23 Abs. 1c StVO verboten. " +
-            "Vor der Fahrt ausschalten. In anderen Ländern gelten deren Regeln.",
-            14, ACCENT, false));
-
-        enabledSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (!changingProgrammatically) {
-                sendMainCommand(isChecked);
+        permissions = Ui.text(this, "", 14, Ui.MUTED, false);
+        root.addView(permissions);
+        Button overlayPermission = Ui.button(this, "Einblendung freigeben");
+        overlayPermission.setOnClickListener(v -> requestOverlayPermission());
+        root.addView(overlayPermission);
+        Button notificationPermission = Ui.button(this, "Spotify-Medienzugriff freigeben");
+        notificationPermission.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+            } catch (RuntimeException e) {
+                permissions.setText("Medienzugriff in Android-Einstellungen manuell freigeben.");
             }
         });
-        stopNow.setOnClickListener(v -> sendMainCommand(false));
-        backgroundButton.setOnClickListener(v ->
-            sendMode(BlitzerContract.Command.BACKGROUND, "Hintergrund"));
-        widgetButton.setOnClickListener(v ->
-            sendMode(BlitzerContract.Command.WIDGET, "Mini-App"));
-        maps.setOnClickListener(v -> openMaps());
-        settings.setOnClickListener(v -> openBlitzerSettings());
+        root.addView(notificationPermission);
 
-        restoreDisplay();
+        Ui.section(this, root, "Blitzer.de PRO",
+            "Die Befehle werden an die installierte Blitzer.de PRO-App geschickt.");
+        blitzerSwitch = new Switch(this);
+        blitzerSwitch.setText("Zuletzt angeforderter Zustand: EIN / AUS");
+        blitzerSwitch.setTextColor(Ui.FG);
+        blitzerSwitch.setTextSize(16);
+        blitzerSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
+        root.addView(blitzerSwitch);
+        blitzerStatus = Ui.text(this, "", 14, Ui.WARN, false);
+        root.addView(blitzerStatus);
+
+        Button stop = Ui.button(this, "Blitzer.de jetzt beenden");
+        root.addView(stop);
+        stop.setOnClickListener(v -> blitzer(false));
+        Button widget = Ui.button(this, "Blitzer.de Mini-App öffnen");
+        root.addView(widget);
+        widget.setOnClickListener(v -> blitzerMode(BlitzerContract.Command.WIDGET));
+        Button background = Ui.button(this, "Blitzer.de in den Hintergrund");
+        root.addView(background);
+        background.setOnClickListener(v -> blitzerMode(BlitzerContract.Command.BACKGROUND));
+        blitzerSwitch.setOnCheckedChangeListener((button, enabled) -> {
+            if (!programmatic) blitzer(enabled);
+        });
+        Button blitzerSettings = Ui.button(this, "Blitzer.de-Berechtigungen");
+        root.addView(blitzerSettings);
+        blitzerSettings.setOnClickListener(v -> {
+            if (!BlitzerBridge.installed(this)) {
+                blitzerStatus.setText("Blitzer.de PRO ist nicht installiert.");
+                return;
+            }
+            try {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:" + BlitzerContract.PACKAGE)));
+            } catch (RuntimeException e) {
+                blitzerStatus.setText("Einstellungen konnten nicht geöffnet werden.");
+            }
+        });
+        root.addView(Ui.text(this,
+            "Wichtig: Ein gesendeter Befehl bestätigt keinen aktiven Blitzer.de-Zustand. " +
+            "EIN wird beim Öffnen dieser App nicht automatisch erneut gesendet.",
+            13, Ui.MUTED, false));
+
+        Ui.section(this, root, "Tankstellen und aktuelle Preise",
+            "Für Deutschland: E5, E10 und Diesel von Tankerkönig. " +
+            "Ein kostenfreier persönlicher API-Key ist erforderlich.");
+        Button fuel = Ui.button(this, "Tankstellen & Preise öffnen");
+        root.addView(fuel);
+        fuel.setOnClickListener(v -> startActivity(new Intent(this, FuelActivity.class)));
+
+        Ui.section(this, root, "Navigation und Musik",
+            "Google Maps wird nicht ersetzt. Spotify läuft über die Android-Mediensteuerung.");
+        Button maps = Ui.button(this, "Google Maps öffnen");
+        root.addView(maps);
+        maps.setOnClickListener(v -> openPackage("com.google.android.apps.maps", "Google Maps"));
+        Button spotify = Ui.button(this, "Spotify öffnen");
+        root.addView(spotify);
+        spotify.setOnClickListener(v -> openPackage("com.spotify.music", "Spotify"));
+
+        Ui.section(this, root, "Hinweise", "");
+        root.addView(Ui.text(this,
+            "FahrCockpit startet keine Dienste beim Booten. Schließe das Cockpit über " +
+            "die App, die Schwebefläche oder die Android-Benachrichtigung. " +
+            "Android-Einstellungen und Berechtigungen bleiben bei regulären Updates erhalten.",
+            13, Ui.MUTED, false));
+        root.addView(Ui.text(this,
+            "Deutschland: Aktive Blitzerwarnungen dürfen durch Fahrzeugführende " +
+            "während der Fahrt nicht verwendet werden (§ 23 Abs. 1c StVO). " +
+            "Nur im Stand bedienen. Andere Länder haben eigene Regeln.",
+            13, Ui.WARN, false));
+
+        blitzerStatus.setText(prefs.getBoolean(KEY_HAS_REQUEST, false)
+            ? "Zuletzt " + (blitzerSwitch.isChecked() ? "EIN" : "AUS") +
+              " angefordert – tatsächlicher Zustand unbekannt."
+            : "Standard: AUS. Noch kein Befehl gesendet.");
     }
 
-    private void sendMainCommand(boolean requestOn) {
-        BlitzerContract.Command command = requestOn
-            ? BlitzerContract.Command.START : BlitzerContract.Command.STOP;
-        BlitzerBridge.SendResult result = BlitzerBridge.send(this, command);
-        if (result != BlitzerBridge.SendResult.SENT_UNCONFIRMED) {
-            changingProgrammatically = true;
-            enabledSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
-            changingProgrammatically = false;
-            status.setText(errorText(result));
+    @Override public void onResume() {
+        super.onResume();
+        if (permissions != null) {
+            boolean draw = Settings.canDrawOverlays(this);
+            boolean listener = NotificationManager.getEnabledListenerPackages(this)
+                .contains(getPackageName());
+            permissions.setText("Einblendung: " + (draw ? "freigegeben" : "fehlt") +
+                "  •  Spotify-Medienzugriff: " + (listener ? "freigegeben" : "fehlt"));
+        }
+    }
+
+    private void requestOverlayPermission() {
+        try {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + getPackageName())));
+        } catch (RuntimeException e) {
+            permissions.setText("Overlay-Berechtigung bitte unter Android > Apps freigeben.");
+        }
+    }
+
+    private void startOverlay() {
+        if (!Settings.canDrawOverlays(this)) {
+            requestOverlayPermission();
             return;
         }
-
-        prefs.edit()
-            .putBoolean(KEY_HAS_REQUEST, true)
-            .putBoolean(KEY_LAST_START_REQUEST, requestOn)
-            .apply();
-        changingProgrammatically = true;
-        enabledSwitch.setChecked(requestOn);
-        changingProgrammatically = false;
-        status.setText(requestOn
-            ? "START-Befehl gesendet – tatsächlichen Status in Blitzer.de prüfen."
-            : "BEENDEN-Befehl gesendet – tatsächlichen Status in Blitzer.de prüfen.");
-        refreshButtons();
-    }
-
-    private void sendMode(BlitzerContract.Command command, String label) {
-        if (!enabledSwitch.isChecked()) {
-            status.setText("Zuerst EIN wählen.");
-            return;
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 101);
         }
-        BlitzerBridge.SendResult result = BlitzerBridge.send(this, command);
-        status.setText(result == BlitzerBridge.SendResult.SENT_UNCONFIRMED
-            ? label + "-Befehl gesendet – Status nicht bestätigt."
-            : errorText(result));
+        try {
+            startForegroundService(new Intent(this, OverlayService.class)
+                .setAction(OverlayService.ACTION_SHOW));
+            openPackage("com.google.android.apps.maps", "Google Maps");
+        } catch (RuntimeException e) {
+            permissions.setText("Cockpit konnte nicht gestartet werden: " +
+                "Android-Berechtigungen und Akku-Einstellungen prüfen.");
+        }
     }
 
-    private void restoreDisplay() {
-        if (!prefs.getBoolean(KEY_HAS_REQUEST, false)) {
-            status.setText("Standard: AUS. Noch kein Befehl gesendet.");
+    private void blitzer(boolean enabled) {
+        BlitzerBridge.SendResult result = BlitzerBridge.send(this,
+            enabled ? BlitzerContract.Command.START : BlitzerContract.Command.STOP);
+        if (result == BlitzerBridge.SendResult.SENT_UNCONFIRMED) {
+            prefs.edit().putBoolean(KEY_HAS_REQUEST, true)
+                .putBoolean(KEY_LAST_START_REQUEST, enabled).apply();
+            programmatic = true;
+            blitzerSwitch.setChecked(enabled);
+            programmatic = false;
+            blitzerStatus.setText(enabled
+                ? "Startbefehl gesendet – Blitzer.de-Status nicht bestätigt."
+                : "Beenden-Befehl gesendet – Blitzer.de-Status nicht bestätigt.");
         } else {
-            status.setText(enabledSwitch.isChecked()
-                ? "Zuletzt START angefordert. Kein automatischer Neustart; Status unbestätigt."
-                : "Zuletzt BEENDEN angefordert. Status unbestätigt.");
+            programmatic = true;
+            blitzerSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
+            programmatic = false;
+            blitzerStatus.setText(result == BlitzerBridge.SendResult.NOT_INSTALLED
+                ? "Blitzer.de PRO fehlt oder ist nicht sichtbar."
+                : "Befehl konnte nicht gesendet werden.");
         }
-        refreshButtons();
     }
 
-    private void refreshButtons() {
-        boolean requestedOn = enabledSwitch.isChecked();
-        backgroundButton.setEnabled(requestedOn);
-        widgetButton.setEnabled(requestedOn);
+    private void blitzerMode(BlitzerContract.Command mode) {
+        BlitzerBridge.SendResult result = BlitzerBridge.send(this, mode);
+        blitzerStatus.setText(result == BlitzerBridge.SendResult.SENT_UNCONFIRMED
+            ? "Modus-Befehl gesendet – keine Empfangsbestätigung."
+            : "Blitzer.de PRO fehlt oder Befehl wurde blockiert.");
     }
 
-    private String errorText(BlitzerBridge.SendResult result) {
-        return result == BlitzerBridge.SendResult.NOT_INSTALLED
-            ? "Blitzer.de PRO ist nicht installiert oder nicht sichtbar."
-            : "Befehl konnte nicht gesendet werden. Berechtigungen und App prüfen.";
-    }
-
-    private void openMaps() {
-        Intent launch = getPackageManager().getLaunchIntentForPackage(
-            "com.google.android.apps.maps");
+    private void openPackage(String packageName, String label) {
+        Intent launch = getPackageManager().getLaunchIntentForPackage(packageName);
         if (launch == null) {
-            status.setText("Google Maps ist nicht installiert oder nicht sichtbar.");
+            permissions.setText(label + " nicht installiert oder nicht sichtbar.");
             return;
         }
         try {
             startActivity(launch);
         } catch (RuntimeException e) {
-            status.setText("Google Maps konnte nicht geöffnet werden.");
+            permissions.setText(label + " konnte nicht geöffnet werden.");
         }
-    }
-
-    private void openBlitzerSettings() {
-        if (!BlitzerBridge.installed(this)) {
-            status.setText("Zuerst Blitzer.de PRO installieren.");
-            return;
-        }
-        try {
-            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
-            intent.setData(Uri.parse("package:" + BlitzerContract.PACKAGE));
-            startActivity(intent);
-        } catch (RuntimeException e) {
-            status.setText("Die Android-App-Einstellungen konnten nicht geöffnet werden.");
-        }
-    }
-
-    private TextView text(String value, int sp, int color, boolean heading) {
-        TextView view = new TextView(this);
-        view.setText(value);
-        view.setTextColor(color);
-        view.setTextSize(sp);
-        if (heading) {
-            view.setTypeface(null, Typeface.BOLD);
-        }
-        view.setPadding(0, dp(12), 0, dp(12));
-        return view;
-    }
-
-    private Button button(String label) {
-        Button view = new Button(this);
-        view.setText(label);
-        view.setAllCaps(false);
-        return view;
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
