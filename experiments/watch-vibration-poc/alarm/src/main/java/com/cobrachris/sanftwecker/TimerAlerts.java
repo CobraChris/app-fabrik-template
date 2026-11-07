@@ -17,12 +17,26 @@ public final class TimerAlerts {
     public static void ensureChannel(Context c){
         NotificationManager m=(NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);
         if(m==null)return;
-        NotificationChannel ch=new NotificationChannel(CHANNEL,
-                "Fertige Timer",NotificationManager.IMPORTANCE_HIGH);
-        ch.setDescription("Fertige Countdowns – Ton/Vibration über Android-Einstellungen");
-        ch.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),null);
-        ch.enableVibration(true);
-        ch.setVibrationPattern(new long[]{0,250,150,250});
+        // Preserve the existing channel for timers with both notifications enabled:
+        // Android owns channel settings after first creation.
+        createChannel(m,CHANNEL,"Fertige Timer",true,true);
+        createChannel(m,TimerAlertSettings.channelId(true,false),
+                "Timer – nur Alarmton",true,false);
+        createChannel(m,TimerAlertSettings.channelId(false,true),
+                "Timer – nur Vibration",false,true);
+        createChannel(m,TimerAlertSettings.channelId(false,false),
+                "Timer – lautlos",false,false);
+    }
+    private static void createChannel(NotificationManager m,String id,String label,
+            boolean tone,boolean vibration){
+        NotificationChannel ch=new NotificationChannel(id,label,
+                vibration||tone?NotificationManager.IMPORTANCE_HIGH:
+                        NotificationManager.IMPORTANCE_LOW);
+        ch.setDescription("Benachrichtigung für einen beendeten Countdown");
+        if(tone)ch.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),null);
+        else ch.setSound(null,null);
+        ch.enableVibration(vibration);
+        if(vibration)ch.setVibrationPattern(new long[]{0,250,150,250});
         m.createNotificationChannel(ch);
     }
     public static void show(Context c,TimerEntry timer){
@@ -39,7 +53,10 @@ public final class TimerAlerts {
                 .setAction(TimerReceiver.ACTION_DISMISS).putExtra(TimerScheduler.EXTRA_ID,timer.id);
         PendingIntent stop=PendingIntent.getBroadcast(c,BASE_ID+timer.id,dismiss,
                 PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        Notification notification=new Notification.Builder(c,CHANNEL)
+        String channelId=TimerAlertSettings.channelId(
+                TimerAlertSettings.tone(c,timer.id),
+                TimerAlertSettings.vibration(c,timer.id));
+        Notification notification=new Notification.Builder(c,channelId)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setContentTitle(timer.name+" ist fertig")
                 .setContentText("Timer abgelaufen – öffnen oder quittieren")
