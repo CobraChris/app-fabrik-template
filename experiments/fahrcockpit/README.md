@@ -1,82 +1,47 @@
-# FahrCockpit – Blitzer.de-Steuerung (Android-Test, FC-03)
+# FahrCockpit 0.9.0-test – Android-Test-MVP
 
-Dies ist die **erste native Android-Komponente** des FahrCockpit-Projekts in der gemeinsamen
-GitHub-App-Fabrik. Sie ersetzt **nicht** Google Maps und zeigt **noch kein Spotify-Overlay,
-keine Tankstellenpreise und keine Blitzer-Marker in Maps** an.
+**Status:** Großer Funktionsumfang implementiert, aber noch kein Samsung-Realtest und keine dauerhaft signierte Release-APK. Der PR #27 bleibt Draft.
 
-## Funktioniert bereits im Quellcode (Gerätetest ausstehend)
+## Funktionen
 
-- Schalter **EIN** sendet per explizitem Android-Broadcast an Blitzer.de PRO
-  (Paket de.blitzer.plus, Receiver de.blitzer.service.BlitzerBroadcastReceiver)
-  den Befehl de.blitzer.APP_MODE mit String-Extra mode=START.
-- Schalter **AUS** sendet de.blitzer.KILL_APP an denselben Receiver.
-- **Blitzer.de jetzt beenden** sendet diesen Befehl jederzeit, auch wenn Blitzer.de
-  unabhängig vom FahrCockpit-Schalter gestartet wurde.
-- Tasten **Hintergrund** und **Mini-App** senden mode=BACKGROUND bzw. mode=WIDGET,
-  nachdem ein Startbefehl gesendet wurde.
-- Schalter ist bei Erstinstallation AUS. Nur letzter Bedienwunsch wird lokal gespeichert;
-  **App-Start/Neustart sendet nie eigenständig einen Startbefehl**.
-- Kein Blitzer-Datenabruf, keine eigene Warnquelle, kein Standortzugriff, keine Analytics,
-  keine Fahrdaten und keine zusätzlichen Abos/API-Kosten für FahrCockpit.
-- Nicht installiertes Blitzer.de PRO und blockierte Befehle führen zu einer Meldung, nicht
-  zu einem erfundenen Status. Ein abgesendeter Broadcast garantiert nicht, dass die
-  empfangende App die Aktion ausführt.
-- Google Maps bleibt eine separate Android-App; ein Button kann sie öffnen.
+- Schwebende, frei verschiebbare und minimierbare Steuerleiste über Google Maps. Position wird lokal gespeichert.
+- Spotify-Mediensteuerung (ohne zusätzlichen Spotify-Login): Play/Pause, vorheriger/nächster Titel, ±15 Sekunden falls der jeweilige Inhalt Seek unterstützt. Titel und Interpret aus Android MediaSession, Medienzugriff wird einmalig in Android-Einstellungen freigegeben.
+- Blitzer.de PRO: offizielle Befehle START, WIDGET, BACKGROUND und KILL_APP; Start und Beenden auch im schwebenden Cockpit. Kein eigener Blitzer-Datenzugriff oder unbestätigter Aktiv-Status.
+- Tankstellen: aktuelle Preise für E5/E10/Diesel in Deutschland über Tankerkönig/MTS-K; bis 25 km. Jeder Treffer bietet Preis, Entfernung, Adresse und Übergabe als Google-Maps-Ziel.
+- Der Tankerkönig-API-Key wird nur im privaten Android-App-Speicher gehalten (Backup deaktiviert). Standortfreigabe nur bei manueller Suche; keine Hintergrundabfragen.
+- Ohne Tankerkönig-Schlüssel und im Ausland bleibt die Google-Maps-Tankstellensuche ohne Livepreise nutzbar.
+- System-Benachrichtigung mit Cockpit-Stopp, Dark-UI, Android-Berechtigungsstatus, Google-Maps- und Spotify-Launcher.
+- Keine Boot-Autostarts oder automatischen Blitzer.de-Starts; kein Tracking oder kostenpflichtiger Backend-Dienst.
 
-## Technisches Design
+## Samsung-Test in dieser Reihenfolge
 
-Projekt: experiments/fahrcockpit, Modul: app, Paket: com.cobrachris.fahrcockpit.
-Java 17, AGP 8.9.2, compile/target SDK 35, min SDK 30. Keine zusätzlichen App-Libraries.
+1. APK installieren und FahrCockpit öffnen. Die App erscheint als FahrCockpit (Test).
+2. Einblendung freigeben. Nach Android-Einstellungen zurück zu FahrCockpit und Cockpit starten.
+3. Spotify-Medienzugriff freigeben: in Android-Benachrichtigungszugriff FahrCockpit aktivieren, Spotify öffnen und Musik abspielen.
+4. Auf Cockpit über Google Maps starten tippen: Das Cockpit soll über Google Maps sichtbar werden. Am Titel ziehen. Minus minimiert, Kreuz beendet, die Android-Benachrichtigung kann das Cockpit stoppen.
+5. Spotify Play/Pause, Titelwechsel, ±15 Sekunden prüfen. Unterstützt Spotify Seek nicht, bleiben diese Tasten deaktiviert.
+6. Blitzer.de PRO separat installieren/einrichten, vor Fahrt testen: Ein/Aus, Mini-App, Hintergrundmodus; auch der Beenden-Befehl im Overlay. Die offiziellen Intents haben keine Statusbestätigung.
+7. Tankerkönig-Schlüssel persönlich und kostenfrei beantragen unter https://onboarding.tankerkoenig.de/ . In Tankstellenansicht eingeben und auf Speichern tippen. Bei Suche Standort erlauben; Tankerkönig liefert nur Daten für Deutschland.
+8. Test-App schließen, wieder öffnen: Berechtigungen und lokal gespeicherte Cockpit-Position sollen erhalten bleiben. Bei Android- oder Samsung-Energiesparregeln Verhalten gesondert kontrollieren.
 
-- BlitzerContract.java: statisch testbarer Intent-Vertrag (ohne Android-Abhängigkeit)
-- BlitzerBridge.java: Paketprüfung + explizites Senden, **ohne Erfolgsbestätigung**
-- MainActivity.java: bewusst manuelle Steuerung + Anzeige des letzten gesendeten Befehls
-- BlitzerContractTest.java: JVM-Regressionstests auf Aktion, Paket, Receiver und Modus
+## Grenzen und Hinweise
 
-Der schlichte Schalter ist **noch kein Overlay über Google Maps**. Spotify-Overlay und
-Tankstellen-Preislisten werden in separaten FahrCockpit-Schritten umgesetzt.
+- Google Maps wird nicht verändert; die Cockpit-Steuerung ist ein eigenes Android-Overlay.
+- Keine in Google Maps eingebetteten Blitzer-Marker. Blitzer.de liefert über die dokumentierten Steuerbefehle keine Blitzerpositionen zum Einzeichnen.
+- Spotify hängt vom gerade aktiven MediaSession-Angebot ab; einige Podcasts oder Inhalte unterstützen keine 15-Sekunden-Sprünge.
+- Tankerkönig stellt Preise nur in Deutschland bereit, benötigt einen persönlichen Freischalt-Key und gibt keine Garantie für Aktualität.
+- Die Android-Overlay-/Foreground-Service-Berechtigung kann herstellerseitig eingeschränkt sein. Die erstmalige Abnahme auf Samsung Android 16 ist noch offen.
+- Die Debug-APK verwendet möglicherweise pro GitHub-Runner wechselnde Zertifikate. Nur eine separat signierte Release-APK mit festem Zertifikat ist zuverlässig in-place updatefähig.
+- Aktive Blitzerwarnungen während der Fahrt sind in Deutschland für die fahrzeugführende Person nach § 23 Abs. 1c StVO verboten. Ein Ausschalter schafft keine Ausnahme.
 
-## Android-Build und Tests
+## Entwicklung
 
-Read-only CI ruft den wiederverwendbaren Android-Check der App-Fabrik auf.
-Dabei werden Unit-Tests, Android Lint und eine **unsignierte Debug-APK** gebaut
-(kein Release, keine Installation, keine Signier-Secrets).
+Java 17, Android Gradle Plugin 8.9.2, SDK 35, min SDK 30, keine zusätzlichen Laufzeitbibliotheken. Die Android-CI führt testDebugUnitTest, lintDebug und assembleDebug aus. Die geschützten Signier-Secrets werden im PR nicht verwendet.
 
-Manuell mit Java 17, Android SDK 35 und Gradle 8.11.1:
+Quellen:
+- https://www.blitzer.de/questions/wie-richte-ich-den-automatischen-start-stopp-per-tasker-ein/
+- https://developer.android.com/reference/android/media/session/MediaSessionManager
+- https://creativecommons.tankerkoenig.de/
+- https://onboarding.tankerkoenig.de/
 
-    gradle --no-daemon -p experiments/fahrcockpit :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
-
-## Manuelle Samsung-Abnahme vor jeder Release-Auslieferung
-
-1. Blitzer.de PRO prüfen, ggf. installieren und initial die benötigten Berechtigungen
-   **direkt in Blitzer.de PRO** konfigurieren (Overlay für Mini-App; Hintergrundbetrieb).
-2. FahrCockpit öffnen; standardmäßig AUS. EIN drücken und prüfen, ob Blitzer.de
-   tatsächlich startet. **Nicht während des Fahrens testen.**
-3. Mini-App / Hintergrund separat anfordern, Google Maps öffnen und kontrollieren,
-   dass Blitzer.de weiterhin funktioniert, ohne die Navigation unbeabsichtigt zu ersetzen.
-4. AUS drücken; bei Blitzer.de prüfen, ob es tatsächlich beendet wurde.
-5. FahrCockpit neu öffnen: gespeicherter Schalterzustand wird angezeigt, es erfolgt
-   **kein automatischer Startbefehl**. App ohne installiertes Blitzer.de PRO testen.
-6. Bei Android-/Samsung-Abweichungen nur nach realem Test den Broadcast-Ablauf anpassen.
-
-Wichtig: Blitzer.de dokumentiert **keine Rückmeldung des aktiven Zustands**. Deshalb
-niemals aus einem gesendeten Intent ein bestätigtes "Blitzer aktiv" ableiten.
-Die START- und Hintergrund-Befehle sind getrennt, um nicht mit unbegründeten
-Zeitverzögerungen und Race Conditions zu experimentieren.
-
-## Recht und Preise
-
-Deutschland: § 23 Abs. 1c StVO untersagt Fahrzeugführenden die Verwendung einer
-aktiven Verkehrsüberwachungs-Warnfunktion während der Fahrt. Der Schalter ist
-keine Ausnahmeregel. Nutzung ausschließlich dort, wo sie erlaubt ist.
-
-Blitzer.de PRO ist eine separate kostenpflichtige App, falls noch nicht gekauft;
-FahrCockpit selbst verlangt keinen kostenpflichtigen API-Dienst.
-
-Dokumentation des Anbieter-Intent-Vertrags:
-https://www.blitzer.de/questions/wie-richte-ich-den-automatischen-start-stopp-per-tasker-ein/
-
-Blitzer.de Hintergrundbetrieb:
-https://www.blitzer.de/questions/die-app-warnt-mich-nicht-im-hintergrund-was-muss-ich-einstellen-android/
-
-Projektauftrag: https://github.com/CobraChris/app-fabrik-template/issues/26
+FahrCockpit GitHub: https://github.com/CobraChris/app-fabrik-template/pull/27
