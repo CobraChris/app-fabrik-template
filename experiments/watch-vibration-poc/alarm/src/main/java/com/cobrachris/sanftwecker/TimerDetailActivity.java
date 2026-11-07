@@ -306,8 +306,10 @@ public final class TimerDetailActivity extends Activity {
         int completed=(int)Math.max(0,Math.min(1000,
                 Math.round(1000.0*(t.durationMs-left)/t.durationMs)));
         progress.setProgress(completed);
-        if(t.state==TimerEntry.RUNNING){
-            state.setText("Läuft");
+        if(t.state==TimerEntry.RUNNING || t.state==TimerEntry.WAITING){
+            long delay=t.delayRemaining(now,SystemClock.elapsedRealtime());
+            state.setText(delay>0?"Start in "+
+                    TimerDisplay.time(delay,TimerAlertSettings.FORMAT_MS):"Läuft");
             primary.setText("Ⅱ  Pausieren");
         }else if(t.state==TimerEntry.FINISHED){
             state.setText("Fertig");
@@ -324,9 +326,11 @@ public final class TimerDetailActivity extends Activity {
         }else if(info==TimerAlertSettings.EXTRA_TARGET){
             target.setText(t.state==TimerEntry.FINISHED?
                     "Timer abgelaufen":
-                    (t.state==TimerEntry.RUNNING?"Ziel-Uhrzeit: ":
+                    (t.state==TimerEntry.RUNNING || t.state==TimerEntry.WAITING?
+                            "Ziel-Uhrzeit: ":
                     "Ziel-Uhrzeit bei Start jetzt: ")+
-                    formatTime(t.state==TimerEntry.RUNNING?t.dueWallMs:now+left));
+                    formatTime((t.state==TimerEntry.RUNNING ||
+                            t.state==TimerEntry.WAITING)?t.dueWallMs:now+left));
         }
         timeFormatChoice.setText(TimerDisplay.formatLabel(
                 TimerAlertSettings.timeFormat(this,timerId))+"  ›");
@@ -360,7 +364,8 @@ public final class TimerDetailActivity extends Activity {
             if(current==null)return;
             if(action==0){
                 TimerScheduler.reset(this,timerId);
-            }else if(current.state==TimerEntry.RUNNING){
+            }else if(current.state==TimerEntry.RUNNING ||
+                    current.state==TimerEntry.WAITING){
                 TimerScheduler.pause(this,timerId);
             }else{
                 if(!canStart())return;
