@@ -1,0 +1,21 @@
+plugins {
+    id 'com.android.application'
+}
+android {
+    namespace 'com.cobrachris.watchnotificationpoc'
+    compileSdk 35
+    defaultConfig {
+        // Separate ID avoids signing conflicts with the earlier Watch Data Layer experiment.
+        applicationId 'com.cobrachris.watchnotificationpoc'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '0.2-notification-poc'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+// The Galaxy Watch receives notifications through Samsung's existing companion software.
+// No Wear OS SDK, watch installation, account or additional service is necessary.

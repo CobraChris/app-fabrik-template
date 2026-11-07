@@ -1,0 +1,60 @@
+name: 'Android: Sanftwecker Beta und Watch-Benachrichtigungstest'
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/watch-vibration-poc/**'
+      - '.github/workflows/watch-vibration-poc.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Android-APKs und Alarmtests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Android SDK 35
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        run: |
+          SDK_MANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)
+          test -n "$SDK_MANAGER"
+          yes | "$SDK_MANAGER" --licenses >/dev/null || true
+          "$SDK_MANAGER" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Alarmtests und APKs kompilieren
+        run: |
+          gradle --no-daemon -p experiments/watch-vibration-poc \
+            :alarm:testDebugUnitTest :alarm:assembleDebug :alarm:assembleRelease :alarm:lintDebug :phone:assembleDebug
+      - name: Unnoetige Berechtigungen verhindern (Internet nur für manuelle Updateprüfung)
+        shell: bash
+        run: |
+          MANIFEST=experiments/watch-vibration-poc/alarm/src/main/AndroidManifest.xml
+          if grep -Eq '(android.permission.ACCESS_FINE_LOCATION|android.permission.READ_EXTERNAL_STORAGE|android.permission.WRITE_EXTERNAL_STORAGE)' "$MANIFEST"; then
+            echo 'Unexpected permission in Sanftwecker manifest' >&2; exit 1
+          fi
+          test -s experiments/watch-vibration-poc/alarm/build/outputs/apk/debug/alarm-debug.apk
+          test -s experiments/watch-vibration-poc/alarm/build/outputs/apk/release/alarm-release-unsigned.apk
+      - name: APK bereitstellen
+        run: |
+          mkdir -p artifacts
+          cp experiments/watch-vibration-poc/alarm/build/outputs/apk/debug/alarm-debug.apk artifacts/sanftwecker-beta-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sanftwecker-beta-apk
+          path: artifacts/sanftwecker-beta-debug.apk
+          retention-days: 14
+          if-no-files-found: error

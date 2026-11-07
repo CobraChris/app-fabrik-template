@@ -1,0 +1,157 @@
+package com.cobrachris.sanftwecker;
+
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.os.SystemClock;
+
+/** Separate exact alarm per countdown; never shares a request ID with wake alarms. */
+public final class TimerScheduler {
+    public static final String ACTION_FINISH="com.cobrachris.sanftwecker.TIMER_FINISH";
+    public static final String EXTRA_ID="timer_id";
+    public static final String EXTRA_DUE="timer_due";
+    private static final int CODE_BASE=30000;
+    private TimerScheduler(){}
+
+    private static PendingIntent pending(Context c,int id,long due){
+        Intent i=new Intent(c,TimerReceiver.class)
+                .setAction(ACTION_FINISH).putExtra(EXTRA_ID,id).putExtra(EXTRA_DUE,due);
+        return PendingIntent.getBroadcast(c,CODE_BASE+id,i,
+                PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+    }
+    private static void cancelPending(Context c,int id){
+        AlarmManager am=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);
+        if(am!=null)am.cancel(pending(c,id,0));
+    }
+    private static void arm(Context c,TimerEntry t){
+        if(!AlarmScheduler.canSchedule(c))
+            throw new SecurityException("Alarme und Erinnerungen fehlen");
+        AlarmManager am=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);
+        if(am==null)throw new IllegalStateException("AlarmManager fehlt");
+        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,t.dueWallMs,
+                pending(c,t.id,t.dueWallMs));
+    }
+    public static synchronized void start(Context c,int id){
+        TimerEntry before=TimerRepository.get(c,id);
+        if(before==null)return;
+        if(before.state==TimerEntry.RUNNING || before.state==TimerEntry.WAITING)return;
+        long delayMs=TimerAlertSettings.startDelaySeconds(c,id)*1000L;
+        TimerEntry after=before.startDelayed(System.currentTimeMillis(),
+                SystemClock.elapsedRealtime(),delayMs);
+        if(after==before)return;
+        try{
+            arm(c,after);
+            TimerRepository.put(c,after);
+            TimerMilestoneScheduler.reschedule(c,id);
+            // A manual start supersedes an outstanding one-time clock schedule.
+            if(TimerStartSchedule.get(c,id)>0){
+                try{TimerStartSchedule.cancel(c,id);}
+                catch(RuntimeException ex){
+                    AlarmRepository.diagnostic(c,"WARNUNG: Timer-Zeitplan konnte nicht entfernt werden");
+                }
+            }
+        }catch(RuntimeException e){
+            cancelPending(c,id);
+            TimerRepository.put(c,before);
+            throw e;
+        }
+    }
+    public static synchronized void pause(Context c,int id){
+        TimerMilestoneScheduler.cancel(c,id);
+        TimerEntry before=TimerRepository.get(c,id);
+        if(before==null)return;
+        cancelPending(c,id);
+        if(before.state==TimerEntry.RUNNING || before.state==TimerEntry.WAITING)
+            TimerRepository.put(c,before.pause(System.currentTimeMillis(),
+                    SystemClock.elapsedRealtime()));
+    }
+    public static synchronized void reset(Context c,int id){
+        if(TimerStartSchedule.get(c,id)>0)TimerStartSchedule.cancel(c,id);
+        TimerMilestoneScheduler.cancel(c,id);
+        TimerEntry before=TimerRepository.get(c,id);
+        if(before==null)return;
+        cancelPending(c,id);
+        TimerRepository.put(c,before.reset());
+        TimerAlerts.dismiss(c,id);
+    }
+    public static synchronized void edit(Context c,int id,String name,long durationMs){
+        if(TimerStartSchedule.get(c,id)>0)TimerStartSchedule.cancel(c,id);
+        TimerMilestoneScheduler.cancel(c,id);
+        TimerEntry t=TimerRepository.get(c,id);
+        if(t==null)return;
+        cancelPending(c,id);
+        TimerRepository.put(c,t.edit(name,durationMs));
+        if(!TimerAlertSettings.canRepeat(durationMs) && TimerAlertSettings.autoRepeat(c,id))
+            TimerAlertSettings.setAutoRepeat(c,id,false);
+        TimerAlerts.dismiss(c,id);
+    }
+    public static synchronized void delete(Context c,int id){
+        if(TimerStartSchedule.get(c,id)>0)TimerStartSchedule.cancel(c,id);
+        TimerMilestoneScheduler.cancel(c,id);
+        cancelPending(c,id);
+        TimerAlerts.dismiss(c,id);
+        TimerRepository.delete(c,id);
+        TimerAlertSettings.delete(c,id);
+    }
+    public static synchronized void fired(Context c,int id,long expectedDue) {
+        TimerEntry current=TimerRepository.get(c,id);
+        if(current==null ||
+                (current.state!=TimerEntry.RUNNING && current.state!=TimerEntry.WAITING) ||
+                current.dueWallMs!=expectedDue)return; // stale/already paused
+        long left=current.remaining(System.currentTimeMillis(),SystemClock.elapsedRealtime());
+        if(left>1500){
+            // Android can deliver an alarm slightly early after a clock adjustment.
+            try{arm(c,current);}catch(RuntimeException e){
+                AlarmRepository.diagnostic(c,"Timer konnte nicht neu geplant werden");
+            }
+            return;
+        }
+        TimerMilestoneScheduler.cancel(c,id);
+        TimerRepository.put(c,current.finish());
+        TimerAlerts.show(c,current);
+        AlarmRepository.diagnostic(c,"Timer beendet: "+current.name);
+        if(TimerAlertSettings.oneShot(c,id)){
+            // Preserve the completion notification; remove only the finished
+            // timer definition and its local options, never other timer IDs.
+            TimerRepository.delete(c,id);
+            TimerAlertSettings.delete(c,id);
+            AlarmRepository.diagnostic(c,"Einmal-Timer entfernt: "+current.name);
+            return;
+        }
+        if(TimerAlertSettings.autoRepeat(c,id) &&
+                TimerAlertSettings.canRepeat(current.durationMs)){
+            TimerEntry restarted=current.reset().start(System.currentTimeMillis(),
+                    SystemClock.elapsedRealtime());
+            try{
+                arm(c,restarted);
+                TimerRepository.put(c,restarted);
+                TimerMilestoneScheduler.reschedule(c,id);
+                AlarmRepository.diagnostic(c,"Timer automatisch wiederholt: "+current.name);
+            }catch(RuntimeException e){
+                cancelPending(c,id);
+                // Keep the finished timer visible; do not claim a repeat was scheduled.
+                AlarmRepository.diagnostic(c,"WARNUNG: Timer-Wiederholung fehlgeschlagen: "+
+                        current.name);
+            }
+        }
+    }
+    public static synchronized void restoreAll(Context c){
+        for(TimerEntry t:TimerRepository.all(c)){
+            if(t.state!=TimerEntry.RUNNING && t.state!=TimerEntry.WAITING)continue;
+            if(t.dueWallMs<=System.currentTimeMillis()){
+                // Do not buzz unexpectedly just because the phone rebooted late.
+                TimerRepository.put(c,t.finish());
+                AlarmRepository.diagnostic(c,"Timer nach Neustart abgeschlossen: "+t.name);
+            }else{
+                try{
+                    arm(c,t);
+                    TimerMilestoneScheduler.reschedule(c,t.id);
+                }catch(RuntimeException e){
+                    // Keep the timer visible with a warning rather than claiming reliability.
+                    AlarmRepository.diagnostic(c,"WARNUNG: Timer nicht geplant: "+t.name);
+                }
+            }
+        }
+    }
+}
