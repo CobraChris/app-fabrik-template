@@ -33,6 +33,7 @@ public final class MainActivity extends Activity {
     private final String[] dayNames = {"M","D","M","D","F","S","S"};
     private LinearLayout list;
     private TextView subheading;
+    private Button fullScreenPermissionButton;
     private boolean sortByNext = true;
 
     @Override public void onCreate(Bundle state) {
@@ -62,6 +63,7 @@ public final class MainActivity extends Activity {
             }
             renderList();
         }
+        refreshFullScreenPermissionUi();
     }
 
     private void buildScreen() {
@@ -118,13 +120,10 @@ public final class MainActivity extends Activity {
                         .setPositiveButton("OK",null).show();
             }
         });
-        android.app.NotificationManager notificationManager=
-                (android.app.NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-        if(android.os.Build.VERSION.SDK_INT>=34 && notificationManager!=null &&
-                !notificationManager.canUseFullScreenIntent()){
-            Button allowScreen=UiKit.button(this,"Klingelbildschirm erlauben",false);
-            base.addView(allowScreen);
-            allowScreen.setOnClickListener(v->{
+        if(android.os.Build.VERSION.SDK_INT>=34){
+            fullScreenPermissionButton=UiKit.button(this,"Klingelbildschirm erlauben",false);
+            base.addView(fullScreenPermissionButton);
+            fullScreenPermissionButton.setOnClickListener(v->{
                 try{
                     startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
                             .setData(android.net.Uri.parse("package:"+getPackageName())));
@@ -135,6 +134,7 @@ public final class MainActivity extends Activity {
                             .setPositiveButton("OK",null).show();
                 }
             });
+            refreshFullScreenPermissionUi();
         }
 
         list = UiKit.column(this);
@@ -359,6 +359,14 @@ public final class MainActivity extends Activity {
     private void openDetail(int id) {
         startActivity(new Intent(this,DetailActivity.class)
                 .putExtra(AlarmScheduler.EXTRA_ID,id));
+    }
+
+    private void refreshFullScreenPermissionUi() {
+        if (android.os.Build.VERSION.SDK_INT < 34 || fullScreenPermissionButton == null) return;
+        android.app.NotificationManager manager =
+                (android.app.NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+        boolean allowed = manager != null && manager.canUseFullScreenIntent();
+        fullScreenPermissionButton.setVisibility(allowed ? View.GONE : View.VISIBLE);
     }
 
     private void showAlarmPermission() {
