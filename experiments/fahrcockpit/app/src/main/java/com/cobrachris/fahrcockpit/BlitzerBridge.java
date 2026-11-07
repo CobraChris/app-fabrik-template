@@ -39,6 +39,12 @@ public final class BlitzerBridge {
         }
         try {
             context.sendBroadcast(intent);
+            // Save the LAST REQUESTED command, not a claimed active state.
+            context.getSharedPreferences("fahrcockpit_blitzer_v1", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("has_request", true)
+                .putBoolean("last_start_requested", command != BlitzerContract.Command.STOP)
+                .apply();
             // sendBroadcast provides no confirmation that Blitzer.de processed it.
             return SendResult.SENT_UNCONFIRMED;
         } catch (RuntimeException e) {
