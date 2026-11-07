@@ -8,7 +8,7 @@ import {lstatSync,readFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 
-const ROOT=fileURLToPath(new URL('../',import.meta.url));
+const ROOT=path.resolve(fileURLToPath(new URL('../',import.meta.url)));
 const SIZE_LIMIT=2*1024*1024;
 const SENSITIVE_FILE=/(^|\/)(?:\.env(?:\.(?!example$|sample$|template$)[^/]+)?|[^/]+\.(?:pem|p12|pfx|jks|keystore|key))$/i;
 const SECRETS=[
