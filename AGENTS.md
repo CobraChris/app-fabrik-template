@@ -77,3 +77,13 @@ Alle App-Erstellungsaktionen (Startseite und gespeicherte Ideen) sollen denselbe
 ## Multi-App-Auslieferung
 
 Zusätzliche **öffentliche, statische** Apps werden unter apps/<slug>/ gepflegt. Jede hat ihre eigene manifest.webmanifest mit relativem id, scope und start_url "./", ihren eigenen Service-Worker (falls vorhanden) mit Pfad-Isolation und eigene benannte lokale Speicherschlüssel. Die App-Fabrik baut sie in den bestehenden dist/apps/ Katalog. Keine Änderung an GitHub-Workflows oder Repository-Rechten für gewöhnliche App-Ergänzungen. Weil Unter-Apps dieselbe Origin teilen, keinerlei vertrauliche Daten, Secrets oder vermeintliche echte Mandantentrennung behaupten. Neues App-Repo ist nur eine optionale Alternative, nicht Voraussetzung für ChatGPT-Entwicklung in apps/<slug>/.
+
+## Sicherheitsprüfung vor dem Merge
+
+Für normale App-, Test- und Dokumentationsänderungen müssen `npm run check`,
+`npm test` und der darin enthaltene `npm run security` erfolgreich sein.
+Die verbindlichen Regeln, blockierenden Muster und bekannten Restrisiken
+stehen in [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md).
+Scanner-/Sicherheitsregeln nicht umgehen, um einen roten CI-Lauf grün zu
+bekommen. Privilegierte Workflow- und Signing-Änderungen weiter nur nach
+expliziter menschlicher Freigabe.
