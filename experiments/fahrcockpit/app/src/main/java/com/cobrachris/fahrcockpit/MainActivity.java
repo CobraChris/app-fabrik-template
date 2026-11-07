@@ -156,8 +156,7 @@ public final class MainActivity extends Activity {
         super.onResume();
         if (permissions != null) {
             boolean draw = Settings.canDrawOverlays(this);
-            boolean listener = NotificationManager.getEnabledListenerPackages(this)
-                .contains(getPackageName());
+            boolean listener = Permissions.isMediaListenerEnabled(this);
             permissions.setText("Einblendung: " + (draw ? "freigegeben" : "fehlt") +
                 "  •  Spotify-Medienzugriff: " + (listener ? "freigegeben" : "fehlt"));
         }
