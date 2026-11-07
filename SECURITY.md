@@ -25,3 +25,15 @@
 - GitHub-App-Administrationsbibliothek ist **noch nicht deployed**; notwendige Schreibrechte und ein sicherer Secret-Vault fehlen.
 - Nur bewusst freigegebene Repositories/Secrets, serverseitige Besitzerfreigabe, keine Klartextausgabe.
 - Alle Aenderungen an diesen Workflows benoetigen menschliche Sicherheitspruefung, keinen automatischen Merge. Details in docs/GITHUB_APP_FACTORY.md.
+
+## Automatische Security-Baseline (Phase A)
+
+Bei jedem `npm test` wird zusätzlich `npm run security` ausgeführt. Der
+Scanner prüft getrackte Dateien auf hochwahrscheinliche Secrets,
+versehentlich eingecheckte private Schlüssel und besonders riskante
+GitHub-Actions-Auslöser. Veränderliche GitHub-Actions-Tags werden zunächst
+als Hinweis gemeldet (nicht blockiert). Details und Release-Gates:
+[docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md).
+
+Diese Prüfung ist **keine** vollständige Code-/Datenschutzprüfung und ersetzt
+weder GitHub-App-Rechtekontrolle noch sicherheitskritisches Workflow-Review.
