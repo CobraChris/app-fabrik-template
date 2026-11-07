@@ -31,3 +31,14 @@ test('release signing never uses shared Sanftwecker secrets',()=>{
   assert.doesNotMatch(y,/^\s+pull_request:/m);
   assert.doesNotMatch(y,/pull_request_target|workflow_run/);
 });
+
+test('GitHub release workflow expressions must be complete and Actions pinned',()=>{
+  const y=readFileSync(new URL('../.github/workflows/fahrcockpit-release-candidate.yml',import.meta.url),'utf8');
+  const complete=[...y.matchAll(/\$\{\{[^}\n]*\}\}/g)].length;
+  assert.equal(complete,16,'Expected all sixteen GitHub expressions');
+  assert.doesNotMatch(y,/\$\{\{[^}\n]*\}(?!\})/,'Broken GitHub expression');
+  const refs=[...y.matchAll(/\buses:\s*([^\n\s]+)/g)].map(x=>x[1]);
+  assert.equal(refs.length,7);
+  assert.ok(refs.every(ref=>/@[a-f0-9]{40}$/.test(ref)),
+    'Release pipeline must pin each action to an immutable commit SHA');
+});
