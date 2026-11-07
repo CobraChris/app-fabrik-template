@@ -1,0 +1,17 @@
+name: 'FahrCockpit: Android pruefen'
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'experiments/fahr-cockpit/**'
+      - 'docs/FAHR_COCKPIT_ARCHITECTURE.md'
+      - '.github/workflows/fahr-cockpit-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-check:
+    uses: ./.github/workflows/reusable-android-check.yml
+    with:
+      project_path: experiments/fahr-cockpit
+      module: app
