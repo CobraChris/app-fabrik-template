@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "sanftwecker-signed-beta",
-  "request_id": "2026-11-07-fast-watch-notification-intervals",
-  "source_sha": "31912f1e19e35aef48392460d7ba042c11f85219",
-  "expected_version_code": 12
+  "request_id": "2026-11-07-optin-audible-muted-alarm",
+  "source_sha": "8078ba9b8b451cf406417afa5c2cdab7b96029e3",
+  "expected_version_code": 13
 }
