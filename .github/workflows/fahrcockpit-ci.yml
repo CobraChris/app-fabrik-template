@@ -1,0 +1,23 @@
+name: 'FahrCockpit: Android pruefen'
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/fahrcockpit/**'
+      - '.github/workflows/fahrcockpit-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'experiments/fahrcockpit/**'
+      - '.github/workflows/fahrcockpit-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    # Reuse the existing read-only factory check. No signing or publishing.
+    uses: ./.github/workflows/reusable-android-check.yml
+    with:
+      project_path: 'experiments/fahrcockpit'
+      module: 'app'
