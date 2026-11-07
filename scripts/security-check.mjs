@@ -55,12 +55,12 @@ export function inspectWorkflow(file,text) {
     issues.push(finding(file,'WORKFLOW_WRITE_ALL'));
   if(/^\s*(?:-\s*)?(?:run:\s*)?(?:curl|wget)\b[^\n]*\|\s*(?:sudo\s+)?(?:ba)?sh\b/m.test(text))
     issues.push(finding(file,'UNVERIFIED_REMOTE_SHELL'));
-  // Advisory until current existing workflows are migrated to immutable SHAs.
+  // All external GitHub Actions must now be pinned to immutable commits.
   const actions=[...text.matchAll(/^\s*(?:-\s*)?uses:\s*([^\s#]+)/gm)];
   if(actions.some(([,value])=>
     !value.startsWith('./') && !value.startsWith('docker://') &&
     !/@[0-9a-f]{40}$/i.test(value)))
-    issues.push(finding(file,'MUTABLE_ACTION_REFERENCE','warning'));
+    issues.push(finding(file,'MUTABLE_ACTION_REFERENCE'));
   return issues;
 }
 

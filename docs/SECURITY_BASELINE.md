@@ -24,11 +24,11 @@ und wird auch über \`npm test\` in der bestehenden GitHub CI gestartet.
 - Git-getrackte symbolische Links, die unerwartet Inhalte aus anderen
   Verzeichnissen einschleusen könnten.
 
-**Hinweise, noch nicht blockierend**
-- GitHub Actions, die nicht an einen vollständigen unveränderlichen
-  40-stelligen Commit-SHA gepinnt sind. Die Bestandsworkflows nutzen
-  noch Versions-Tags. Diese Änderung soll zukünftige Härtung transparent
-  machen, aber ohne ungeprüfte Massenmigration keine Builds blockieren.
+**Ab dieser Freigabe ebenfalls blockierend**
+- Externe GitHub Actions ohne vollständige unveränderliche
+  40-stellige Commit-SHA-Referenz. Die initiale Umstellung mit
+  geprüfter Tag-/Commit-Auflösung steht in
+  [ACTIONS_PINNING.md](ACTIONS_PINNING.md).
 
 Der Scanner meldet **nur Dateinamen und Fehlercodes**, niemals gefundene
 Token-Werte. Syntaktische Muster erkennen nicht alle Formen von Geheimnissen:
@@ -61,9 +61,9 @@ kein SAST und kein Penetrationstest.
 
 - GitHub App Berechtigungen und Rulesets müssen tatsächlich eingerichtet,
   verifiziert und getestet werden; Code allein beweist dies nicht.
-- Pinning sämtlicher GitHub Actions auf geprüfte Commit-SHAs nach separater
-  Sicherheitsprüfung. Für fremde npm-/Gradle-Abhängigkeiten zusätzliche
-  Dependency-/SCA-Prüfung, sobald solche Abhängigkeiten eingesetzt werden.
+- Nach dem einmaligen Pinning **regelmäßige, separat geprüfte Aktualisierung**
+  auf neue Sicherheitsfixes der Actions; für fremde npm-/Gradle-Abhängigkeiten
+  zusätzliche Dependency-/SCA-Prüfung, sobald solche Abhängigkeiten eingesetzt werden.
 - Belastbare Recovery-Tests für signierte Android-Releases und
   private Backups. Nicht nur Backup-Dateien prüfen.
 - Getrennte Entwicklungs-/Administrator-Vertrauensgrenzen bei externen

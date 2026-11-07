@@ -46,14 +46,13 @@ test('unreviewed curl-to-shell workflow commands are blocked',()=>{
     '  - name: install\n    run: curl https://example.invalid/setup.sh | bash\n'))
     .includes('UNVERIFIED_REMOTE_SHELL'));
 });
-test('mutable action references are advisory and SHA pins are accepted',()=>{
+test('mutable Actions references block CI; immutable SHA pins pass',()=>{
   const mutable=inspectWorkflow('.github/workflows/check.yml',
     '- uses: actions/checkout@v4\n');
-  assert.deepEqual(codes(mutable),[]);
-  assert.ok(mutable.some(x=>x.level==='warning'&&x.code==='MUTABLE_ACTION_REFERENCE'));
+  assert.ok(codes(mutable).includes('MUTABLE_ACTION_REFERENCE'));
   const pinned=inspectWorkflow('.github/workflows/check.yml',
-    '- uses: actions/checkout@'+'a'.repeat(40)+'\n');
-  assert.deepEqual(pinned,[]);
+    '- uses: actions/checkout@'+'a'.repeat(40)+' # v4\n');
+  assert.deepEqual(codes(pinned),[]);
 });
 test('scanner gives only file names and finding codes, never token values',()=>{
   const token='ghp_'+'q'.repeat(36);
@@ -70,7 +69,7 @@ test('real tracked repository satisfies blocking security baseline',()=>{
 test('named action steps are also detected (not only list-item uses)',()=>{
   const w='- name: Setup Node\n  uses: actions/setup-node@v4\n';
   const result=inspectWorkflow('.github/workflows/pipeline.yml',w);
-  assert.ok(result.some(x=>x.code==='MUTABLE_ACTION_REFERENCE'));
+  assert.ok(codes(result).includes('MUTABLE_ACTION_REFERENCE'));
 });
 test('multiline shell commands cannot conceal curl-to-bash',()=>{
   const w='- name: Install\n  run: |\n    set -e\n    curl https://example.invalid/setup.sh | bash\n';
