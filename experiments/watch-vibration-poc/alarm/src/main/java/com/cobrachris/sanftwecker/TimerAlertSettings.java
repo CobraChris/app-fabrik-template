@@ -90,8 +90,12 @@ public final class TimerAlertSettings {
     public static void setStartDelaySeconds(Context c,int id,int seconds){
         if(seconds!=0&&seconds!=3&&seconds!=5&&seconds!=10&&seconds!=30&&seconds!=60)
             throw new IllegalArgumentException("Ungültige Startverzögerung");
-        if(!prefs(c).edit().putInt(key("start_delay",id),seconds).commit())
+        SharedPreferences.Editor editor=prefs(c).edit()
+                .putInt(key("start_delay",id),seconds);
+        if(seconds<5)editor.putBoolean(key("prepare_cue",id),false);
+        if(!editor.commit())
             throw new IllegalStateException("Startverzögerung konnte nicht gespeichert werden");
+        TimerMilestoneScheduler.reschedule(c,id);
     }
     public static void setTimeFormat(Context c,int id,int value){
         if(value!=FORMAT_HMS&&value!=FORMAT_MS)
