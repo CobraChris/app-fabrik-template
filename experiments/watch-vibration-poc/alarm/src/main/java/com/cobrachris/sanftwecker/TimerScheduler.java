@@ -43,6 +43,7 @@ public final class TimerScheduler {
         try{
             arm(c,after);
             TimerRepository.put(c,after);
+            TimerMilestoneScheduler.reschedule(c,id);
         }catch(RuntimeException e){
             cancelPending(c,id);
             TimerRepository.put(c,before);
@@ -50,6 +51,7 @@ public final class TimerScheduler {
         }
     }
     public static synchronized void pause(Context c,int id){
+        TimerMilestoneScheduler.cancel(c,id);
         TimerEntry before=TimerRepository.get(c,id);
         if(before==null)return;
         cancelPending(c,id);
@@ -58,6 +60,7 @@ public final class TimerScheduler {
                     SystemClock.elapsedRealtime()));
     }
     public static synchronized void reset(Context c,int id){
+        TimerMilestoneScheduler.cancel(c,id);
         TimerEntry before=TimerRepository.get(c,id);
         if(before==null)return;
         cancelPending(c,id);
@@ -65,6 +68,7 @@ public final class TimerScheduler {
         TimerAlerts.dismiss(c,id);
     }
     public static synchronized void edit(Context c,int id,String name,long durationMs){
+        TimerMilestoneScheduler.cancel(c,id);
         TimerEntry t=TimerRepository.get(c,id);
         if(t==null)return;
         cancelPending(c,id);
@@ -74,6 +78,7 @@ public final class TimerScheduler {
         TimerAlerts.dismiss(c,id);
     }
     public static synchronized void delete(Context c,int id){
+        TimerMilestoneScheduler.cancel(c,id);
         cancelPending(c,id);
         TimerAlerts.dismiss(c,id);
         TimerRepository.delete(c,id);
@@ -92,9 +97,18 @@ public final class TimerScheduler {
             }
             return;
         }
+        TimerMilestoneScheduler.cancel(c,id);
         TimerRepository.put(c,current.finish());
         TimerAlerts.show(c,current);
         AlarmRepository.diagnostic(c,"Timer beendet: "+current.name);
+        if(TimerAlertSettings.oneShot(c,id)){
+            // Preserve the completion notification; remove only the finished
+            // timer definition and its local options, never other timer IDs.
+            TimerRepository.delete(c,id);
+            TimerAlertSettings.delete(c,id);
+            AlarmRepository.diagnostic(c,"Einmal-Timer entfernt: "+current.name);
+            return;
+        }
         if(TimerAlertSettings.autoRepeat(c,id) &&
                 TimerAlertSettings.canRepeat(current.durationMs)){
             TimerEntry restarted=current.reset().start(System.currentTimeMillis(),
@@ -102,6 +116,7 @@ public final class TimerScheduler {
             try{
                 arm(c,restarted);
                 TimerRepository.put(c,restarted);
+                TimerMilestoneScheduler.reschedule(c,id);
                 AlarmRepository.diagnostic(c,"Timer automatisch wiederholt: "+current.name);
             }catch(RuntimeException e){
                 cancelPending(c,id);
@@ -119,7 +134,10 @@ public final class TimerScheduler {
                 TimerRepository.put(c,t.finish());
                 AlarmRepository.diagnostic(c,"Timer nach Neustart abgeschlossen: "+t.name);
             }else{
-                try{arm(c,t);}catch(RuntimeException e){
+                try{
+                    arm(c,t);
+                    TimerMilestoneScheduler.reschedule(c,t.id);
+                }catch(RuntimeException e){
                     // Keep the timer visible with a warning rather than claiming reliability.
                     AlarmRepository.diagnostic(c,"WARNUNG: Timer nicht geplant: "+t.name);
                 }
