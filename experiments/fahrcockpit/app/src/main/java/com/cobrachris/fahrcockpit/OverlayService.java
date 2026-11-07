@@ -271,7 +271,7 @@ public final class OverlayService extends Service {
         String selected = WarningSource.selected(this);
         warningButton.setText(WarningSource.SAPHE.equals(selected) ? "Saphe öffnen"
             : WarningSource.BLITZER.equals(selected) ? "Blitzer EIN"
-            : "Warnung aus");
+            : "Keine Auswahl");
         warningButton.setEnabled(!WarningSource.NONE.equals(selected));
     }
 

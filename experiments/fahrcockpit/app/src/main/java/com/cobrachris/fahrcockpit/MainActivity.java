@@ -24,6 +24,7 @@ public final class MainActivity extends Activity {
     private Switch blitzerSwitch;
     private TextView blitzerStatus;
     private TextView permissions;
+    private TextView warningStatus;
     private boolean programmatic;
 
     @Override public void onCreate(Bundle savedInstanceState) {
@@ -78,7 +79,7 @@ public final class MainActivity extends Activity {
         root.addView(notificationPermission);
 
         Ui.section(this, root, "Warnsystem auswählen",
-            "Saphe ist voreingestellt. Die Auswahl startet keine Warn-App und " +
+            "Saphe ist voreingestellt. Die Auswahl startet oder stoppt keine Warn-App und " +
             "ändert weder dein Gerät noch dessen Abonnement.");
         android.widget.RadioGroup warningChoice = new android.widget.RadioGroup(this);
         android.widget.RadioButton sapheChoice = new android.widget.RadioButton(this);
@@ -100,7 +101,7 @@ public final class MainActivity extends Activity {
         String selected = WarningSource.selected(this);
         warningChoice.check(WarningSource.BLITZER.equals(selected) ? blitzerChoice.getId()
             : WarningSource.NONE.equals(selected) ? noneChoice.getId() : sapheChoice.getId());
-        TextView warningStatus = Ui.text(this, "", 14, Ui.MUTED, false);
+        warningStatus = Ui.text(this, "", 14, Ui.MUTED, false);
         root.addView(warningStatus);
         Button sapheLaunch = Ui.button(this, "Saphe Link öffnen");
         root.addView(sapheLaunch);
@@ -199,6 +200,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onResume() {
         super.onResume();
+        if (warningStatus != null) updateWarningStatus(warningStatus);
         if (blitzerSwitch != null) {
             programmatic = true;
             blitzerSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
@@ -227,7 +229,7 @@ public final class MainActivity extends Activity {
                 ? "Blitzer.de PRO ausgewählt · App installiert · Warnstatus unbekannt."
                 : "Blitzer.de PRO ausgewählt · App fehlt.");
         } else {
-            label.setText("Kein Warnsystem ausgewählt. Spotify und Karte funktionieren weiter.");
+            label.setText("Kein Cockpit-Warnsystem gewählt. Bereits laufende externe Apps werden dadurch nicht beendet.");
         }
     }
 
