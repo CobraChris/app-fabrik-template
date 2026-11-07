@@ -196,10 +196,31 @@ public final class OverlayService extends Service {
 
         LinearLayout tools = Ui.row(this);
         Button fuel = small("⛽ Tanken");
-        Button off = small("Blitzer AUS");
+        Button map = small("Maps");
         tools.addView(fuel, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
-        tools.addView(off, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
+        tools.addView(map, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
         content.addView(tools);
+        LinearLayout traffic = Ui.row(this);
+        Button on = small("Blitzer EIN");
+        Button off = small("Blitzer AUS");
+        traffic.addView(on, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
+        traffic.addView(off, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
+        content.addView(traffic);
+        map.setOnClickListener(v -> {
+            try {
+                Intent open = getPackageManager().getLaunchIntentForPackage(
+                    "com.google.android.apps.maps");
+                if (open != null) { open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(open); }
+                else toast("Google Maps nicht installiert.");
+            } catch (RuntimeException e) { toast("Google Maps nicht erreichbar."); }
+        });
+        on.setOnClickListener(v -> {
+            BlitzerBridge.SendResult result = BlitzerBridge.send(
+                this, BlitzerContract.Command.START);
+            toast(result == BlitzerBridge.SendResult.SENT_UNCONFIRMED
+                ? "Blitzer.de Startbefehl gesendet (nicht bestätigt)"
+                : "Blitzer.de PRO nicht erreichbar.");
+        });
         fuel.setOnClickListener(v -> {
             try {
                 Intent open = new Intent(this, FuelActivity.class);
@@ -248,7 +269,7 @@ public final class OverlayService extends Service {
     private void toggleCompact() {
         minimized = !minimized;
         content.setVisibility(minimized ? View.GONE : View.VISIBLE);
-        params.width = Ui.dp(this, minimized ? 190 : 310);
+        params.width = Ui.dp(this, minimized ? 230 : 310);
         if (panel != null) window.updateViewLayout(panel, params);
         if (!minimized) updateMusic();
     }
