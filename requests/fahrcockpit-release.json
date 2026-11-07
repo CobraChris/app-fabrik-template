@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "intent": "fahrcockpit-signed-beta",
+  "request_id": "2026-11-07-first-signed-fahr",
+  "source_sha": "e6da2f64b027848d001b0f8f6158c5d5768171b0",
+  "expected_version_code": 4
+}
