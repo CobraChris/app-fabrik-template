@@ -67,6 +67,7 @@ public final class TimerAlertSettings {
             throw new IllegalArgumentException("Ungültiges Timer-Intervall");
         if(!prefs(c).edit().putInt(key("interval",id),seconds).commit())
             throw new IllegalStateException("Timer-Intervall konnte nicht gespeichert werden");
+        TimerMilestoneScheduler.reschedule(c,id);
     }
     public static boolean prepareCue(Context c,int id){
         return prefs(c).getBoolean(key("prepare_cue",id),false);
@@ -74,12 +75,16 @@ public final class TimerAlertSettings {
     public static void setPrepareCue(Context c,int id,boolean enabled){
         if(!prefs(c).edit().putBoolean(key("prepare_cue",id),enabled).commit())
             throw new IllegalStateException("Vorbereitungsalarm konnte nicht gespeichert werden");
+        TimerMilestoneScheduler.reschedule(c,id);
     }
     public static boolean oneShot(Context c,int id){
         return prefs(c).getBoolean(key("one_shot",id),false);
     }
     public static void setOneShot(Context c,int id,boolean enabled){
-        if(!prefs(c).edit().putBoolean(key("one_shot",id),enabled).commit())
+        SharedPreferences.Editor editor=prefs(c).edit()
+                .putBoolean(key("one_shot",id),enabled);
+        if(enabled)editor.putBoolean(key("repeat",id),false);
+        if(!editor.commit())
             throw new IllegalStateException("Einmal-Timer konnte nicht gespeichert werden");
     }
     public static void setStartDelaySeconds(Context c,int id,int seconds){
@@ -106,7 +111,9 @@ public final class TimerAlertSettings {
             if(timer==null||!canRepeat(timer.durationMs))
                 throw new IllegalArgumentException("Wiederholung erst ab 10 Sekunden möglich");
         }
-        if(!prefs(c).edit().putBoolean(key("repeat",id),enabled).commit())
+        SharedPreferences.Editor editor=prefs(c).edit().putBoolean(key("repeat",id),enabled);
+        if(enabled)editor.putBoolean(key("one_shot",id),false);
+        if(!editor.commit())
             throw new IllegalStateException("Wiederholung konnte nicht gespeichert werden");
     }
     public static void copy(Context c,int sourceId,int targetId){
