@@ -23,6 +23,7 @@
         <activity android:name=".DetailActivity" android:exported="false"/>
         <activity android:name=".UpdateActivity" android:exported="false"/>
         <activity android:name=".TimerActivity" android:exported="false"/>
+        <activity android:name=".TimerDetailActivity" android:exported="false"/>
         <activity android:name=".StopwatchActivity" android:exported="false"/>
         <activity android:name=".AlarmActivity" android:exported="false"
             android:showWhenLocked="true" android:turnScreenOn="true"/>
