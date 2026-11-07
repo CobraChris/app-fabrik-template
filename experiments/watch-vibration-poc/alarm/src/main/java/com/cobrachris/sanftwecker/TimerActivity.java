@@ -55,7 +55,14 @@ public final class TimerActivity extends Activity {
         super.onCreate(state);
         UiKit.window(this);
         TimerAlerts.ensureChannel(this);
+        String importError=null;
+        try{
+            TimerRepository.importScreenshotPresets(this);
+        }catch(RuntimeException e){
+            importError=e.getMessage();
+        }
         createScreen();
+        if(importError!=null)message("Screenshot-Timer konnten nicht übernommen werden: "+importError);
     }
     @Override public void onResume(){
         super.onResume();render();
