@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.NotificationManager;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -26,6 +27,8 @@ import android.widget.Switch;
 import android.widget.TextView;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Calendar;
+import java.util.TimeZone;
 import java.util.Locale;
 
 /**
@@ -42,7 +45,7 @@ public final class TimerDetailActivity extends Activity {
         }
     };
     private int timerId;
-    private TextView title,time,target,state,star;
+    private TextView title,time,target,state,star,plannedStartLabel;
     private ProgressBar progress;
     private Button primary,reset;
     private Switch tone,vibration,repeat,prepareCue,oneShot;
@@ -149,6 +152,26 @@ public final class TimerDetailActivity extends Activity {
         Button edit=UiKit.button(this,"Name und Dauer bearbeiten",false);
         overview.addView(edit);
         edit.setOnClickListener(v->editTimer());
+
+        LinearLayout schedule=section(root,"Timer-Zeitplan");
+        plannedStartLabel=UiKit.label(this,"Kein Start geplant",16,UiKit.MUTED);
+        schedule.addView(plannedStartLabel);
+        Button chooseTime=UiKit.button(this,"Startzeit festlegen",true);
+        Button cancelTime=UiKit.button(this,"Geplanten Start entfernen",false);
+        LinearLayout scheduleActions=UiKit.column(this);
+        scheduleActions.addView(chooseTime);
+        scheduleActions.addView(cancelTime);
+        schedule.addView(scheduleActions);
+        chooseTime.setOnClickListener(v->chooseScheduledStart());
+        cancelTime.setOnClickListener(v->{
+            try{
+                TimerStartSchedule.cancel(this,timerId);
+                updateState();
+            }catch(RuntimeException e){showError(e.getMessage());}
+        });
+        addHint(schedule,"Startet den Countdown einmalig zur nächsten gewählten "+
+                "Uhrzeit (heute oder morgen). Die normale Startverzögerung gilt "+
+                "zusätzlich. Manueller Start und Zurücksetzen heben den Zeitplan auf.");
 
         LinearLayout display=section(root,"Anzeige & Wiederholung");
         timeFormatChoice=choiceRow(display,"Zeitformat",TimerDisplay.formatLabel(
@@ -348,6 +371,47 @@ public final class TimerDetailActivity extends Activity {
         if(Build.VERSION.SDK_INT>=35)page.requestApplyInsets();
         updateState();
     }
+    private void chooseScheduledStart(){
+        TimerEntry timer=TimerRepository.get(this,timerId);
+        if(timer==null)return;
+        if(timer.state==TimerEntry.RUNNING||timer.state==TimerEntry.WAITING){
+            showError("Zum Planen bitte zuerst den laufenden Timer pausieren.");
+            return;
+        }
+        if(Build.VERSION.SDK_INT>=33 &&
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                        !=PackageManager.PERMISSION_GRANTED){
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},96);
+            showError("Erlaube zuerst die Benachrichtigungen, damit das Timer-Ende meldet.");
+            return;
+        }
+        NotificationManager manager=
+                (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+        if(manager==null||!manager.areNotificationsEnabled()){
+            showError("Bitte zuerst Android-Benachrichtigungen aktivieren.");
+            return;
+        }
+        if(!AlarmScheduler.canSchedule(this)){
+            allowExactAlarm();
+            return;
+        }
+        Calendar defaultTime=Calendar.getInstance();
+        defaultTime.add(Calendar.MINUTE,10);
+        new TimePickerDialog(this,(picker,hour,minute)->{
+            try{
+                long at=TimerStartSchedule.nextLocalTime(hour,minute,
+                        System.currentTimeMillis(),TimeZone.getDefault());
+                TimerStartSchedule.set(this,timerId,at);
+                updateState();
+            }catch(RuntimeException e){showError(e.getMessage());}
+        },defaultTime.get(Calendar.HOUR_OF_DAY),
+                defaultTime.get(Calendar.MINUTE),true).show();
+    }
+    private static String scheduleLabel(long at){
+        if(at<=0)return "Kein Start geplant";
+        return "Geplanter Start: "+new SimpleDateFormat(
+                "EEE, dd.MM. · HH:mm",Locale.GERMANY).format(new Date(at));
+    }
     private static String intervalLabel(int seconds){
         if(seconds==0)return "Aus";
         if(seconds==60)return "Jede Minute";
@@ -384,6 +448,7 @@ public final class TimerDetailActivity extends Activity {
             left=t.remaining(System.currentTimeMillis(),SystemClock.elapsedRealtime());
         }
         title.setText(t.name);
+        plannedStartLabel.setText(scheduleLabel(TimerStartSchedule.get(this,timerId)));
         time.setText(TimerDisplay.time(left,TimerAlertSettings.timeFormat(this,timerId)));
         star.setText(t.favorite?"★":"☆");
         star.setContentDescription(t.favorite?"Favorit entfernen":"Als Favorit markieren");
@@ -400,7 +465,8 @@ public final class TimerDetailActivity extends Activity {
             primary.setText("▶  Neu starten");
         }else{
             state.setText(t.state==TimerEntry.PAUSED?"Pausiert":"Bereit");
-            primary.setText("▶  Starten");
+            primary.setText(TimerStartSchedule.get(this,timerId)>0?
+                    "▶  Jetzt starten":"▶  Starten");
         }
         int info=TimerAlertSettings.extraInfo(this,timerId);
         target.setVisibility(info==TimerAlertSettings.EXTRA_NONE?View.GONE:View.VISIBLE);
