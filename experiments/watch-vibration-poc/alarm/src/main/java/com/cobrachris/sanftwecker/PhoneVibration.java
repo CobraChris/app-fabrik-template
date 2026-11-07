@@ -11,8 +11,8 @@ import android.os.Vibrator;
 import android.os.VibratorManager;
 
 /**
- * Finite handset vibrations only. No infinitely repeating hardware waveform.
- * A single motor phase lasts at most 4 seconds; every test has a cancel button.
+ * Strong, finite handset haptics, capped at 90 seconds while an alarm rings.
+ * No infinite hardware waveform: one motor phase <= 4s; emergency stop always cancels.
  */
 public final class PhoneVibration {
     public static final int MAX_ALARM_MS = VibrationSafety.MAX_ALARM_MS;
@@ -41,8 +41,14 @@ public final class PhoneVibration {
 
     /** Play one finite rhythm. NEVER use an infinite repeat index. */
     private static void once(Vibrator v, int mode) {
-        v.vibrate(VibrationEffect.createWaveform(
-                VibrationPresets.pattern(mode), VibrationSafety.NON_REPEATING), attributes());
+        long[] timings=VibrationPresets.pattern(mode);
+        VibrationEffect effect=v.hasAmplitudeControl()
+                ? VibrationEffect.createWaveform(timings,
+                        VibrationSafety.fullStrengthAmplitudes(timings),
+                        VibrationSafety.NON_REPEATING)
+                : VibrationEffect.createWaveform(timings,
+                        VibrationSafety.NON_REPEATING);
+        v.vibrate(effect, attributes());
     }
 
     public static synchronized void start(Context context, int mode) {
@@ -81,7 +87,7 @@ public final class PhoneVibration {
             }
         },MAX_ALARM_MS);
         AlarmRepository.diagnostic(context,
-                "Handyvibration gestartet – automatische Abschaltung nach 12 s");
+                "Handyvibration gestartet – automatische Abschaltung nach 90 s");
     }
 
     /** One preview only; the activity shows the stop dialog BEFORE invoking this. */

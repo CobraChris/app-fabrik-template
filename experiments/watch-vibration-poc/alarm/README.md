@@ -1,3 +1,29 @@
+# Sanftwecker (Test) – Beta 0.8.2 (Haptik)
+
+**Vorbereitet am 07.11.2026:** Handyvibration von maximal 12 auf
+**90 Sekunden** verlängert, volle angeforderte Amplitude (255/255) auf Geräten
+mit Amplitudensteuerung. Bei Stoppen, Schlummern oder Ende des Alarms wird die
+Vibration weiterhin sofort abgebrochen. Kein endlos wiederholtes
+VibrationEffect; die Vorschau bleibt auf höchstens 5 Sekunden begrenzt.
+Die Motor-Hardware und Systemeinstellungen begrenzen weiterhin die
+tatsächlich spürbare Stärke.
+
+**Galaxy Watch:** Die Spiegelung funktioniert, aber Samsung steuert die
+Haptik der Benachrichtigung. In den Watch-Einstellungen unter
+*Töne und Vibration → Vibration* möglichst *Lang* und *Stark* aktivieren.
+Im bestehenden Alarm-Menü ist bereits
+*Watch stärker erinnern: 12 Impulse alle 10 Sek.* verfügbar; das ist
+nicht identisch mit kontinuierlicher Vibration.
+Eine echte, anhaltende Watch-Vibration benötigt eine native
+Wear-OS-Begleit-App und eine sichere Start-/Stopp-Verbindung, die
+separat entwickelt und am Gerät abgenommen werden müsste.
+
+**Neue APK noch nicht auf dem Handy getestet.** Bis zur Samsung-Abnahme den
+zuverlässigen bisherigen Wecker parallel verwenden. Kein automatisches
+Überschreiben gespeicherter Alarmprofile.
+
+---
+
 # Sanftwecker (Test) – Beta 0.8.1
 
 **Aktueller Stand, 06.11.2026:** Signierte Beta 0.8.0 (Build 9) und Beta 0.8.1 (Build 10) wurden automatisch erstellt und als GitHub-Prereleases veröffentlicht. Die Android-Build-Tests und der Zertifikatsvergleich für das In-place-Update sind erfolgreich. **Samsung-/Galaxy-Watch-Abnahme bleibt offen.** Siehe [aktuelle Update-Anleitung](UPDATE_SETUP.md).

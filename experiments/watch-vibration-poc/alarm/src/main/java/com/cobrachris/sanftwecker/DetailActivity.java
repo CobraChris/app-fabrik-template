@@ -177,7 +177,7 @@ public final class DetailActivity extends Activity {
 
         LinearLayout vibrationCard=section(root,"Vibration");
         vibrationCard.addView(UiKit.label(this,
-                "Muster für Handy und Watch-Benachrichtigung",15,UiKit.MUTED));
+                "Handy-Vibrationsmuster (Watch-Impulse separat einstellen)",15,UiKit.MUTED));
         vibration=new Spinner(this);
         vibration.setContentDescription("Vibrationsrhythmus auswählen");
         vibration.setAdapter(new ArrayAdapter<>(this,
@@ -211,9 +211,9 @@ public final class DetailActivity extends Activity {
         });
         vibrationCard.addView(UiKit.label(this,
                 "Vorschau: maximal 5 Sekunden, mit sichtbarem Stoppknopf. "+
-                "Im Alarm: Handyvibration aus Sicherheitsgründen maximal 12 Sekunden. "+
-                "Die Uhr verwendet wieder den zuvor funktionierenden Benachrichtigungskanal. "+
-                "Ein bestimmtes Muster auf der Uhr kann Samsung nicht garantieren.",
+                "Im Alarm: kräftige Handyvibration bis zu 90 Sekunden. "+
+                "Sie endet sofort bei Stoppen/Schlummern; eine Vorschau dauert maximal 5 Sekunden. "+
+                "Die tatsächliche Stärke hängt von der Hardware ab.",
                 13,UiKit.MUTED));
 
         LinearLayout wrist=section(root,"Galaxy Watch");
@@ -243,8 +243,11 @@ public final class DetailActivity extends Activity {
         });
         Button watchTest=UiKit.button(this,"Watch-Test senden",false);
         wrist.addView(watchTest);watchTest.setOnClickListener(v->watchTest());
-        wrist.addView(UiKit.label(this,"Die Uhr empfängt gespiegelte Benachrichtigungen. "+
-                "Samsung entscheidet, ob sie vibriert.",13,UiKit.MUTED));
+        wrist.addView(UiKit.label(this,"Galaxy Watch: Einstellungen → Töne und Vibration "+
+                "→ Vibration → Lang und Stark auswählen. Die Uhr spiegelt "+
+                "Benachrichtigungen; deren Länge/Intensität kann die Handy-App nicht "+
+                "erzwingen. Für durchgehende Watch-Vibration wäre eine eigene "+
+                "Wear-OS-App erforderlich.",13,UiKit.MUTED));
 
         LinearLayout end=section(root,"Schlummern & Stoppen");
         snoozeEnabled=UiKit.toggle(this);
