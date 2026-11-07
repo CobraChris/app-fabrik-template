@@ -10,6 +10,8 @@ keine Tankstellenpreise und keine Blitzer-Marker in Maps** an.
   (Paket de.blitzer.plus, Receiver de.blitzer.service.BlitzerBroadcastReceiver)
   den Befehl de.blitzer.APP_MODE mit String-Extra mode=START.
 - Schalter **AUS** sendet de.blitzer.KILL_APP an denselben Receiver.
+- **Blitzer.de jetzt beenden** sendet diesen Befehl jederzeit, auch wenn Blitzer.de
+  unabhängig vom FahrCockpit-Schalter gestartet wurde.
 - Tasten **Hintergrund** und **Mini-App** senden mode=BACKGROUND bzw. mode=WIDGET,
   nachdem ein Startbefehl gesendet wurde.
 - Schalter ist bei Erstinstallation AUS. Nur letzter Bedienwunsch wird lokal gespeichert;
