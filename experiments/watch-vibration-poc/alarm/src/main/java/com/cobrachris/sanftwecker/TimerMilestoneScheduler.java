@@ -80,6 +80,7 @@ public final class TimerMilestoneScheduler {
         if(preparation){
             if(!TimerAlertSettings.prepareCue(c,id) ||
                     TimerMilestones.startWall(timer)-3000L!=expectedEvent ||
+                    now>=TimerMilestones.startWall(timer) ||
                     timer.state!=TimerEntry.WAITING)return;
             TimerAlerts.showMilestone(c,timer,true);
             // No next preparation event in this cycle.
