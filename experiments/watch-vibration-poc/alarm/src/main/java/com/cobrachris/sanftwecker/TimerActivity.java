@@ -45,7 +45,8 @@ public final class TimerActivity extends Activity {
                     render();break;
                 }
                 TextView time=clocks.get(t.id);
-                if(time!=null)time.setText(ClockFormat.countdown(t.remaining(wall,elapsed)));
+                if(time!=null)time.setText(TimerDisplay.time(t.remaining(wall,elapsed),
+                        TimerAlertSettings.timeFormat(TimerActivity.this,t.id)));
             }
             handler.postDelayed(this,250);
         }
@@ -162,7 +163,8 @@ public final class TimerActivity extends Activity {
         title.setMinHeight(UiKit.dp(this,48));
         card.addView(title);
         long remaining=t.remaining(System.currentTimeMillis(),SystemClock.elapsedRealtime());
-        TextView value=UiKit.label(this,ClockFormat.countdown(remaining),23,
+        TextView value=UiKit.label(this,TimerDisplay.time(remaining,
+                        TimerAlertSettings.timeFormat(this,t.id)),23,
                 t.state==TimerEntry.FINISHED?0xffffb199:UiKit.BLUE);
         value.setGravity(Gravity.CENTER);
         value.setSingleLine(true);
