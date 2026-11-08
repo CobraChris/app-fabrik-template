@@ -28,6 +28,28 @@ public final class UpdateUrlPolicyTest {
         assertFalse(UpdateUrlPolicy.isForTag(BASE+"sanftwecker-v10/sanftwecker-beta-debug.apk",
                 "sanftwecker-v10"));
     }
+    @Test public void bridgeAcceptsOnlyExactSignedNewRepoAssets(){
+        String newer="https://github.com/CobraChris/sanftwecker/releases/download/";
+        String v20=newer+"sanftwecker-v20/sanftwecker-release.apk";
+        assertTrue(UpdateUrlPolicy.isAllowed(v20));
+        assertTrue(UpdateUrlPolicy.isForTag(v20,"sanftwecker-v20"));
+        assertTrue(UpdateUrlPolicy.isForTagFromRepository(
+                v20,"sanftwecker-v20",UpdateUrlPolicy.NEW_REPO));
+        assertFalse(UpdateUrlPolicy.isForTagFromRepository(
+                v20,"sanftwecker-v20",UpdateUrlPolicy.OLD_REPO));
+        assertFalse(UpdateUrlPolicy.isForTagFromRepository(
+                BASE+"sanftwecker-v20/sanftwecker-release.apk",
+                "sanftwecker-v20",UpdateUrlPolicy.NEW_REPO));
+        assertFalse(UpdateUrlPolicy.isForTagFromRepository(
+                v20,"sanftwecker-v19",UpdateUrlPolicy.NEW_REPO));
+        assertFalse(UpdateUrlPolicy.isForTagFromRepository(
+                v20,"sanftwecker-v20","CobraChris/other"));
+        assertFalse(UpdateUrlPolicy.isAllowed(newer+
+                "sanftwecker-v20/sanftwecker-release.apk?redirect=1"));
+        assertFalse(UpdateUrlPolicy.isAllowed(
+                "https://evil.example/CobraChris/sanftwecker/releases/download/"+
+                "sanftwecker-v20/sanftwecker-release.apk"));
+    }
     @Test public void versionCodesStayInAndroidRange(){
         assertEquals(10,UpdateUrlPolicy.versionCode("sanftwecker-v10"));
         assertEquals(2100000000L,UpdateUrlPolicy.versionCode("sanftwecker-v2100000000"));
