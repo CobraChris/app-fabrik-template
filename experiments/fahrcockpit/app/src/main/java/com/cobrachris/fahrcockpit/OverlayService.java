@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.os.Handler;
@@ -43,6 +44,7 @@ public final class OverlayService extends Service {
     private Button previous;
     private Button next;
     private Button warningButton;
+    private Button warningStopButton;
     private boolean minimized;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final Runnable refresh = new Runnable() {
@@ -111,14 +113,20 @@ public final class OverlayService extends Service {
 
     private void attach() {
         params = new WindowManager.LayoutParams(
-            Ui.dp(this, 310), WindowManager.LayoutParams.WRAP_CONTENT,
+            widthForState(), WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT);
         params.gravity = Gravity.TOP | Gravity.START;
-        params.x = getSharedPreferences(POSITION_PREFS, MODE_PRIVATE).getInt("x", Ui.dp(this, 16));
-        params.y = getSharedPreferences(POSITION_PREFS, MODE_PRIVATE).getInt("y", Ui.dp(this, 120));
+        int displayWidth = getResources().getDisplayMetrics().widthPixels;
+        int displayHeight = getResources().getDisplayMetrics().heightPixels;
+        params.x = OverlayRules.clampPosition(
+            getSharedPreferences(POSITION_PREFS, MODE_PRIVATE).getInt("x", Ui.dp(this, 16)),
+            displayWidth, params.width);
+        params.y = OverlayRules.clampPosition(
+            getSharedPreferences(POSITION_PREFS, MODE_PRIVATE).getInt("y", Ui.dp(this, 120)),
+            displayHeight, Ui.dp(this, 65));
 
         panel = Ui.column(this);
         panel.setPadding(Ui.dp(this, 10), Ui.dp(this, 6), Ui.dp(this, 10), Ui.dp(this, 8));
@@ -153,10 +161,11 @@ public final class OverlayService extends Service {
                         if (moved) {
                             int width = getResources().getDisplayMetrics().widthPixels;
                             int height = getResources().getDisplayMetrics().heightPixels;
-                            params.x = Math.max(0, Math.min(width - Ui.dp(OverlayService.this, 75),
-                                    x + Math.round(dx)));
-                            params.y = Math.max(0, Math.min(height - Ui.dp(OverlayService.this, 65),
-                                    y + Math.round(dy)));
+                            params.x = OverlayRules.clampPosition(
+                                x + Math.round(dx), width, params.width);
+                            params.y = OverlayRules.clampPosition(
+                                y + Math.round(dy), height,
+                                Math.max(panel.getHeight(), Ui.dp(OverlayService.this, 65)));
                             window.updateViewLayout(panel, params);
                         }
                         return true;
@@ -204,7 +213,8 @@ public final class OverlayService extends Service {
         LinearLayout traffic = Ui.row(this);
         Button on = small("Saphe öffnen");
         warningButton = on;
-        Button off = small("Blitzer AUS");
+        Button off = small("Blitzer Stop");
+        warningStopButton = off;
         traffic.addView(on, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
         traffic.addView(off, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
         content.addView(traffic);
@@ -242,6 +252,7 @@ public final class OverlayService extends Service {
             }
         });
         off.setOnClickListener(v -> {
+            if (!WarningSource.BLITZER.equals(WarningSource.selected(this))) return;
             BlitzerBridge.SendResult result = BlitzerBridge.send(
                 this, BlitzerContract.Command.STOP);
             toast(result == BlitzerBridge.SendResult.SENT_UNCONFIRMED
@@ -249,7 +260,9 @@ public final class OverlayService extends Service {
                 : "Blitzer.de PRO nicht erreichbar.");
         });
         panel.addView(content);
+        onWarningButtonLabel();
         window.addView(panel, params);
+        panel.post(this::clampAndUpdatePanel);
         ui.post(refresh);
     }
 
@@ -269,10 +282,13 @@ public final class OverlayService extends Service {
     private void onWarningButtonLabel() {
         if (warningButton == null) return;
         String selected = WarningSource.selected(this);
-        warningButton.setText(WarningSource.SAPHE.equals(selected) ? "Saphe öffnen"
-            : WarningSource.BLITZER.equals(selected) ? "Blitzer EIN"
-            : "Keine Auswahl");
-        warningButton.setEnabled(!WarningSource.NONE.equals(selected));
+        warningButton.setText(OverlayRules.primaryLabel(selected));
+        warningButton.setEnabled(OverlayRules.primaryEnabled(selected));
+        if (warningStopButton != null) {
+            warningStopButton.setVisibility(OverlayRules.showBlitzerStop(selected)
+                ? View.VISIBLE : View.GONE);
+            warningStopButton.setEnabled(OverlayRules.showBlitzerStop(selected));
+        }
     }
 
     private void updateMusic() {
@@ -290,9 +306,38 @@ public final class OverlayService extends Service {
     private void toggleCompact() {
         minimized = !minimized;
         content.setVisibility(minimized ? View.GONE : View.VISIBLE);
-        params.width = Ui.dp(this, minimized ? 230 : 310);
-        if (panel != null) window.updateViewLayout(panel, params);
+        params.width = widthForState();
+        clampAndUpdatePanel();
+        if (panel != null) panel.post(this::clampAndUpdatePanel);
         if (!minimized) updateMusic();
+    }
+
+    private int widthForState() {
+        int displayWidth = getResources().getDisplayMetrics().widthPixels;
+        return Math.min(Ui.dp(this, minimized ? 230 : 310),
+            Math.max(1, displayWidth - Ui.dp(this, 16)));
+    }
+
+    private void clampAndUpdatePanel() {
+        if (window == null || panel == null || params == null) return;
+        int width = getResources().getDisplayMetrics().widthPixels;
+        int height = getResources().getDisplayMetrics().heightPixels;
+        params.x = OverlayRules.clampPosition(params.x, width, params.width);
+        params.y = OverlayRules.clampPosition(params.y, height,
+            Math.max(panel.getHeight(), Ui.dp(this, 65)));
+        try {
+            window.updateViewLayout(panel, params);
+        } catch (IllegalArgumentException ignored) {
+            // The service may have been closed while a layout pass was pending.
+        }
+    }
+
+    @Override public void onConfigurationChanged(Configuration config) {
+        super.onConfigurationChanged(config);
+        if (panel == null || params == null) return;
+        params.width = widthForState();
+        clampAndUpdatePanel();
+        panel.post(this::clampAndUpdatePanel);
     }
 
     private void toast(String message) {
