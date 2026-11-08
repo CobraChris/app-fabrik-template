@@ -1,6 +1,6 @@
 package com.cobrachris.fahrcockpit;
 
-import android.app.NotificationManager;
+import android.os.SystemClock;
 import android.content.ComponentName;
 import android.content.Context;
 import android.media.MediaMetadata;
@@ -110,15 +110,19 @@ final class SpotifyMedia {
                 case SEEK_BACK:
                 case SEEK_FORWARD:
                     if ((allowed & PlaybackState.ACTION_SEEK_TO) != 0) {
-                        long position = playback.getPosition();
-                        if (position < 0) break;
-                        long delta = action == Action.SEEK_BACK ? -15000L : 15000L;
-                        long target = Math.max(0L, position + delta);
                         MediaMetadata meta = controller.getMetadata();
-                        if (meta != null && meta.containsKey(MediaMetadata.METADATA_KEY_DURATION)) {
-                            long duration = meta.getLong(MediaMetadata.METADATA_KEY_DURATION);
-                            if (duration > 0) target = Math.min(duration, target);
-                        }
+                        long duration = meta != null
+                            && meta.containsKey(MediaMetadata.METADATA_KEY_DURATION)
+                                ? meta.getLong(MediaMetadata.METADATA_KEY_DURATION) : -1L;
+                        int delta = action == Action.SEEK_BACK ? -15_000 : 15_000;
+                        long target = SpotifySeekRules.seekTarget(
+                            playback.getPosition(),
+                            playback.getState() == PlaybackState.STATE_PLAYING,
+                            playback.getPlaybackSpeed(),
+                            playback.getLastPositionUpdateTime(),
+                            SystemClock.elapsedRealtime(),
+                            duration, delta);
+                        if (target < 0) break;
                         controls.seekTo(target);
                         return "15 Sekunden springen angefordert";
                     }

@@ -1,12 +1,12 @@
 # FahrCockpit 0.9.3-beta – Android-Test-MVP
 
-**Status (08.11.2026):** FahrCockpit 0.9.2-beta (Build 4) wurde als dauerhaft signierte APK veröffentlicht und auf einem Samsung Android 16 installiert. Overlay, Spotify-Metadaten, Mediensteuerung und Minimieren sind auf dem Gerät bestätigt. Für 0.9.3-beta (Build 5) folgt ein Bedienoberflächen-Update; es ist noch **nicht** signiert oder veröffentlicht. PR #27 bleibt bis zur CI und erneuten Geräteprüfung Draft.
+**Status (08.11.2026):** FahrCockpit 0.9.2-beta (Build 4) wurde als dauerhaft signierte APK veröffentlicht und auf einem Samsung Android 16 installiert. Overlay, Spotify-Metadaten, Mediensteuerung und Minimieren sind auf dem Gerät bestätigt. Die signierte Version 0.9.3-beta (Build 5) ist am 08.11.2026 mit geprüftem, zu v4 identischem Zertifikat veröffentlicht; die **In-place-Installation v4→v5 auf dem Gerät steht noch aus**. PR #27 und der nachfolgende Diagnostik-PR bleiben bis zur Geräteabnahme Draft. Der Diagnostik-Zweig ist keine veröffentlichte Version.
 
 ## Funktionen
 
 - Schwebende, frei verschiebbare und minimierbare Steuerleiste über Google Maps. Position wird lokal gespeichert und bei Drehung/Größenänderung an den Bildschirmrand angepasst.
 - Kontextabhängige Warnsteuerung: Bei ausgewähltem Saphe erscheint **kein** irreführender Blitzer-Stop-Knopf; bei ausgewähltem Blitzer.de PRO sind Start- und Stop-Anforderung getrennt, ausdrücklich ohne bestätigten Aktiv-Status.
-- Spotify-Mediensteuerung (ohne zusätzlichen Spotify-Login): Play/Pause, vorheriger/nächster Titel, ±15 Sekunden falls der jeweilige Inhalt Seek unterstützt. Titel und Interpret aus Android MediaSession, Medienzugriff wird einmalig in Android-Einstellungen freigegeben.
+- Spotify-Mediensteuerung (ohne zusätzlichen Spotify-Login): Play/Pause, vorheriger/nächster Titel, ±15 Sekunden falls der jeweilige Inhalt Seek unterstützt. Titel und Interpret aus Android MediaSession, Medienzugriff wird einmalig in Android-Einstellungen freigegeben. Im nächsten, unveröffentlichten Entwurf: bei den ±15-Sekunden-Sprüngen die seit dem letzten MediaSession-Zeitstempel vergangene Wiedergabezeit berücksichtigen, um bei älteren Positionsmeldungen korrekt zu springen.
 - Warnsystem-Auswahl: Saphe Link (standardmäßig), Blitzer.de PRO (optional), oder kein Warnsystem. Saphe wird nur über seinen offiziellen Android-Paketnamen geöffnet, ohne Geräte- oder API-Zugriff. Das Saphe-Modell wird nach Rückkehr geprüft.
 - Blitzer.de PRO: offizielle Befehle START, WIDGET, BACKGROUND und KILL_APP; Start und Beenden auch im schwebenden Cockpit. Kein eigener Blitzer-Datenzugriff oder unbestätigter Aktiv-Status.
 - Tankstellen: aktuelle Preise für E5/E10/Diesel in Deutschland über Tankerkönig/MTS-K; bis 25 km. Jeder Treffer bietet Preis, Entfernung, Adresse und Übergabe als Google-Maps-Ziel.
@@ -53,3 +53,10 @@ FahrCockpit GitHub: https://github.com/CobraChris/app-fabrik-template/pull/27
 Die Hauptansicht enthält \"Auf Updates prüfen\". Der Dialog fragt **nur auf Klick** die öffentlichen GitHub-Releases ab und erlaubt ausschließlich APKs namens `fahrcockpit-release.apk` aus einem passenden `fahrcockpit-v<versionCode>`-Tag. Der Download öffnet den Browser als normalen direkten APK-Link.
 
 **Wichtig:** Eine neue signierte Release-APK kann einen bestehenden Debug-Build mit anderer Signatur nicht direkt ersetzen; beim ersten Wechsel ist daher möglicherweise einmalig eine Neuinstallation erforderlich. Anschließend ermöglichen gleiches Paket, gleiche dauerhafte Signatur und steigender `versionCode` echte Updates ohne Deinstallation. Die signierte **erste** FahrCockpit-Release-APK ist veröffentlicht: https://github.com/CobraChris/app-fabrik-template/releases/download/fahrcockpit-v4/fahrcockpit-release.apk (Build 4, SHA-256 `72c0f49b366dbb216ac2fd2310bf80e86a3e05fb25e30e94d65af0c74d8fa56b`). Beim ersten Wechsel von der Debug-Signatur war die Neuinstallation notwendig. Die Vollversion wurde nach der gezielten, nicht-globalen Play-Protect-Option auf dem Samsung-Gerät erfolgreich installiert; daraus folgt **keine** allgemeine Google-Freigabe. Ein nächstes Update muss über dieselbe FahrCockpit-Signatur und mit höherem Versionscode erfolgen.
+
+
+## Nachfolgender Entwurf (noch nicht veröffentlicht)
+
+- [Signiertes v5 / 0.9.3-beta](https://github.com/CobraChris/app-fabrik-template/releases/download/fahrcockpit-v5/fahrcockpit-release.apk) ist der letzte veröffentlichte Build; der bestehende Signierschlüssel wurde im Release-Lauf mit v4 abgeglichen.
+- Separater [Draft PR #35](https://github.com/CobraChris/app-fabrik-template/pull/35): präzisere Spotify-Diagnose, ±15-Sekunden-Seek mit monotoner Positionsfortschreibung aus Androids `PlaybackState`-Zeitstempel, sichere Behandlung von Pause/ungültigen Zeitstempeln/Trackdauer, reichhaltige JVM-Regressionstests und Updateprüfung mit größerem GitHub-Release-Suchfenster (100 statt 40 Einträge, keine Hintergrundabfrage).
+- Für Tests der veröffentlichten v5 siehe [Samsung-v5-Abnahme](docs/SAMSUNG_V5_ACCEPTANCE.md). Kein neues APK-Release aus dem Draft-Zweig; der Nutzer installiert v5 selbst und testet später.
