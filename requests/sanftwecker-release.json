@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "sanftwecker-signed-beta",
-  "request_id": "2026-11-07-timer-scheduled-start",
-  "source_sha": "a9eac1d59080209278e3ae8806e3ba868991b87b",
-  "expected_version_code": 19
+  "request_id": "2026-11-08-sanftwecker-v20-bridge",
+  "source_sha": "52550f844943280c1738b3368446008416353258",
+  "expected_version_code": 20
 }
