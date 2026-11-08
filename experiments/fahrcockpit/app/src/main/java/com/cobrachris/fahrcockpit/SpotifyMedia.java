@@ -58,7 +58,10 @@ final class SpotifyMedia {
     static State read(Context context) {
         MediaController controller = spotify(context);
         if (controller == null) {
-            return new State("Spotify nicht verbunden – Medienzugriff prüfen",
+            // Distinguish a missing Android grant from a granted but inactive
+            // Spotify session. Both appeared identical in the first device test.
+            return new State(SpotifyDisplayRules.notConnected(
+                    Permissions.isMediaListenerEnabled(context)),
                     false, false, false, false, false);
         }
         PlaybackState playback = controller.getPlaybackState();
@@ -68,9 +71,7 @@ final class SpotifyMedia {
                 metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
         String artist = metadata == null ? null :
                 metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
-        String label = (title == null || title.isEmpty())
-                ? "Spotify verbunden" : title;
-        if (artist != null && !artist.isEmpty()) label += " · " + artist;
+        String label = SpotifyDisplayRules.trackLabel(title, artist);
         boolean playing = playback != null && playback.getState() == PlaybackState.STATE_PLAYING;
         return new State(label, true, playing,
             (actions & PlaybackState.ACTION_SEEK_TO) != 0,
