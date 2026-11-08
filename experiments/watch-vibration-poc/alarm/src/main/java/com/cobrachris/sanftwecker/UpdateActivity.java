@@ -27,8 +27,15 @@ import java.net.URL;
  * which CI must receive through GitHub Actions secrets; never bundle keys here.
  */
 public final class UpdateActivity extends Activity {
-    private static final String RELEASES_API =
-            "https://api.github.com/repos/CobraChris/app-fabrik-template/releases?per_page=20";
+    // Old feed stays authoritative for installed v19 clients. The new source
+    // becomes available ONLY to a later, explicitly signed bridge release.
+    private static final String[] RELEASE_APIS = {
+            "https://api.github.com/repos/CobraChris/app-fabrik-template/releases?per_page=20",
+            "https://api.github.com/repos/CobraChris/sanftwecker/releases?per_page=20"
+    };
+    private static final String[] RELEASE_REPOS = {
+            UpdateUrlPolicy.OLD_REPO, UpdateUrlPolicy.NEW_REPO
+    };
     private static final String ASSET_NAME = "sanftwecker-release.apk";
     private TextView status;
     private Button check, download;
@@ -95,7 +102,7 @@ public final class UpdateActivity extends Activity {
     }
 
     /** Pure parser also used by unit tests. Rejects prerelease artifact links and other assets. */
-    static Candidate newestSignedAsset(String raw){
+    static Candidate newestSignedAsset(String raw,String repository){
         try{
             JSONArray releases=new JSONArray(raw);
             Candidate best=null;
@@ -111,7 +118,7 @@ public final class UpdateActivity extends Activity {
                     JSONObject asset=assets.getJSONObject(j);
                     if(!ASSET_NAME.equals(asset.optString("name","")))continue;
                     String url=asset.optString("browser_download_url","");
-                    if(!UpdateUrlPolicy.isForTag(url,tag))continue;
+                    if(!UpdateUrlPolicy.isForTagFromRepository(url,tag,repository))continue;
                     if(best==null||code>best.code)best=new Candidate(code,url);
                 }
             }
@@ -119,45 +126,59 @@ public final class UpdateActivity extends Activity {
         }catch(Exception e){return null;}
     }
 
+    /** Read-only HTTPS GET; no APK bytes or credentials are downloaded here. */
+    private static String fetchReleases(String api) throws Exception {
+        HttpURLConnection conn=null;
+        try{
+            conn=(HttpURLConnection)new URL(api).openConnection();
+            conn.setRequestProperty("Accept","application/vnd.github+json");
+            conn.setRequestProperty("User-Agent","Sanftwecker-UpdateCheck");
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(8000);
+            conn.setInstanceFollowRedirects(false);
+            if(conn.getResponseCode()!=200)
+                throw new IllegalStateException("GitHub HTTP "+conn.getResponseCode());
+            StringBuilder json=new StringBuilder();
+            try(InputStream in=conn.getInputStream();
+                BufferedReader reader=new BufferedReader(new InputStreamReader(in,
+                        java.nio.charset.StandardCharsets.UTF_8))){
+                char[] buf=new char[2048];int count;
+                while((count=reader.read(buf))!=-1) {
+                    json.append(buf,0,count);
+                    if(json.length()>500_000)throw new IllegalStateException("Antwort zu groß");
+                }
+            }
+            return json.toString();
+        }finally{if(conn!=null)conn.disconnect();}
+    }
+
     private void checkUpdates(){
         status.setText("Prüfe GitHub-Veröffentlichungen …");
         apkUrl=null;download.setEnabled(false);check.setEnabled(false);
         new Thread(()->{
-            HttpURLConnection conn=null;
-            Candidate candidate=null;
-            String failure=null;
-            try{
-                conn=(HttpURLConnection)new URL(RELEASES_API).openConnection();
-                conn.setRequestProperty("Accept","application/vnd.github+json");
-                conn.setRequestProperty("User-Agent","Sanftwecker-UpdateCheck");
-                conn.setConnectTimeout(8000);
-                conn.setReadTimeout(8000);
-                conn.setInstanceFollowRedirects(false);
-                if(conn.getResponseCode()!=200)
-                    throw new IllegalStateException("GitHub HTTP "+conn.getResponseCode());
-                StringBuilder json=new StringBuilder();
-                try(InputStream in=conn.getInputStream();
-                    BufferedReader reader=new BufferedReader(new InputStreamReader(in,
-                            java.nio.charset.StandardCharsets.UTF_8))){
-                    char[] buf=new char[2048];int count;
-                    while((count=reader.read(buf))!=-1) {
-                        json.append(buf,0,count);
-                        if(json.length()>500_000)throw new IllegalStateException("Antwort zu groß");
-                    }
+            Candidate best=null;
+            int checked=0;
+            for(int index=0;index<RELEASE_APIS.length;index++){
+                try{
+                    Candidate current=newestSignedAsset(
+                            fetchReleases(RELEASE_APIS[index]),RELEASE_REPOS[index]);
+                    checked++;
+                    // Keep the legacy feed as a tie-breaker for the bridge update.
+                    if(current!=null&&(best==null||current.code>best.code))
+                        best=current;
+                }catch(Exception ignored){
+                    // One unreachable feed must not hide a valid release on the other.
                 }
-                candidate=newestSignedAsset(json.toString());
-            }catch(Exception e){failure="Updateprüfung fehlgeschlagen. "+
-                    "Bitte Internetverbindung prüfen.";}
-            finally{if(conn!=null)conn.disconnect();}
-            final Candidate selected=candidate;
-            final String error=failure;
+            }
+            final Candidate selected=best;
+            final boolean networkFailed=checked==0;
             runOnUiThread(()->{
                 if(isFinishing()||isDestroyed())return;
                 check.setEnabled(true);
-                if(error!=null){status.setText(error);return;}
-                if(selected==null){
-                    status.setText("Noch keine dauerhaft signierte APK veröffentlicht. "+
-                            "Versuche es später erneut oder prüfe die GitHub-Releases.");
+                if(networkFailed){
+                    status.setText("Updateprüfung fehlgeschlagen. Bitte Internetverbindung prüfen.");
+                }else if(selected==null){
+                    status.setText("Noch keine freigegebene Sanftwecker-APK veröffentlicht.");
                 }else if(!UpdateUrlPolicy.isNewer(selected.code,getCurrentVersion())){
                     status.setText("Die installierte Version ist aktuell. "+
                             "(Veröffentlichter Build "+selected.code+")");
@@ -170,4 +191,5 @@ public final class UpdateActivity extends Activity {
             });
         },"Sanftwecker-Update-Check").start();
     }
+
 }
