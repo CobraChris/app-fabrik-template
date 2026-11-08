@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-07-first-signed-fahr",
-  "source_sha": "e6da2f64b027848d001b0f8f6158c5d5768171b0",
-  "expected_version_code": 4
+  "request_id": "2026-11-08-samsung-ui-fix-v5",
+  "source_sha": "be08c4c0dda47f0b961661bd5e0344029387ff63",
+  "expected_version_code": 5
 }
