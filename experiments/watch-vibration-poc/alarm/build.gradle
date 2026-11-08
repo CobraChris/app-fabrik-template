@@ -1,0 +1,17 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.cobrachris.sanftwecker'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.cobrachris.sanftwecker'
+        minSdk 30
+        targetSdk 35
+        versionCode 20
+        versionName '0.9.1-beta'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+dependencies { testImplementation 'junit:junit:4.13.2' }
