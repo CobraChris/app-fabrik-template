@@ -6,6 +6,7 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -31,6 +32,7 @@ public final class SplitCockpitActivity extends Activity {
     private SeekBar position;
     private boolean requested;
     private boolean scrubbing;
+    private boolean pendingOverlayFallback;
     private long activeDuration = -1L;
 
     private final Runnable refresh = new Runnable() {
@@ -190,11 +192,25 @@ public final class SplitCockpitActivity extends Activity {
             return;
         }
         try {
+            // Make the existing overlay a temporary safety net: if Samsung
+            // rejects the split request, Google Maps remains navigable with
+            // FahrCockpit controls instead of an empty foreground.
+            // Only the already user-granted overlay permission is used.
+            if (!isInMultiWindowMode() && Settings.canDrawOverlays(this)) {
+                try {
+                    startForegroundService(new Intent(this, OverlayService.class)
+                        .setAction(OverlayService.ACTION_SHOW));
+                    pendingOverlayFallback = true;
+                } catch (RuntimeException ignored) {
+                    pendingOverlayFallback = false;
+                }
+            }
             maps.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
             startActivity(maps);
-            ui.postDelayed(this::updateSplitStatus, 2000L);
+            ui.postDelayed(this::reconcileSplitAndOverlay, 1800L);
         } catch (RuntimeException e) {
+            reconcileSplitAndOverlay();
             splitStatus.setText("Samsung konnte Google Maps nicht nebenan öffnen. " +
                 "Bitte App-Paar über die letzten Apps anlegen.");
         }
@@ -243,10 +259,24 @@ public final class SplitCockpitActivity extends Activity {
             SplitPaneRules.statusText(isInMultiWindowMode()));
     }
 
+    private void reconcileSplitAndOverlay() {
+        if (isInMultiWindowMode()) {
+            if (pendingOverlayFallback) {
+                stopService(new Intent(this, OverlayService.class));
+                pendingOverlayFallback = false;
+            }
+            updateSplitStatus();
+        } else if (splitStatus != null) {
+            splitStatus.setText(pendingOverlayFallback
+                ? "Samsung hat Split nicht bestätigt – schwebendes Cockpit bleibt als Ersatz."
+                : SplitPaneRules.statusText(false));
+        }
+    }
+
     @Override public void onMultiWindowModeChanged(
             boolean inMultiWindowMode, Configuration newConfig) {
         super.onMultiWindowModeChanged(inMultiWindowMode, newConfig);
-        updateSplitStatus();
+        reconcileSplitAndOverlay();
     }
 
     @Override public void onSaveInstanceState(Bundle state) {
