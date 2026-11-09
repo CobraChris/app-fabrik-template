@@ -10,6 +10,19 @@ final class EmbeddedMapRules {
 
     private EmbeddedMapRules() {}
 
+    static boolean allowsOrigin(String url) {
+        if (url == null) return false;
+        try {
+            URI uri = new URI(url);
+            return "https".equalsIgnoreCase(uri.getScheme())
+                && HOST.equalsIgnoreCase(uri.getHost())
+                && (uri.getPort() == -1 || uri.getPort() == 443)
+                && uri.getRawUserInfo() == null;
+        } catch (Exception invalid) {
+            return false;
+        }
+    }
+
     static boolean allowsPage(String url) {
         if (url == null) return false;
         try {
