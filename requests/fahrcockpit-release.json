@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-09-samsung-split-exclusive-v7",
-  "source_sha": "03c4f0e7a52d22042598276cb4d1f12518e3fc1f",
-  "expected_version_code": 7
+  "request_id": "2026-11-09-one-tap-docked-v8",
+  "source_sha": "a36a767beb0d921ef76e6d19e89357e89a9cf428",
+  "expected_version_code": 8
 }
