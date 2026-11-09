@@ -54,14 +54,27 @@ public final class MainActivity extends Activity {
             "Fahransicht oder das bisherige schwebende Cockpit.",
             15, Ui.MUTED, false));
 
-        Ui.section(this, root, "70/30 Fahransicht mit Google Maps",
+        Ui.section(this, root, "Fahren – direkt über diese App",
+            "Empfohlen: Beim Öffnen von FahrCockpit startet Google Maps mit " +
+            "einem rechts angedockten Cockpit (quer, ca. 30 %). " +
+            "Hochkant erscheint das Bedienfeld unten.");
+        Button dock=Ui.button(this, "Fahren starten · 30%-Cockpit");
+        root.addView(dock);
+        dock.setOnClickListener(v->startDockedAndMaps());
+        root.addView(Ui.text(this,
+            "Google Maps bleibt technisch im Vollbild hinter dem Cockpit. " +
+            "Die App blendet den rechten bzw. unteren Teil ab; " +
+            "sie verändert Google Maps nicht.",
+            12,Ui.MUTED,false));
+
+        Ui.section(this, root, "Android-Splitscreen (optional)",
             "Echter Android-Splitscreen statt Karte unter einem großen Overlay. " +
             "Google Maps bleibt die Navigations-App. Die Trennlinie legt Samsung fest.");
-        Button split = Ui.button(this, "70/30-Fahransicht starten");
+        Button split = Ui.button(this, "System-Splitscreen (Größe manuell)");
         root.addView(split);
         split.setOnClickListener(v -> {
             try {
-                // Avoid a stale overlay being visible during the split transition.
+                stopService(new Intent(this, DockedCockpitService.class));
                 stopService(new Intent(this, OverlayService.class));
                 startActivity(new Intent(this, SplitCockpitActivity.class));
             } catch (RuntimeException e) {
@@ -70,10 +83,9 @@ public final class MainActivity extends Activity {
             }
         });
         root.addView(Ui.text(this,
-            "FahrCockpit versucht, Google Maps direkt daneben zu starten. " +
-            "Wenn Samsung die Fenster nicht automatisch teilt, nutze " +
-            "einmalig die App-Paar-Funktion. Das genaue 70/30-Verhältnis " +
-            "stellst du an der System-Trennlinie ein.",
+            "Diese optionale Systemteilung beginnt auf Samsung oft mit 50/50. " +
+            "Sie startet NICHT das gespeicherte App-Paar. " +
+            "Für den Ein-Klick-Betrieb ist der Fahrmodus oben vorgesehen.",
             12, Ui.MUTED, false));
 
         Ui.section(this, root, "Schwebendes Cockpit",
@@ -247,10 +259,59 @@ public final class MainActivity extends Activity {
             "Nur im Stand bedienen. Andere Länder haben eigene Regeln.",
             13, Ui.WARN, false));
 
+        // Do not automatically launch from notification/settings or rotation.
+        if(savedInstanceState==null && fromAppIcon(getIntent())) {
+            scroll.post(this::startDockedAndMaps);
+        }
+
         blitzerStatus.setText(prefs.getBoolean(KEY_HAS_REQUEST, false)
             ? "Zuletzt " + (blitzerSwitch.isChecked() ? "EIN" : "AUS") +
               " angefordert – tatsächlicher Zustand unbekannt."
             : "Standard: AUS. Noch kein Befehl gesendet.");
+    }
+
+    /** App icon is the single explicit user action; settings open separately. */
+    private static boolean fromAppIcon(Intent i) {
+        return i!=null && Intent.ACTION_MAIN.equals(i.getAction())
+            && i.hasCategory(Intent.CATEGORY_LAUNCHER);
+    }
+
+    @Override protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        setIntent(i);
+        if(fromAppIcon(i)) new android.os.Handler(android.os.Looper.getMainLooper())
+            .post(this::startDockedAndMaps);
+    }
+
+    private void startDockedAndMaps() {
+        if(!Settings.canDrawOverlays(this)) {
+            if(permissions!=null) permissions.setText(
+                "Einblendung freigeben; anschließend erneut FahrCockpit öffnen.");
+            requestOverlayPermission();
+            return;
+        }
+        try {
+            stopService(new Intent(this,OverlayService.class));
+            startForegroundService(new Intent(this,DockedCockpitService.class)
+                .setAction(DockedCockpitService.SHOW));
+            Intent maps=getPackageManager().getLaunchIntentForPackage(
+                "com.google.android.apps.maps");
+            if(maps!=null) {
+                maps.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{
+                    try{startActivity(maps);}
+                    catch(RuntimeException e){
+                        if(permissions!=null) permissions.setText(
+                            "Google Maps konnte nicht geöffnet werden.");
+                    }
+                },450L);
+            } else if(permissions!=null) {
+                permissions.setText("Google Maps nicht installiert.");
+            }
+        } catch(RuntimeException e) {
+            if(permissions!=null) permissions.setText(
+                "Fahrmodus konnte nicht starten. Android-Rechte prüfen.");
+        }
     }
 
     @Override public void onResume() {
@@ -323,6 +384,7 @@ public final class MainActivity extends Activity {
 
     private void showCockpitAndMaps() {
         try {
+            stopService(new Intent(this, DockedCockpitService.class));
             startForegroundService(new Intent(this, OverlayService.class)
                 .setAction(OverlayService.ACTION_SHOW));
             if (getSharedPreferences(CockpitViewRules.DISPLAY_PREFS, MODE_PRIVATE)

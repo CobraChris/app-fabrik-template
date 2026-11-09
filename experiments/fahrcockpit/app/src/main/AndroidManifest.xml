@@ -43,6 +43,14 @@
             </intent-filter>
         </service>
         <service
+            android:name=".DockedCockpitService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="user_initiated_driving_controls_overlay" />
+        </service>
+        <service
             android:name=".OverlayService"
             android:exported="false"
             android:foregroundServiceType="specialUse">

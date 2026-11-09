@@ -55,6 +55,7 @@ public final class SplitCockpitActivity extends Activity {
         // Reentering the native split must remove every existing overlay,
         // including an older service instance started before this activity.
         stopService(new Intent(this, OverlayService.class));
+        stopService(new Intent(this, DockedCockpitService.class));
         requested = savedInstanceState != null && savedInstanceState.getBoolean(KEY_REQUESTED);
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
