@@ -129,3 +129,16 @@ Die zugrunde liegende originale Google-Maps-App wird weiterhin **nicht verkleine
 **Architekturentscheidung:** Keine ungeprüfte Einbettung der Google-Maps-App, kein Maskierungs-Overlay über Googles Reiter und keine zusätzliche SDK-/API-/Cloud-Abrechnung. Echte integrierte Google-Karte ohne diese Menüs wäre eine Neuentwicklung mit Maps SDK; turn-by-turn-Navigation in eigener App benötigt Navigation SDK, aktive Cloud-Abrechnung und API-Key. Der vorhandene kostenlose Google-Maps-Betrieb bleibt erhalten. Die systemeigene Google-Maps-Menüleiste bleibt natürlich sichtbar, aber nicht mehr teilweise verdeckt.
 
 **Gerätestatus:** Linksseitiger v10-Start ist vom Nutzer auf Samsung getestet; Rechtsmodus v11 wird erst nach signiertem In-place-Update geprüft. Keine Extra-Minitests.
+
+
+## 0.9.10-beta / Build 12 – Android-Tastatur bleibt bei Google-Maps-Suche frei
+
+**Samsung-Beobachtung (09.11.2026):** FahrCockpit (Hochformat, unten ca. 30 % Höhe) überlagert bei Eingaben im Google-Maps-Suchfeld die geöffnete Bildschirmtastatur. Die Tastatur kann dadurch nicht bedient werden. Der Fehler ist durch die vorhandene Overlay-Flag-Kombination `FLAG_NOT_FOCUSABLE | FLAG_NOT_TOUCH_MODAL` erklärbar: Android legt ein nicht fokussierbares Overlay typischerweise **über** die IME.
+
+**Gezielter Fix:** Sowohl der neue `DockedCockpitService` als auch der ältere `OverlayService` verwenden nun die offiziell dokumentierte Flag-Kombination
+`FLAG_NOT_FOCUSABLE | FLAG_ALT_FOCUSABLE_IM | FLAG_NOT_TOUCH_MODAL`.
+Damit wird das nicht-editierbare Cockpit **unterhalb der Android-Eingabemethode gezeichnet**, ohne selbst Tastaturfokus zu übernehmen. Die Android-Tastatur darf die Leiste beim Tippen vorübergehend überdecken; beim Schließen der Tastatur ist das Cockpit wieder sichtbar, ohne Service-Neustart. **Keine** tastaturüberwachende Accessibility-API, keine fremden Texteingaben auslesen, kein `hideSoftInput` bei Google Maps. Die Bedienbarkeit der Maps-Suche ist wichtiger als eine ständige Sichtbarkeit der Leiste während Texteingabe.
+
+**Automatisiert geprüft:** Einheitsmethode `OverlayKeyboardRules.nonFocusableBehindKeyboardFlags()` und Java-Tests prüfen die benötigten Flags sowie Erhalt von Touch-Ereignissen außerhalb des Fensters. Die tatsächliche Samsung/Google-Maps-IME-Schichtung erfordert die **einmalige Endabnahme des signierten Updates**; ohne Geräteabnahme darf nicht behauptet werden, es funktioniere auf dem Samsung garantiert.
+
+**Unverändert:** Querformat-Dock standardmäßig **rechts** (alternativ links schaltbar), Hochformat Dock unten, Spotify-Ziehbalken, Google-Maps-Start, Tanken/Saphe, eigener App-Icon-Ein-Klick-Start. Gleiche App-ID und signierter Updatekanal wie v11, keine weiteren Manifest-Rechte, SDK-Kosten oder Signing-Workflowänderungen.

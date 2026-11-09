@@ -90,8 +90,8 @@ public final class DockedCockpitService extends Service {
     private void attach() {
         params=new WindowManager.LayoutParams(1,1,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,PixelFormat.TRANSLUCENT);
+            OverlayKeyboardRules.nonFocusableBehindKeyboardFlags(),
+            PixelFormat.TRANSLUCENT);
         params.gravity=Gravity.TOP|Gravity.START;
         calculateBounds();
         panel=Ui.column(this);
