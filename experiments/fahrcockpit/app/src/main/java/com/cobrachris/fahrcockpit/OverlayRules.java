@@ -11,6 +11,14 @@ final class OverlayRules {
         return Math.max(0, Math.min(position, maximum));
     }
 
+    static int defaultHorizontalOffset(boolean landscape,
+                                       int viewport, int panelExtent, int margin) {
+        return landscape
+            ? clampPosition(viewport - panelExtent - Math.max(0, margin),
+                viewport, panelExtent)
+            : clampPosition(Math.max(0, margin), viewport, panelExtent);
+    }
+
     static String primaryLabel(String warningSource) {
         if (WarningSource.SAPHE.equals(warningSource)) return "Saphe öffnen";
         if (WarningSource.BLITZER.equals(warningSource)) return "Blitzer Start";

@@ -54,6 +54,7 @@ public final class OverlayService extends Service {
     private boolean drivingScrubbing;
     private long progressDuration = -1L;
     private boolean automaticLandscape;
+    private boolean lastLandscape;
     private TextView track;
     private TextView drivingTrack;
     private Button drivingPlay;
@@ -141,14 +142,8 @@ public final class OverlayService extends Service {
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT);
         params.gravity = Gravity.TOP | Gravity.START;
-        int displayWidth = getResources().getDisplayMetrics().widthPixels;
-        int displayHeight = getResources().getDisplayMetrics().heightPixels;
-        params.x = OverlayRules.clampPosition(
-            getSharedPreferences(POSITION_PREFS, MODE_PRIVATE).getInt("x", Ui.dp(this, 16)),
-            displayWidth, params.width);
-        params.y = OverlayRules.clampPosition(
-            getSharedPreferences(POSITION_PREFS, MODE_PRIVATE).getInt("y", Ui.dp(this, 120)),
-            displayHeight, Ui.dp(this, 65));
+        lastLandscape = isLandscape();
+        restoreOverlayPosition();
 
         panel = Ui.column(this);
         panel.setPadding(Ui.dp(this, 10), Ui.dp(this, 6), Ui.dp(this, 10), Ui.dp(this, 8));
@@ -201,7 +196,8 @@ public final class OverlayService extends Service {
                     case MotionEvent.ACTION_UP:
                         if (!moved) toggleCompact();
                         getSharedPreferences(POSITION_PREFS, MODE_PRIVATE).edit()
-                            .putInt("x", params.x).putInt("y", params.y).apply();
+                            .putInt(positionKey("x"), params.x)
+                            .putInt(positionKey("y"), params.y).apply();
                         return true;
                     default:
                         return true;
@@ -521,6 +517,27 @@ public final class OverlayService extends Service {
         }
     }
 
+    private String positionKey(String axis) {
+        // Existing portrait keys stay compatible with v5 stored positions.
+        return isLandscape() ? axis + "_land" : axis;
+    }
+
+    private void restoreOverlayPosition() {
+        if (params == null) return;
+        int width = getResources().getDisplayMetrics().widthPixels;
+        int height = getResources().getDisplayMetrics().heightPixels;
+        boolean landscape = isLandscape();
+        int defaultX = OverlayRules.defaultHorizontalOffset(landscape,
+            width, params.width, Ui.dp(this, 16));
+        int defaultY = Ui.dp(this, landscape ? 16 : 120);
+        params.x = OverlayRules.clampPosition(
+            getSharedPreferences(POSITION_PREFS, MODE_PRIVATE)
+                .getInt(positionKey("x"), defaultX), width, params.width);
+        params.y = OverlayRules.clampPosition(
+            getSharedPreferences(POSITION_PREFS, MODE_PRIVATE)
+                .getInt(positionKey("y"), defaultY), height, Ui.dp(this, 65));
+    }
+
     private void clampAndUpdatePanel() {
         if (window == null || panel == null || params == null) return;
         int width = getResources().getDisplayMetrics().widthPixels;
@@ -541,6 +558,10 @@ public final class OverlayService extends Service {
         limitFullContentHeight();
         adaptToOrientation();
         params.width = widthForState();
+        if (lastLandscape != isLandscape()) {
+            lastLandscape = isLandscape();
+            restoreOverlayPosition();
+        }
         clampAndUpdatePanel();
         panel.post(this::clampAndUpdatePanel);
     }
