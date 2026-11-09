@@ -1,5 +1,5 @@
 /* FahrCockpit Karte: ausschliesslich Google Maps JavaScript API Demo.
- * Eigener HTTPS-Ursprung; kein Directions, Places, Navigation SDK oder Billing.
+ * Eigener HTTPS-Ursprung; keine Routendienste oder abrechenbare Navigation.
  * Demo-Key bleibt im Browserspeicher dieses Ursprungs, niemals im Repository.
  */
 (()=>{'use strict';
