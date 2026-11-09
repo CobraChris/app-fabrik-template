@@ -56,14 +56,14 @@ public final class MainActivity extends Activity {
 
         Ui.section(this, root, "Fahren – direkt über diese App",
             "Empfohlen: Beim Öffnen von FahrCockpit startet Google Maps mit " +
-            "einem rechts angedockten Cockpit (quer, ca. 30 %). " +
+            "einem links angedockten Cockpit (quer, ca. 30 %). " +
             "Hochkant erscheint das Bedienfeld unten.");
         Button dock=Ui.button(this, "Fahren starten · 30%-Cockpit");
         root.addView(dock);
         dock.setOnClickListener(v->startDockedAndMaps());
         root.addView(Ui.text(this,
             "Google Maps bleibt technisch im Vollbild hinter dem Cockpit. " +
-            "Die App blendet den rechten bzw. unteren Teil ab; " +
+            "Die App blendet den linken bzw. unteren Teil ab; " +
             "sie verändert Google Maps nicht.",
             12,Ui.MUTED,false));
 
