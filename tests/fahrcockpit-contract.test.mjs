@@ -106,6 +106,6 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
   assert.match(embedded, /setJavaScriptEnabled\(true\)/);
   assert.match(embedded, /setAllowFileAccess\(false\)/);
   assert.doesNotMatch(embedded, /addJavascriptInterface/);
-  assert.match(rules, /https:\/\/.*fahrcockpit-map\//);
+  assert.match(rules, /static final String URL = "https:\/\/" \+ HOST \+ PATH/);
   assert.match(manifest, /android:name="\.EmbeddedMapActivity"/);
 });
