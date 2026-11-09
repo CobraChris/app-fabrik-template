@@ -12,6 +12,7 @@ import android.graphics.PixelFormat;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -37,7 +38,14 @@ public final class OverlayService extends Service {
     private WindowManager.LayoutParams params;
     private LinearLayout panel;
     private LinearLayout content;
+    private LinearLayout drivingContent;
     private TextView track;
+    private TextView drivingTrack;
+    private Button drivingPlay;
+    private Button drivingNext;
+    private Button driveToggle;
+    private CockpitViewRules.Mode viewMode = CockpitViewRules.Mode.FULL;
+    private CockpitViewRules.Mode lastExpanded = CockpitViewRules.Mode.FULL;
     private Button play;
     private Button backward;
     private Button forward;
@@ -45,11 +53,10 @@ public final class OverlayService extends Service {
     private Button next;
     private Button warningButton;
     private Button warningStopButton;
-    private boolean minimized;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final Runnable refresh = new Runnable() {
         @Override public void run() {
-            if (panel != null && !minimized) {
+            if (panel != null && viewMode != CockpitViewRules.Mode.COLLAPSED) {
                 updateMusic();
             }
             if (panel != null) ui.postDelayed(this, 2500L);
@@ -137,8 +144,10 @@ public final class OverlayService extends Service {
         TextView drag = Ui.text(this, "≡  FahrCockpit", 15, Ui.FG, true);
         bar.addView(drag, new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        driveToggle = small("Fahrt");
         Button minimize = small("−");
         Button close = small("×");
+        bar.addView(driveToggle);
         bar.addView(minimize);
         bar.addView(close);
         panel.addView(bar);
@@ -179,6 +188,7 @@ public final class OverlayService extends Service {
                 }
             }
         });
+        driveToggle.setOnClickListener(v -> toggleDriveMode());
         minimize.setOnClickListener(v -> toggleCompact());
         close.setOnClickListener(v -> stopSelf());
 
@@ -204,6 +214,27 @@ public final class OverlayService extends Service {
         forward.setOnClickListener(v -> media(SpotifyMedia.Action.SEEK_FORWARD));
         next.setOnClickListener(v -> media(SpotifyMedia.Action.NEXT));
 
+        // Explicit driving mode: small music-and-maps strip over the navigation,
+        // leaving most of Google Maps visible. No automatic mode changes.
+        drivingContent = Ui.column(this);
+        drivingTrack = Ui.text(this, "Spotify wird gesucht …", 12, Ui.MUTED, false);
+        drivingTrack.setSingleLine(true);
+        drivingTrack.setEllipsize(TextUtils.TruncateAt.END);
+        drivingContent.addView(drivingTrack);
+        LinearLayout drivingMedia = Ui.row(this);
+        drivingPlay = small("▶");
+        drivingNext = small("⏭");
+        Button drivingMap = small("Maps");
+        for (Button button : new Button[] {drivingPlay, drivingNext, drivingMap}) {
+            drivingMedia.addView(button, new LinearLayout.LayoutParams(
+                0, Ui.dp(this, 48), 1));
+        }
+        drivingContent.addView(drivingMedia);
+        drivingPlay.setOnClickListener(v -> media(SpotifyMedia.Action.TOGGLE));
+        drivingNext.setOnClickListener(v -> media(SpotifyMedia.Action.NEXT));
+        drivingMap.setOnClickListener(v -> openGoogleMaps());
+        drivingContent.setVisibility(View.GONE);
+
         LinearLayout tools = Ui.row(this);
         Button fuel = small("⛽ Tanken");
         Button map = small("Maps");
@@ -218,14 +249,7 @@ public final class OverlayService extends Service {
         traffic.addView(on, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
         traffic.addView(off, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
         content.addView(traffic);
-        map.setOnClickListener(v -> {
-            try {
-                Intent open = getPackageManager().getLaunchIntentForPackage(
-                    "com.google.android.apps.maps");
-                if (open != null) { open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(open); }
-                else toast("Google Maps nicht installiert.");
-            } catch (RuntimeException e) { toast("Google Maps nicht erreichbar."); }
-        });
+        map.setOnClickListener(v -> openGoogleMaps());
         on.setOnClickListener(v -> {
             String warning = WarningSource.selected(this);
             if (WarningSource.SAPHE.equals(warning)) {
@@ -260,6 +284,7 @@ public final class OverlayService extends Service {
                 : "Blitzer.de PRO nicht erreichbar.");
         });
         panel.addView(content);
+        panel.addView(drivingContent);
         onWarningButtonLabel();
         window.addView(panel, params);
         panel.post(this::clampAndUpdatePanel);
@@ -279,6 +304,21 @@ public final class OverlayService extends Service {
         updateMusic();
     }
 
+    private void openGoogleMaps() {
+        try {
+            Intent open = getPackageManager().getLaunchIntentForPackage(
+                "com.google.android.apps.maps");
+            if (open != null) {
+                open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(open);
+            } else {
+                toast("Google Maps nicht installiert.");
+            }
+        } catch (RuntimeException e) {
+            toast("Google Maps nicht erreichbar.");
+        }
+    }
+
     private void onWarningButtonLabel() {
         if (warningButton == null) return;
         String selected = WarningSource.selected(this);
@@ -295,6 +335,12 @@ public final class OverlayService extends Service {
         SpotifyMedia.State state = SpotifyMedia.read(this);
         onWarningButtonLabel();
         track.setText(state.line);
+        if (drivingTrack != null) drivingTrack.setText(state.line);
+        if (drivingPlay != null) {
+            drivingPlay.setText(state.playing ? "⏸" : "▶");
+            drivingPlay.setEnabled(state.connected);
+        }
+        if (drivingNext != null) drivingNext.setEnabled(state.canNext);
         play.setText(state.playing ? "⏸" : "▶");
         play.setEnabled(state.connected);
         previous.setEnabled(state.canPrevious);
@@ -304,17 +350,36 @@ public final class OverlayService extends Service {
     }
 
     private void toggleCompact() {
-        minimized = !minimized;
-        content.setVisibility(minimized ? View.GONE : View.VISIBLE);
+        if (viewMode == CockpitViewRules.Mode.COLLAPSED) {
+            applyMode(lastExpanded);
+        } else {
+            lastExpanded = viewMode;
+            applyMode(CockpitViewRules.Mode.COLLAPSED);
+        }
+    }
+
+    private void toggleDriveMode() {
+        CockpitViewRules.Mode next = CockpitViewRules.driveToggle(viewMode);
+        lastExpanded = next;
+        applyMode(next);
+    }
+
+    private void applyMode(CockpitViewRules.Mode next) {
+        viewMode = next;
+        content.setVisibility(next == CockpitViewRules.Mode.FULL ? View.VISIBLE : View.GONE);
+        drivingContent.setVisibility(
+            next == CockpitViewRules.Mode.DRIVING ? View.VISIBLE : View.GONE);
+        driveToggle.setText(CockpitViewRules.driveButtonLabel(next));
         params.width = widthForState();
         clampAndUpdatePanel();
         if (panel != null) panel.post(this::clampAndUpdatePanel);
-        if (!minimized) updateMusic();
+        if (next != CockpitViewRules.Mode.COLLAPSED) updateMusic();
     }
 
     private int widthForState() {
         int displayWidth = getResources().getDisplayMetrics().widthPixels;
-        return Math.min(Ui.dp(this, minimized ? 230 : 310),
+        return Math.min(Ui.dp(this,
+                viewMode == CockpitViewRules.Mode.COLLAPSED ? 230 : 310),
             Math.max(1, displayWidth - Ui.dp(this, 16)));
     }
 

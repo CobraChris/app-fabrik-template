@@ -60,3 +60,11 @@ Die Hauptansicht enthält \"Auf Updates prüfen\". Der Dialog fragt **nur auf Kl
 - [Signiertes v5 / 0.9.3-beta](https://github.com/CobraChris/app-fabrik-template/releases/download/fahrcockpit-v5/fahrcockpit-release.apk) ist der letzte veröffentlichte Build; der bestehende Signierschlüssel wurde im Release-Lauf mit v4 abgeglichen.
 - Separater [Draft PR #35](https://github.com/CobraChris/app-fabrik-template/pull/35): präzisere Spotify-Diagnose, ±15-Sekunden-Seek mit monotoner Positionsfortschreibung aus Androids `PlaybackState`-Zeitstempel, sichere Behandlung von Pause/ungültigen Zeitstempeln/Trackdauer, reichhaltige JVM-Regressionstests und Updateprüfung mit größerem GitHub-Release-Suchfenster (100 statt 40 Einträge, keine Hintergrundabfrage).
 - Für Tests der veröffentlichten v5 siehe [Samsung-v5-Abnahme](docs/SAMSUNG_V5_ACCEPTANCE.md). Kein neues APK-Release aus dem Draft-Zweig; der Nutzer installiert v5 selbst und testet später.
+
+## Fahrmodus – Vorentwurf (noch keine signierte APK)
+
+Am 09.11.2026 zeigte der Nutzer FahrCockpit über **Google Maps mit Verkehrslage**; so funktioniert der gewünschte Ein-Karten-Ansatz. Die Saphe-App war zuvor sichtbar, aber **ob Saphe im Hintergrund verbunden bleibt und meldet, ist nicht geprüft**. Eine direkte Übertragung von Saphe-Kartenpunkten in Google Maps ist nicht verfügbar/nicht belegt.
+
+Im nachfolgenden Draft-Zweig wird ein expliziter **Fahrt**-Knopf am Cockpit ergänzt: Statt der großen Vollansicht zeigt er nur eine einzeilige Spotify-Titelanzeige sowie die drei großen Tasten **Play/Pause, nächster Titel und Maps**. Mit **Voll** geht es zur kompletten Steuerung zurück; die bestehende **−**-Taste minimiert weiterhin auf die Kopfzeile und kann den vorherigen Modus wiederherstellen. Die Bedienung wird nicht automatisch umgeschaltet und benötigt keine zusätzlichen Berechtigungen, keine Standortabfragen oder Hintergrunddienste.
+
+Die volle Oberfläche bleibt zum Konfigurieren von Saphe/Blitzer.de und Tanken bestehen. **Keine Blitzer-Marker in Google Maps** und keine automatische Blitzerwarnfunktion hinzugefügt. Auf deutschem Hoheitsgebiet gelten die Vorschriften des § 23 Abs. 1c StVO.
