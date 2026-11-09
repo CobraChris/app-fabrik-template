@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-09-70-30-v6-safepin",
-  "source_sha": "ae30e8275c1aea247fd49340b500ee7fa25ac888",
-  "expected_version_code": 6
+  "request_id": "2026-11-09-samsung-split-exclusive-v7",
+  "source_sha": "03c4f0e7a52d22042598276cb4d1f12518e3fc1f",
+  "expected_version_code": 7
 }
