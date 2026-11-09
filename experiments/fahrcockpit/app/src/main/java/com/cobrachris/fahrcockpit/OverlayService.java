@@ -20,6 +20,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,7 +40,20 @@ public final class OverlayService extends Service {
     private WindowManager.LayoutParams params;
     private LinearLayout panel;
     private LinearLayout content;
+    private ScrollView fullScroll;
     private LinearLayout drivingContent;
+    private LinearLayout fullProgress;
+    private LinearLayout drivingProgress;
+    private SeekBar fullSeek;
+    private SeekBar drivingSeek;
+    private TextView fullTime;
+    private TextView fullDuration;
+    private TextView drivingTime;
+    private TextView drivingDuration;
+    private boolean fullScrubbing;
+    private boolean drivingScrubbing;
+    private long progressDuration = -1L;
+    private boolean automaticLandscape;
     private TextView track;
     private TextView drivingTrack;
     private Button drivingPlay;
@@ -141,15 +156,20 @@ public final class OverlayService extends Service {
         panel.setElevation(Ui.dp(this, 16));
 
         LinearLayout bar = Ui.row(this);
-        TextView drag = Ui.text(this, "≡  FahrCockpit", 15, Ui.FG, true);
+        TextView drag = Ui.text(this, "≡ FahrCockpit", 14, Ui.FG, true);
+        drag.setSingleLine(true);
+        drag.setEllipsize(TextUtils.TruncateAt.END);
         bar.addView(drag, new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1));
         driveToggle = small("Fahrt");
         Button minimize = small("−");
         Button close = small("×");
-        bar.addView(driveToggle);
-        bar.addView(minimize);
-        bar.addView(close);
+        bar.addView(driveToggle, new LinearLayout.LayoutParams(
+            Ui.dp(this, 66), Ui.dp(this, 46)));
+        bar.addView(minimize, new LinearLayout.LayoutParams(
+            Ui.dp(this, 48), Ui.dp(this, 46)));
+        bar.addView(close, new LinearLayout.LayoutParams(
+            Ui.dp(this, 48), Ui.dp(this, 46)));
         panel.addView(bar);
         drag.setOnTouchListener(new View.OnTouchListener() {
             private int x, y;
@@ -196,6 +216,11 @@ public final class OverlayService extends Service {
         track = Ui.text(this, "Spotify wird gesucht …", 12, Ui.MUTED, false);
         track.setMaxLines(2);
         content.addView(track);
+        fullSeek = new SeekBar(this);
+        fullTime = progressLabel("--:--");
+        fullDuration = progressLabel("--:--");
+        fullProgress = progressWidget(fullSeek, fullTime, fullDuration);
+        content.addView(fullProgress);
 
         LinearLayout media = Ui.row(this);
         previous = small("⏮");
@@ -221,6 +246,11 @@ public final class OverlayService extends Service {
         drivingTrack.setSingleLine(true);
         drivingTrack.setEllipsize(TextUtils.TruncateAt.END);
         drivingContent.addView(drivingTrack);
+        drivingSeek = new SeekBar(this);
+        drivingTime = progressLabel("--:--");
+        drivingDuration = progressLabel("--:--");
+        drivingProgress = progressWidget(drivingSeek, drivingTime, drivingDuration);
+        drivingContent.addView(drivingProgress);
         LinearLayout drivingMedia = Ui.row(this);
         drivingPlay = small("▶");
         drivingNext = small("⏭");
@@ -283,12 +313,62 @@ public final class OverlayService extends Service {
                 ? "Blitzer.de Beenden-Befehl gesendet (nicht bestätigt)"
                 : "Blitzer.de PRO nicht erreichbar.");
         });
-        panel.addView(content);
+        fullScroll = new ScrollView(this);
+        fullScroll.setFillViewport(false);
+        fullScroll.addView(content);
+        panel.addView(fullScroll);
         panel.addView(drivingContent);
         onWarningButtonLabel();
         window.addView(panel, params);
+        limitFullContentHeight();
+        adaptToOrientation();
         panel.post(this::clampAndUpdatePanel);
         ui.post(refresh);
+    }
+
+    private TextView progressLabel(String text) {
+        TextView view = Ui.text(this, text, 11, Ui.MUTED, false);
+        view.setPadding(0, 0, 0, 0);
+        return view;
+    }
+
+    private LinearLayout progressWidget(SeekBar bar, TextView elapsed, TextView duration) {
+        LinearLayout wrapper = Ui.column(this);
+        bar.setMax(TrackProgressRules.MAX);
+        bar.setEnabled(false);
+        wrapper.addView(bar, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, Ui.dp(this, 38)));
+        LinearLayout times = Ui.row(this);
+        times.addView(elapsed, new LinearLayout.LayoutParams(0,
+            LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        times.addView(duration);
+        wrapper.addView(times);
+        wrapper.setVisibility(View.GONE); // Only shown with real duration metadata.
+        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onStartTrackingTouch(SeekBar slider) {
+                if (slider == fullSeek) fullScrubbing = true;
+                else drivingScrubbing = true;
+            }
+            @Override public void onProgressChanged(
+                    SeekBar slider, int position, boolean fromUser) {
+                if (!fromUser) return;
+                long target = TrackProgressRules.targetPosition(
+                    position, progressDuration);
+                elapsed.setText(TrackProgressRules.time(target));
+            }
+            @Override public void onStopTrackingTouch(SeekBar slider) {
+                if (slider == fullSeek) fullScrubbing = false;
+                else drivingScrubbing = false;
+                long target = TrackProgressRules.targetPosition(
+                    slider.getProgress(), progressDuration);
+                if (target >= 0L) toast(SpotifyMedia.seekAbsolute(
+                    OverlayService.this, target));
+                ui.postDelayed(() -> {
+                    if (panel != null) updateMusic();
+                }, 600L);
+            }
+        });
+        return wrapper;
     }
 
     private Button small(String label) {
@@ -341,12 +421,33 @@ public final class OverlayService extends Service {
             drivingPlay.setEnabled(state.connected);
         }
         if (drivingNext != null) drivingNext.setEnabled(state.canNext);
+        progressDuration = state.durationMs;
+        updateProgress(fullProgress, fullSeek, fullTime, fullDuration,
+            fullScrubbing, state);
+        updateProgress(drivingProgress, drivingSeek, drivingTime, drivingDuration,
+            drivingScrubbing, state);
         play.setText(state.playing ? "⏸" : "▶");
         play.setEnabled(state.connected);
         previous.setEnabled(state.canPrevious);
         next.setEnabled(state.canNext);
         backward.setEnabled(state.canSeek);
         forward.setEnabled(state.canSeek);
+    }
+
+    private void updateProgress(LinearLayout wrapper, SeekBar bar, TextView elapsed,
+                                TextView total, boolean dragging, SpotifyMedia.State state) {
+        if (wrapper == null || bar == null) return;
+        boolean available = TrackProgressRules.hasDuration(state.durationMs)
+            && state.positionMs >= 0L;
+        wrapper.setVisibility(available ? View.VISIBLE : View.GONE);
+        if (!available) return;
+        bar.setEnabled(state.canSeek);
+        if (!dragging) {
+            bar.setProgress(TrackProgressRules.sliderPosition(
+                state.positionMs, state.durationMs));
+            elapsed.setText(TrackProgressRules.time(state.positionMs));
+        }
+        total.setText(TrackProgressRules.time(state.durationMs));
     }
 
     private void toggleCompact() {
@@ -359,6 +460,7 @@ public final class OverlayService extends Service {
     }
 
     private void toggleDriveMode() {
+        automaticLandscape = false; // A manual selection overrides auto layout.
         CockpitViewRules.Mode next = CockpitViewRules.driveToggle(viewMode);
         lastExpanded = next;
         applyMode(next);
@@ -366,11 +468,12 @@ public final class OverlayService extends Service {
 
     private void applyMode(CockpitViewRules.Mode next) {
         viewMode = next;
-        content.setVisibility(next == CockpitViewRules.Mode.FULL ? View.VISIBLE : View.GONE);
+        fullScroll.setVisibility(next == CockpitViewRules.Mode.FULL ? View.VISIBLE : View.GONE);
         drivingContent.setVisibility(
             next == CockpitViewRules.Mode.DRIVING ? View.VISIBLE : View.GONE);
         driveToggle.setText(CockpitViewRules.driveButtonLabel(next));
         params.width = widthForState();
+        limitFullContentHeight();
         clampAndUpdatePanel();
         if (panel != null) panel.post(this::clampAndUpdatePanel);
         if (next != CockpitViewRules.Mode.COLLAPSED) updateMusic();
@@ -381,6 +484,41 @@ public final class OverlayService extends Service {
         return Math.min(Ui.dp(this,
                 viewMode == CockpitViewRules.Mode.COLLAPSED ? 230 : 310),
             Math.max(1, displayWidth - Ui.dp(this, 16)));
+    }
+
+    private boolean isLandscape() {
+        return getResources().getDisplayMetrics().widthPixels >
+            getResources().getDisplayMetrics().heightPixels;
+    }
+
+    /** Scrollable full controls avoid falling off a short landscape display. */
+    private void limitFullContentHeight() {
+        if (fullScroll == null) return;
+        int viewport = getResources().getDisplayMetrics().heightPixels;
+        int maxHeight = Math.max(Ui.dp(this, 100), viewport - Ui.dp(this, 104));
+        fullScroll.setLayoutParams(new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            isLandscape() ? maxHeight : LinearLayout.LayoutParams.WRAP_CONTENT));
+    }
+
+    /** Switch to driving controls on landscape; restore full on portrait. */
+    private void adaptToOrientation() {
+        boolean enabled = getSharedPreferences(CockpitViewRules.DISPLAY_PREFS,
+            MODE_PRIVATE).getBoolean(CockpitViewRules.KEY_AUTO_DRIVING, true);
+        if (CockpitViewRules.shouldAutoDrive(isLandscape(), enabled, viewMode)) {
+            automaticLandscape = true;
+            lastExpanded = CockpitViewRules.Mode.DRIVING;
+            applyMode(CockpitViewRules.Mode.DRIVING);
+        } else if (automaticLandscape && (!isLandscape() || !enabled)) {
+            automaticLandscape = false;
+            if (viewMode == CockpitViewRules.Mode.DRIVING) {
+                lastExpanded = CockpitViewRules.Mode.FULL;
+                applyMode(CockpitViewRules.Mode.FULL);
+            } else if (viewMode == CockpitViewRules.Mode.COLLAPSED
+                    && lastExpanded == CockpitViewRules.Mode.DRIVING) {
+                lastExpanded = CockpitViewRules.Mode.FULL;
+            }
+        }
     }
 
     private void clampAndUpdatePanel() {
@@ -400,6 +538,8 @@ public final class OverlayService extends Service {
     @Override public void onConfigurationChanged(Configuration config) {
         super.onConfigurationChanged(config);
         if (panel == null || params == null) return;
+        limitFullContentHeight();
+        adaptToOrientation();
         params.width = widthForState();
         clampAndUpdatePanel();
         panel.post(this::clampAndUpdatePanel);
