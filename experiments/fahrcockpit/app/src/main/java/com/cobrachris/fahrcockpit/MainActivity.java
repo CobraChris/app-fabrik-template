@@ -50,14 +50,61 @@ public final class MainActivity extends Activity {
 
         root.addView(Ui.text(this, "FahrCockpit", 30, Ui.FG, true));
         root.addView(Ui.text(this,
-            "Google Maps bleibt deine Navigation. FahrCockpit legt eine verschiebbare " +
-            "Steuerleiste darüber.", 15, Ui.MUTED, false));
+            "Google Maps bleibt deine Navigation. Wähle die echte geteilte " +
+            "Fahransicht oder das bisherige schwebende Cockpit.",
+            15, Ui.MUTED, false));
+
+        Ui.section(this, root, "70/30 Fahransicht mit Google Maps",
+            "Echter Android-Splitscreen statt Karte unter einem großen Overlay. " +
+            "Google Maps bleibt die Navigations-App. Die Trennlinie legt Samsung fest.");
+        Button split = Ui.button(this, "70/30-Fahransicht starten");
+        root.addView(split);
+        split.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(this, SplitCockpitActivity.class));
+                stopService(new Intent(this, OverlayService.class));
+            } catch (RuntimeException e) {
+                permissions.setText("Split-Modus konnte nicht gestartet werden. " +
+                    "Nutze die schwebende Ansicht oder Samsung Multi Window.");
+            }
+        });
+        root.addView(Ui.text(this,
+            "FahrCockpit versucht, Google Maps direkt daneben zu starten. " +
+            "Wenn Samsung die Fenster nicht automatisch teilt, nutze " +
+            "einmalig die App-Paar-Funktion. Das genaue 70/30-Verhältnis " +
+            "stellst du an der System-Trennlinie ein.",
+            12, Ui.MUTED, false));
 
         Ui.section(this, root, "Schwebendes Cockpit",
             "Spotify • Tankstellen • Warn-App (Saphe oder Blitzer.de)");
         Button overlay = Ui.button(this, "Cockpit über Google Maps starten");
         root.addView(overlay);
         overlay.setOnClickListener(v -> startOverlay());
+        Switch openMapsAtStart = new Switch(this);
+        openMapsAtStart.setText("Google Maps beim Cockpit-Start öffnen");
+        openMapsAtStart.setTextColor(Ui.FG);
+        openMapsAtStart.setTextSize(14);
+        openMapsAtStart.setChecked(getSharedPreferences(CockpitViewRules.DISPLAY_PREFS,
+            MODE_PRIVATE).getBoolean(CockpitViewRules.KEY_OPEN_MAPS, true));
+        openMapsAtStart.setOnCheckedChangeListener((button, checked) ->
+            getSharedPreferences(CockpitViewRules.DISPLAY_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(CockpitViewRules.KEY_OPEN_MAPS, checked).apply());
+        root.addView(openMapsAtStart);
+        Switch autoLand = new Switch(this);
+        autoLand.setText("Querformat: automatisch kompakter Fahrmodus");
+        autoLand.setTextColor(Ui.FG);
+        autoLand.setTextSize(14);
+        autoLand.setChecked(getSharedPreferences(CockpitViewRules.DISPLAY_PREFS,
+            MODE_PRIVATE).getBoolean(CockpitViewRules.KEY_AUTO_DRIVING, true));
+        autoLand.setOnCheckedChangeListener((button, checked) ->
+            getSharedPreferences(CockpitViewRules.DISPLAY_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(CockpitViewRules.KEY_AUTO_DRIVING, checked).apply());
+        root.addView(autoLand);
+        root.addView(Ui.text(this,
+            "Kartenstart AUS verhindert nur das automatische Öffnen. Eine bereits " +
+            "geöffnete Google-Maps-App wird nicht geschlossen oder verkleinert. " +
+            "Im Querformat kannst du den Fahrmodus jederzeit manuell wechseln.",
+            12, Ui.MUTED, false));
         Button stopOverlay = Ui.button(this, "Schwebendes Cockpit schließen");
         root.addView(stopOverlay);
         stopOverlay.setOnClickListener(v -> stopService(
@@ -277,8 +324,11 @@ public final class MainActivity extends Activity {
         try {
             startForegroundService(new Intent(this, OverlayService.class)
                 .setAction(OverlayService.ACTION_SHOW));
-            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
-                () -> openPackage("com.google.android.apps.maps", "Google Maps"), 450);
+            if (getSharedPreferences(CockpitViewRules.DISPLAY_PREFS, MODE_PRIVATE)
+                .getBoolean(CockpitViewRules.KEY_OPEN_MAPS, true)) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                    () -> openPackage("com.google.android.apps.maps", "Google Maps"), 450);
+            }
         } catch (RuntimeException e) {
             permissions.setText("Cockpit konnte nicht gestartet werden: " +
                 "Android-Berechtigungen und Akku-Einstellungen prüfen.");

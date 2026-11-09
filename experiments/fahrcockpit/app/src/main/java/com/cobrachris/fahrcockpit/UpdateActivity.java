@@ -19,7 +19,7 @@ import java.nio.charset.StandardCharsets;
 /** Explicitly user-initiated and allowlisted GitHub-release updater. */
 public final class UpdateActivity extends Activity {
     private static final String RELEASES =
-        "https://api.github.com/repos/CobraChris/app-fabrik-template/releases?per_page=40";
+        "https://api.github.com/repos/CobraChris/app-fabrik-template/releases?per_page=100";
     private static final String APK = "fahrcockpit-release.apk";
     private TextView status;
     private Button check, download;
@@ -37,16 +37,16 @@ public final class UpdateActivity extends Activity {
             JSONArray releases = new JSONArray(response);
             Candidate newest = null;
             for (int i = 0; i < releases.length(); i++) {
-                JSONObject release = releases.getJSONObject(i);
-                if (release.optBoolean("draft", true)) continue;
+                JSONObject release = releases.optJSONObject(i);
+                if (release == null || release.optBoolean("draft", true)) continue;
                 String tag = release.optString("tag_name", "");
                 long version = UpdateUrlPolicy.versionCode(tag);
                 if (version <= 0) continue;
                 JSONArray assets = release.optJSONArray("assets");
                 if (assets == null) continue;
                 for (int j = 0; j < assets.length(); j++) {
-                    JSONObject asset = assets.getJSONObject(j);
-                    if (!APK.equals(asset.optString("name", ""))) continue;
+                    JSONObject asset = assets.optJSONObject(j);
+                    if (asset == null || !APK.equals(asset.optString("name", ""))) continue;
                     String url = asset.optString("browser_download_url", "");
                     if (!UpdateUrlPolicy.isForTag(url, tag)) continue;
                     if (newest == null || version > newest.code) {
@@ -158,7 +158,7 @@ public final class UpdateActivity extends Activity {
                     int length;
                     while ((length = reader.read(chunk)) != -1) {
                         buffer.append(chunk, 0, length);
-                        if (buffer.length() > 750_000) {
+                        if (buffer.length() > 2_500_000) {
                             throw new IllegalStateException("Response too large");
                         }
                     }

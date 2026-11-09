@@ -15,6 +15,15 @@ public final class OverlayRulesTest {
         assertEquals(0, OverlayRules.clampPosition(500, 300, 0));
     }
 
+    @Test public void landscapeDefaultsToRightAndPortraitKeepsLeft() {
+        assertEquals(780, OverlayRules.defaultHorizontalOffset(
+            true, 1080, 280, 20));
+        assertEquals(20, OverlayRules.defaultHorizontalOffset(
+            false, 1080, 280, 20));
+        assertEquals(0, OverlayRules.defaultHorizontalOffset(
+            true, 200, 280, 20));
+    }
+
     @Test public void sapheChoiceNeverShowsMisleadingBlitzerStop() {
         assertEquals("Saphe öffnen", OverlayRules.primaryLabel(WarningSource.SAPHE));
         assertTrue(OverlayRules.primaryEnabled(WarningSource.SAPHE));
