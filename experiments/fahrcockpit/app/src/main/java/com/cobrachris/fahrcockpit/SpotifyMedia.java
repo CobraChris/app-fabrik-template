@@ -21,15 +21,20 @@ final class SpotifyMedia {
         final boolean canSeek;
         final boolean canPrevious;
         final boolean canNext;
+        final long positionMs;
+        final long durationMs;
 
         State(String line, boolean connected, boolean playing,
-              boolean canSeek, boolean canPrevious, boolean canNext) {
+              boolean canSeek, boolean canPrevious, boolean canNext,
+              long positionMs, long durationMs) {
             this.line = line;
             this.connected = connected;
             this.playing = playing;
             this.canSeek = canSeek;
             this.canPrevious = canPrevious;
             this.canNext = canNext;
+            this.positionMs = positionMs;
+            this.durationMs = durationMs;
         }
     }
 
@@ -62,7 +67,7 @@ final class SpotifyMedia {
             // Spotify session. Both appeared identical in the first device test.
             return new State(SpotifyDisplayRules.notConnected(
                     Permissions.isMediaListenerEnabled(context)),
-                    false, false, false, false, false);
+                    false, false, false, false, false, -1L, -1L);
         }
         PlaybackState playback = controller.getPlaybackState();
         long actions = playback == null ? 0 : playback.getActions();
@@ -73,10 +78,38 @@ final class SpotifyMedia {
                 metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
         String label = SpotifyDisplayRules.trackLabel(title, artist);
         boolean playing = playback != null && playback.getState() == PlaybackState.STATE_PLAYING;
+        long duration = metadata == null ? -1L :
+            metadata.getLong(MediaMetadata.METADATA_KEY_DURATION);
+        long position = playback == null ? -1L : SpotifySeekRules.seekTarget(
+            playback.getPosition(), playing, playback.getPlaybackSpeed(),
+            playback.getLastPositionUpdateTime(), SystemClock.elapsedRealtime(),
+            duration, 0);
         return new State(label, true, playing,
             (actions & PlaybackState.ACTION_SEEK_TO) != 0,
             (actions & PlaybackState.ACTION_SKIP_TO_PREVIOUS) != 0,
-            (actions & PlaybackState.ACTION_SKIP_TO_NEXT) != 0);
+            (actions & PlaybackState.ACTION_SKIP_TO_NEXT) != 0,
+            position, duration);
+    }
+
+    /** User-triggered seek; requires Spotify to advertise SEEK_TO and duration. */
+    static String seekAbsolute(Context context, long positionMs) {
+        MediaController controller = spotify(context);
+        if (controller == null) return "Spotify nicht verbunden.";
+        PlaybackState playback = controller.getPlaybackState();
+        MediaMetadata metadata = controller.getMetadata();
+        long duration = metadata == null ? -1L
+            : metadata.getLong(MediaMetadata.METADATA_KEY_DURATION);
+        if (playback == null || (playback.getActions() & PlaybackState.ACTION_SEEK_TO) == 0L
+                || duration <= 0L) {
+            return "Dieser Spotify-Inhalt erlaubt kein freies Spulen.";
+        }
+        try {
+            controller.getTransportControls().seekTo(Math.max(0L,
+                Math.min(duration, positionMs)));
+            return "Wiedergabeposition angefordert";
+        } catch (RuntimeException ignored) {
+            return "Spotify hat die neue Wiedergabeposition nicht angenommen.";
+        }
     }
 
     static String send(Context context, Action action) {
