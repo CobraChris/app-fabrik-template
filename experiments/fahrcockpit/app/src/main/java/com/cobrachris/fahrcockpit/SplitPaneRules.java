@@ -12,16 +12,6 @@ final class SplitPaneRules {
         return inMultiWindow;
     }
 
-    /** Only start fallback after a split launch was attempted and not accepted. */
-    static boolean shouldStartFallback(boolean inMultiWindow,
-                                       boolean adjacentLaunchAttempted,
-                                       boolean graceElapsed,
-                                       boolean alreadyRunning,
-                                       boolean overlayPermission) {
-        return !inMultiWindow && adjacentLaunchAttempted && graceElapsed
-            && !alreadyRunning && overlayPermission;
-    }
-
     static String statusText(boolean multiWindow) {
         return multiWindow
             ? "Split-Ansicht aktiv · Trennlinie auf 70/30 einstellen"

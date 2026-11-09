@@ -77,3 +77,16 @@ test('Fuel searches on user action, stores key locally and does not poll', () =>
   assert.match(rules, /"diesel"/);
   assert.doesNotMatch(fuel, /TimerTask|ScheduledExecutor/);
 });
+
+test('native Android split is the one-tap default; overlays cannot auto-return', () => {
+  const main = java('MainActivity');
+  const split = java('SplitCockpitActivity');
+  assert.match(main, /scroll\.post\(this::startSplitAndMaps\)/);
+  assert.match(main, /\.post\(this::startSplitAndMaps\)/);
+  assert.match(main, /FLAG_ACTIVITY_LAUNCH_ADJACENT|SplitCockpitActivity\.class/);
+  assert.match(split, /FLAG_ACTIVITY_LAUNCH_ADJACENT/);
+  assert.match(split, /FLAG_ACTIVITY_NEW_TASK/);
+  assert.match(split, /enforceSplitWithoutOverlay\(\)/);
+  assert.match(split, /stopService\(new Intent\(this, OverlayService\.class\)\)/);
+  assert.doesNotMatch(split, /pendingOverlayFallback|fallbackGraceElapsed|shouldStartFallback/);
+});

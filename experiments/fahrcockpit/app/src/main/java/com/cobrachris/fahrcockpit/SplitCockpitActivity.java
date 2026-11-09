@@ -6,7 +6,6 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -19,8 +18,8 @@ import android.widget.TextView;
  * controls split ratio and placement of third-party Google Maps.
  *
  * Split-screen is requested on Android 12L+ via LAUNCH_ADJACENT/NEW_TASK.
- * On unsupported Samsung configurations the user can arrange an app pair or
- * return to the already proven overlay. No hidden Accessibility automation.
+ * If Samsung declines the split request, show instructions for Multi Window
+ * or an App pair. Never activate an overlay automatically. No Accessibility automation.
  */
 public final class SplitCockpitActivity extends Activity {
     private static final String MAPS_PACKAGE = "com.google.android.apps.maps";
@@ -32,20 +31,11 @@ public final class SplitCockpitActivity extends Activity {
     private SeekBar position;
     private boolean requested;
     private boolean scrubbing;
-    private boolean pendingOverlayFallback;
-    private boolean adjacentLaunchAttempted;
-    private boolean fallbackGraceElapsed;
     private long activeDuration = -1L;
 
     private final Runnable refresh = new Runnable() {
         @Override public void run() {
             if (track != null) updateMusic();
-            if (isInMultiWindowMode() && pendingOverlayFallback) {
-                // Late split acceptance must never leave two cockpits visible.
-                stopService(new Intent(SplitCockpitActivity.this,
-                    OverlayService.class));
-                pendingOverlayFallback = false;
-            }
             ui.postDelayed(this, 1800L);
         }
     };
@@ -209,21 +199,15 @@ public final class SplitCockpitActivity extends Activity {
             // real split-screen. The previous implementation caused a second
             // cockpit to obscure an already successful Samsung split.
             stopService(new Intent(this, OverlayService.class));
-            pendingOverlayFallback = false;
-            adjacentLaunchAttempted = true;
-            fallbackGraceElapsed = false;
+            stopService(new Intent(this, DockedCockpitService.class));
             maps.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
             startActivity(maps);
-            // Allow Samsung enough time to settle its split transition.
-            ui.postDelayed(() -> {
-                fallbackGraceElapsed = true;
-                reconcileSplitAndOverlay();
-            }, 2600L);
-            ui.postDelayed(this::reconcileSplitAndOverlay, 4800L);
+            // Confirm state only after Samsung has had time to arrange both windows.
+            ui.postDelayed(this::updateSplitStatus, 2600L);
+            ui.postDelayed(this::updateSplitStatus, 4800L);
         } catch (RuntimeException e) {
             // The user can still select the proven overlay in this activity.
-            adjacentLaunchAttempted = false;
             splitStatus.setText("Samsung konnte Google Maps nicht nebenan öffnen. " +
                 "Bitte App-Paar über die letzten Apps anlegen.");
         }
@@ -272,38 +256,17 @@ public final class SplitCockpitActivity extends Activity {
             SplitPaneRules.statusText(isInMultiWindowMode()));
     }
 
-    private void reconcileSplitAndOverlay() {
-        if (SplitPaneRules.mustRemoveOverlay(isInMultiWindowMode())) {
-            // Always remove the service, not only one started by this activity:
-            // the user's v6 screenshot showed a stale overlay on a real split.
-            stopService(new Intent(this, OverlayService.class));
-            pendingOverlayFallback = false;
-            updateSplitStatus();
-            return;
-        }
-        if (SplitPaneRules.shouldStartFallback(
-                isInMultiWindowMode(), adjacentLaunchAttempted,
-                fallbackGraceElapsed, pendingOverlayFallback,
-                Settings.canDrawOverlays(this))) {
-            try {
-                startForegroundService(new Intent(this, OverlayService.class)
-                    .setAction(OverlayService.ACTION_SHOW));
-                pendingOverlayFallback = true;
-            } catch (RuntimeException ignored) {
-                // Leave the native controls available, do not claim success.
-            }
-        }
-        if (splitStatus != null) {
-            splitStatus.setText(pendingOverlayFallback
-                ? "Samsung hat Split nicht bestätigt – schwebendes Cockpit als Ersatz."
-                : SplitPaneRules.statusText(false));
-        }
+    private void enforceSplitWithoutOverlay() {
+        // Even when split mode fails, an overlay must never hide Maps.
+        stopService(new Intent(this, OverlayService.class));
+        stopService(new Intent(this, DockedCockpitService.class));
+        updateSplitStatus();
     }
 
     @Override public void onMultiWindowModeChanged(
             boolean inMultiWindowMode, Configuration newConfig) {
         super.onMultiWindowModeChanged(inMultiWindowMode, newConfig);
-        reconcileSplitAndOverlay();
+        enforceSplitWithoutOverlay();
     }
 
     @Override public void onSaveInstanceState(Bundle state) {
@@ -314,21 +277,14 @@ public final class SplitCockpitActivity extends Activity {
     @Override public void onStart() {
         super.onStart();
         // Reconciliation also runs on reentry from Maps, Spotify, and rotation.
-        if (isInMultiWindowMode()) {
-            stopService(new Intent(this, OverlayService.class));
-            pendingOverlayFallback = false;
-        }
+        enforceSplitWithoutOverlay();
         ui.removeCallbacks(refresh);
         ui.post(refresh);
     }
 
     @Override public void onResume() {
         super.onResume();
-        if (isInMultiWindowMode()) {
-            stopService(new Intent(this, OverlayService.class));
-            pendingOverlayFallback = false;
-        }
-        ui.post(this::reconcileSplitAndOverlay);
+        enforceSplitWithoutOverlay();
     }
 
     @Override public void onStop() {
