@@ -11,7 +11,8 @@ import android.view.*;
 import android.widget.*;
 
 /**
- * User-started 30% overlay LEFT of Google Maps (landscape), or below it (portrait).
+ * User-started 30% overlay beside Google Maps (landscape), or below it (portrait).
+ * Landscape side defaults RIGHT and can be changed in FahrCockpit settings.
  * Maps remains FULL-SCREEN behind the opaque controls; its window is never resized.
  * Starts only from an explicit user action; no boot receivers or vendor APIs.
  */
@@ -55,6 +56,7 @@ public final class DockedCockpitService extends Service {
         try {
             startForeground(5112,notification());
             if(panel==null) attach();
+            else applyBounds(); // Repeat app-icon start respects saved side.
         } catch(RuntimeException e) {
             toast("Fahrmodus konnte nicht geöffnet werden.");
             stopSelf();
@@ -212,15 +214,17 @@ public final class DockedCockpitService extends Service {
         int w=getResources().getDisplayMetrics().widthPixels;
         int h=getResources().getDisplayMetrics().heightPixels;
         boolean wide=DockedLayoutRules.landscape(w,h);
+        boolean right=getSharedPreferences(DockedLayoutRules.PREFS,MODE_PRIVATE)
+            .getBoolean(DockedLayoutRules.KEY_LANDSCAPE_RIGHT,true);
         if(collapsed) {
             params.width=Math.min(w,Ui.dp(this,190));
             params.height=Math.min(h,Ui.dp(this,59));
-            params.x=DockedLayoutRules.collapsedX(w,params.width,wide);
+            params.x=DockedLayoutRules.collapsedX(w,params.width,wide,right);
             params.y=wide?0:Math.max(0,h-params.height);
         } else {
             params.width=DockedLayoutRules.width(w,wide);
             params.height=DockedLayoutRules.height(h,wide);
-            params.x=DockedLayoutRules.x(w,params.width,wide);
+            params.x=DockedLayoutRules.x(w,params.width,wide,right);
             params.y=DockedLayoutRules.y(h,params.height,wide);
         }
     }

@@ -56,15 +56,31 @@ public final class MainActivity extends Activity {
 
         Ui.section(this, root, "Fahren – direkt über diese App",
             "Empfohlen: Beim Öffnen von FahrCockpit startet Google Maps mit " +
-            "einem links angedockten Cockpit (quer, ca. 30 %). " +
+            "einem rechts angedockten Cockpit (quer, ca. 30 %). " +
             "Hochkant erscheint das Bedienfeld unten.");
         Button dock=Ui.button(this, "Fahren starten · 30%-Cockpit");
         root.addView(dock);
         dock.setOnClickListener(v->startDockedAndMaps());
+
+        Switch rightDock=new Switch(this);
+        rightDock.setText("Querformat: Spotify rechts (empfohlen)");
+        rightDock.setTextColor(Ui.FG);
+        rightDock.setTextSize(14);
+        rightDock.setChecked(getSharedPreferences(DockedLayoutRules.PREFS, MODE_PRIVATE)
+            .getBoolean(DockedLayoutRules.KEY_LANDSCAPE_RIGHT,true));
+        rightDock.setOnCheckedChangeListener((button,checked) ->
+            getSharedPreferences(DockedLayoutRules.PREFS, MODE_PRIVATE).edit()
+                .putBoolean(DockedLayoutRules.KEY_LANDSCAPE_RIGHT,checked).apply());
+        root.addView(rightDock);
         root.addView(Ui.text(this,
-            "Google Maps bleibt technisch im Vollbild hinter dem Cockpit. " +
-            "Die App blendet den linken bzw. unteren Teil ab; " +
-            "sie verändert Google Maps nicht.",
+            "Rechts bleibt die Google-Maps-Menüleiste links vollständig sichtbar. " +
+            "Schalter AUS: Spotify links. Die Auswahl gilt ab dem nächsten " +
+            "FahrCockpit-Start und beeinflusst Hochformat nicht.",
+            12,Ui.MUTED,false));
+        root.addView(Ui.text(this,
+            "Google Maps bleibt im Vollbild hinter dem Cockpit. " +
+            "Das Cockpit deckt im Querformat ca. 30 % der gewählten Seite ab " +
+            "und verändert Google Maps selbst nicht.",
             12,Ui.MUTED,false));
 
         Ui.section(this, root, "Android-Splitscreen (optional)",
