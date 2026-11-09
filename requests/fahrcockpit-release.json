@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-09-keyboard-behind-ime-v12",
-  "source_sha": "0be16c7879f620295837acd10eb7c07bf250a588",
-  "expected_version_code": 12
+  "request_id": "2026-11-09-navigation-first-compact-v13",
+  "source_sha": "512a6eb56488b569e0453fb23029f35b6dd4429a",
+  "expected_version_code": 13
 }
