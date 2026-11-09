@@ -54,13 +54,30 @@ public final class MainActivity extends Activity {
             "Fahransicht oder das bisherige schwebende Cockpit.",
             15, Ui.MUTED, false));
 
-        Ui.section(this, root, "Fahren – direkt über diese App",
-            "Empfohlen: Beim Öffnen von FahrCockpit startet Google Maps mit " +
-            "einem rechts angedockten Cockpit (quer, ca. 30 %). " +
-            "Hochkant erscheint das Bedienfeld unten.");
-        Button dock=Ui.button(this, "Fahren starten · 30%-Cockpit");
+        Ui.section(this, root, "Fahren – Google Maps zuerst",
+            "Empfohlen: FahrCockpit öffnet Google Maps mit einer kleinen " +
+            "verschiebbaren Spotify-Leiste. Die Karte, der Navigationsstart " +
+            "und der Standort bleiben größtenteils frei.");
+        Button dock=Ui.button(this, "Navigation mit Mini-Cockpit starten");
         root.addView(dock);
         dock.setOnClickListener(v->startDockedAndMaps());
+
+        Switch startCompact=new Switch(this);
+        startCompact.setText("Fahrmodus immer kompakt starten (empfohlen)");
+        startCompact.setTextColor(Ui.FG);
+        startCompact.setTextSize(14);
+        startCompact.setChecked(getSharedPreferences(DockedLayoutRules.PREFS, MODE_PRIVATE)
+            .getBoolean(DockedLayoutRules.KEY_START_COMPACT,
+                DockedLayoutRules.DEFAULT_COMPACT));
+        startCompact.setOnCheckedChangeListener((button,checked) ->
+            getSharedPreferences(DockedLayoutRules.PREFS, MODE_PRIVATE).edit()
+                .putBoolean(DockedLayoutRules.KEY_START_COMPACT,checked).apply());
+        root.addView(startCompact);
+        root.addView(Ui.text(this,
+            "♫ öffnet die große Steuerung, ▶ steuert Spotify. Die kleine " +
+            "Leiste lässt sich am ♫-Knopf verschieben; die große schließt " +
+            "automatisch nach 18 Sekunden.",
+            12,Ui.MUTED,false));
 
         Switch rightDock=new Switch(this);
         rightDock.setText("Querformat: Spotify rechts (empfohlen)");
@@ -73,14 +90,14 @@ public final class MainActivity extends Activity {
                 .putBoolean(DockedLayoutRules.KEY_LANDSCAPE_RIGHT,checked).apply());
         root.addView(rightDock);
         root.addView(Ui.text(this,
-            "Rechts bleibt die Google-Maps-Menüleiste links vollständig sichtbar. " +
-            "Schalter AUS: Spotify links. Die Auswahl gilt ab dem nächsten " +
-            "FahrCockpit-Start und beeinflusst Hochformat nicht.",
+            "Rechts bleibt die Google-Maps-Menüleiste links sichtbar. " +
+            "Schalter AUS: Spotify links. Hochkant startet das kleine " +
+            "Cockpit am rechten Rand und kann frei verschoben werden.",
             12,Ui.MUTED,false));
         root.addView(Ui.text(this,
-            "Google Maps bleibt im Vollbild hinter dem Cockpit. " +
-            "Das Cockpit deckt im Querformat ca. 30 % der gewählten Seite ab " +
-            "und verändert Google Maps selbst nicht.",
+            "Google Maps bleibt im Vollbild hinter FahrCockpit. Nur beim " +
+            "manuellen Ausklappen überdeckt die große Steuerung vorübergehend " +
+            "einen Teil der Karte. FahrCockpit kann Maps nicht neu zentrieren.",
             12,Ui.MUTED,false));
 
         Ui.section(this, root, "Android-Splitscreen (optional)",

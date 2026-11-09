@@ -23,16 +23,24 @@ public final class DockedCockpitService extends Service {
     private WindowManager windows;
     private WindowManager.LayoutParams params;
     private LinearLayout panel;
+    private LinearLayout fullHeader,miniHeader;
+    private Button miniPlay;
     private ScrollView contents;
     private TextView track,elapsed,total;
     private SeekBar seekBar;
     private Button play,prev,next,minus,plus,fold;
-    private boolean collapsed,scrubbing;
+    private boolean collapsed,scrubbing,dragging;
     private long duration = -1;
+    private float downRawX,downRawY;
+    private int startX,startY;
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private static final long EXPANDED_TIMEOUT_MS = 18000L;
+    private final Runnable autoCollapse = () -> {
+        if(panel!=null && !collapsed && !scrubbing) setCollapsed(true);
+    };
     private final Runnable refresh = new Runnable() {
         @Override public void run() {
-            if (panel != null && !collapsed) updateMusic();
+            if (panel != null) updateMusic();
             if (panel != null) handler.postDelayed(this,1700L);
         }
     };
@@ -55,8 +63,12 @@ public final class DockedCockpitService extends Service {
         }
         try {
             startForeground(5112,notification());
+            // Every explicit app-icon start restores a navigation-safe HUD.
+            collapsed=getSharedPreferences(DockedLayoutRules.PREFS,MODE_PRIVATE)
+                .getBoolean(DockedLayoutRules.KEY_START_COMPACT,
+                    DockedLayoutRules.DEFAULT_COMPACT);
             if(panel==null) attach();
-            else applyBounds(); // Repeat app-icon start respects saved side.
+            else setCollapsed(collapsed);
         } catch(RuntimeException e) {
             toast("Fahrmodus konnte nicht geöffnet werden.");
             stopSelf();
@@ -99,15 +111,63 @@ public final class DockedCockpitService extends Service {
         panel.setBackground(Ui.background(this,Ui.PANEL,12));
         panel.setElevation(Ui.dp(this,12));
 
-        LinearLayout top=Ui.row(this);
+        // Small, three-button HUD is the default: Maps keeps Start,
+        // route controls and the location marker unobstructed.
+        miniHeader=Ui.row(this);
+        Button expand=button("♫");
+        miniPlay=button("▶");
+        Button miniClose=button("×");
+        for(Button b:new Button[]{expand,miniPlay,miniClose})
+            miniHeader.addView(b,new LinearLayout.LayoutParams(0,Ui.dp(this,48),1));
+        panel.addView(miniHeader);
+        expand.setContentDescription("FahrCockpit öffnen oder verschieben");
+        miniPlay.setContentDescription("Spotify Wiedergabe umschalten");
+        miniClose.setContentDescription("FahrCockpit schließen");
+        miniPlay.setOnClickListener(v->send(SpotifyMedia.Action.TOGGLE));
+        miniClose.setOnClickListener(v->stopSelf());
+        expand.setOnTouchListener((view,event)->{
+            if(params==null||windows==null) return false;
+            switch(event.getActionMasked()){
+                case MotionEvent.ACTION_DOWN:
+                    downRawX=event.getRawX(); downRawY=event.getRawY();
+                    startX=params.x; startY=params.y; dragging=false;
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    float dx=event.getRawX()-downRawX;
+                    float dy=event.getRawY()-downRawY;
+                    if(Math.abs(dx)>ViewConfiguration.get(this).getScaledTouchSlop()
+                        ||Math.abs(dy)>ViewConfiguration.get(this).getScaledTouchSlop())
+                        dragging=true;
+                    if(dragging){
+                        int w=getResources().getDisplayMetrics().widthPixels;
+                        int h=getResources().getDisplayMetrics().heightPixels;
+                        params.x=DockedLayoutRules.clamp(
+                            startX+Math.round(dx),w,params.width);
+                        params.y=DockedLayoutRules.clamp(
+                            startY+Math.round(dy),h,params.height);
+                        try{windows.updateViewLayout(panel,params);}
+                        catch(IllegalArgumentException ignored){}
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    if(!dragging) setCollapsed(false);
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    return true;
+                default:
+                    return false;
+            }
+        });
+
+        fullHeader=Ui.row(this);
         TextView name=Ui.text(this,"FahrCockpit",13,Ui.FG,true);
         name.setSingleLine(true);name.setEllipsize(TextUtils.TruncateAt.END);
-        top.addView(name,new LinearLayout.LayoutParams(0,-2,1));
+        fullHeader.addView(name,new LinearLayout.LayoutParams(0,-2,1));
         fold=button("−");
         Button settings=button("⚙"),close=button("×");
         for(Button b:new Button[]{fold,settings,close})
-            top.addView(b,new LinearLayout.LayoutParams(Ui.dp(this,38),Ui.dp(this,43)));
-        panel.addView(top);
+            fullHeader.addView(b,new LinearLayout.LayoutParams(Ui.dp(this,38),Ui.dp(this,43)));
+        panel.addView(fullHeader);
         contents=new ScrollView(this);
         LinearLayout inside=Ui.column(this);
         contents.addView(inside);
@@ -124,14 +184,16 @@ public final class DockedCockpitService extends Service {
         times.addView(elapsed,new LinearLayout.LayoutParams(0,-2,1));
         times.addView(total);inside.addView(times);
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
-            @Override public void onStartTrackingTouch(SeekBar s){scrubbing=true;}
+            @Override public void onStartTrackingTouch(SeekBar s){
+                scrubbing=true;handler.removeCallbacks(autoCollapse);
+            }
             @Override public void onProgressChanged(SeekBar s,int value,boolean user){
                 if(user) elapsed.setText(TrackProgressRules.time(
                     TrackProgressRules.targetPosition(value,duration)));
             }
             @Override public void onStopTrackingTouch(SeekBar s){
                 long target=TrackProgressRules.targetPosition(s.getProgress(),duration);
-                scrubbing=false;
+                scrubbing=false;resetAutoCollapse();
                 if(target>=0) toast(SpotifyMedia.seekAbsolute(DockedCockpitService.this,target));
                 handler.postDelayed(()->{if(panel!=null) updateMusic();},500L);
             }
@@ -151,24 +213,24 @@ public final class DockedCockpitService extends Service {
 
         Button maps=Ui.button(this,"Google Maps");
         inside.addView(maps);
-        maps.setOnClickListener(v->openMaps());
+        maps.setOnClickListener(v->{setCollapsed(true);openMaps();});
         Button fuel=Ui.button(this,"⛽ Tankstellen");
         inside.addView(fuel);
         fuel.setOnClickListener(v->{
+            setCollapsed(true);
             try {startActivity(new Intent(this,FuelActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
             catch(RuntimeException e){toast("Tankstellen nicht erreichbar.");}
         });
         Button saphe=Ui.button(this,"Saphe öffnen");
         inside.addView(saphe);
-        saphe.setOnClickListener(v->toast(WarningSource.openSaphe(this)
-            ?"Saphe geöffnet – Gerätestatus unbekannt.":"Saphe nicht installiert."));
-
-        fold.setOnClickListener(v->{
-            collapsed=!collapsed;
-            contents.setVisibility(collapsed?View.GONE:View.VISIBLE);
-            fold.setText(collapsed?"+":"−");applyBounds();
+        saphe.setOnClickListener(v->{
+            setCollapsed(true);
+            toast(WarningSource.openSaphe(this)
+                ?"Saphe geöffnet – Gerätestatus unbekannt.":"Saphe nicht installiert.");
         });
+
+        fold.setOnClickListener(v->setCollapsed(true));
         close.setOnClickListener(v->stopSelf());
         settings.setOnClickListener(v->{
             stopSelf();
@@ -176,11 +238,32 @@ public final class DockedCockpitService extends Service {
                 .setAction("FAHR_SETTINGS").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
             catch(RuntimeException e){toast("Einstellungen nicht erreichbar.");}
         });
+        // Full controls are available on tap, but must never occupy the
+        // map when the user has not explicitly expanded them.
+        miniHeader.setVisibility(collapsed?View.VISIBLE:View.GONE);
+        fullHeader.setVisibility(collapsed?View.GONE:View.VISIBLE);
+        contents.setVisibility(collapsed?View.GONE:View.VISIBLE);
         windows.addView(panel,params);
+        if(!collapsed) resetAutoCollapse();
         handler.post(refresh);
+    }
+    private void resetAutoCollapse() {
+        handler.removeCallbacks(autoCollapse);
+        if(!collapsed) handler.postDelayed(autoCollapse,EXPANDED_TIMEOUT_MS);
+    }
+    private void setCollapsed(boolean value) {
+        if(panel==null) return;
+        collapsed=value;
+        miniHeader.setVisibility(value?View.VISIBLE:View.GONE);
+        fullHeader.setVisibility(value?View.GONE:View.VISIBLE);
+        contents.setVisibility(value?View.GONE:View.VISIBLE);
+        if(value) handler.removeCallbacks(autoCollapse);
+        else resetAutoCollapse();
+        applyBounds();
     }
     private void send(SpotifyMedia.Action a) {
         toast(SpotifyMedia.send(this,a));updateMusic();
+        resetAutoCollapse();
     }
     private void openMaps() {
         if(!GoogleMapsLaunch.installed(this)){
@@ -193,6 +276,8 @@ public final class DockedCockpitService extends Service {
         SpotifyMedia.State s=SpotifyMedia.read(this);
         track.setText(s.line);
         play.setText(s.playing?"⏸":"▶");
+        miniPlay.setText(s.playing?"⏸":"▶");
+        miniPlay.setEnabled(s.connected);
         play.setEnabled(s.connected);
         prev.setEnabled(s.canPrevious);next.setEnabled(s.canNext);
         minus.setEnabled(s.canSeek);plus.setEnabled(s.canSeek);
@@ -217,10 +302,10 @@ public final class DockedCockpitService extends Service {
         boolean right=getSharedPreferences(DockedLayoutRules.PREFS,MODE_PRIVATE)
             .getBoolean(DockedLayoutRules.KEY_LANDSCAPE_RIGHT,true);
         if(collapsed) {
-            params.width=Math.min(w,Ui.dp(this,190));
-            params.height=Math.min(h,Ui.dp(this,59));
-            params.x=DockedLayoutRules.collapsedX(w,params.width,wide,right);
-            params.y=wide?0:Math.max(0,h-params.height);
+            params.width=Math.min(w,Ui.dp(this,164));
+            params.height=Math.min(h,Ui.dp(this,60));
+            params.x=DockedLayoutRules.miniX(w,params.width,wide,right);
+            params.y=DockedLayoutRules.miniY(h,params.height);
         } else {
             params.width=DockedLayoutRules.width(w,wide);
             params.height=DockedLayoutRules.height(h,wide);
