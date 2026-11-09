@@ -34,6 +34,7 @@ public final class SplitCockpitActivity extends Activity {
     private boolean scrubbing;
     private boolean pendingOverlayFallback;
     private boolean adjacentLaunchAttempted;
+    private boolean fallbackGraceElapsed;
     private long activeDuration = -1L;
 
     private final Runnable refresh = new Runnable() {
@@ -179,7 +180,8 @@ public final class SplitCockpitActivity extends Activity {
             requested = true;
             ui.postDelayed(this::launchMapsAdjacent, 450L);
         }
-        ui.postDelayed(this::reconcileSplitAndOverlay, 1500L);
+        // Early status refresh must not start a fallback during split animation.
+        ui.postDelayed(this::updateSplitStatus, 1500L);
     }
 
     private Button control(String label, LinearLayout row) {
@@ -208,11 +210,16 @@ public final class SplitCockpitActivity extends Activity {
             stopService(new Intent(this, OverlayService.class));
             pendingOverlayFallback = false;
             adjacentLaunchAttempted = true;
+            fallbackGraceElapsed = false;
             maps.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
             startActivity(maps);
-            ui.postDelayed(this::reconcileSplitAndOverlay, 2200L);
-            ui.postDelayed(this::reconcileSplitAndOverlay, 4000L);
+            // Allow Samsung enough time to settle its split transition.
+            ui.postDelayed(() -> {
+                fallbackGraceElapsed = true;
+                reconcileSplitAndOverlay();
+            }, 2600L);
+            ui.postDelayed(this::reconcileSplitAndOverlay, 4800L);
         } catch (RuntimeException e) {
             // The user can still select the proven overlay in this activity.
             adjacentLaunchAttempted = false;
@@ -275,7 +282,8 @@ public final class SplitCockpitActivity extends Activity {
         }
         if (SplitPaneRules.shouldStartFallback(
                 isInMultiWindowMode(), adjacentLaunchAttempted,
-                pendingOverlayFallback, Settings.canDrawOverlays(this))) {
+                fallbackGraceElapsed, pendingOverlayFallback,
+                Settings.canDrawOverlays(this))) {
             try {
                 startForegroundService(new Intent(this, OverlayService.class)
                     .setAction(OverlayService.ACTION_SHOW));

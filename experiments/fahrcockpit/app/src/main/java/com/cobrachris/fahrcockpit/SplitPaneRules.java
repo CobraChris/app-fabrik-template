@@ -15,9 +15,10 @@ final class SplitPaneRules {
     /** Only start fallback after a split launch was attempted and not accepted. */
     static boolean shouldStartFallback(boolean inMultiWindow,
                                        boolean adjacentLaunchAttempted,
+                                       boolean graceElapsed,
                                        boolean alreadyRunning,
                                        boolean overlayPermission) {
-        return !inMultiWindow && adjacentLaunchAttempted
+        return !inMultiWindow && adjacentLaunchAttempted && graceElapsed
             && !alreadyRunning && overlayPermission;
     }
 

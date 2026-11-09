@@ -14,18 +14,20 @@ public final class SplitPaneRulesTest {
         assertEquals(true, SplitPaneRules.mustRemoveOverlay(true));
         assertEquals(false, SplitPaneRules.mustRemoveOverlay(false));
         assertEquals(false, SplitPaneRules.shouldStartFallback(true,
-            true, false, true));
+            true, true, false, true));
     }
 
     @Test public void fallbackOnlyStartsWhenSplitReallyFailed() {
         assertEquals(true, SplitPaneRules.shouldStartFallback(false,
-            true, false, true));
+            true, true, false, true));
         assertEquals(false, SplitPaneRules.shouldStartFallback(false,
-            false, false, true));
+            false, true, false, true));
         assertEquals(false, SplitPaneRules.shouldStartFallback(false,
-            true, true, true));
+            true, false, false, true)); // Not before grace period.
         assertEquals(false, SplitPaneRules.shouldStartFallback(false,
-            true, false, false));
+            true, true, true, true)); // Already running.
+        assertEquals(false, SplitPaneRules.shouldStartFallback(false,
+            true, true, false, false)); // No permission.
     }
 
     @Test public void splitStateNeverClaimsAutomaticSizeControl() {
