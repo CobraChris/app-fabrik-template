@@ -84,3 +84,12 @@ Die volle Oberfläche bleibt zum Konfigurieren von Saphe/Blitzer.de und Tanken b
 - **Grenze:** Die App kann *nicht* erzwingen, dass Google Maps genau 70 % erhält; die Samsung-Trennlinie steuert das. Einmalig auf etwa 70/30 verschieben und mit Samsung **App-Paar speichern**. Keine Google-Maps-SDK-Integration, kein Billing, keine Google-Maps-Fenstermanipulation. Die aktive Google-Maps-Navigation bleibt vom externen Maps-Task verwaltet.
 - Falls Samsung den Aufruf nicht als Split akzeptiert, wird der fehlende Splitstatus ehrlich angezeigt. Die bisherige Overlay-Ansicht bleibt als Rückfalloption erhalten. **Keine** erweiterte Android-Accessibility-/MediaProjection-Berechtigung oder automatische System-UI-Steuerung.
 - Tests erfolgen zuerst automatisiert; die **Samsung-Abnahme der echten 70/30-Fenster und das Anlegen des App-Paars stehen aus**, bis der Nutzer das Endergebnis installiert. Es werden keine Kosten durch Navigations-APIs ausgelöst.
+
+
+## 0.9.5-beta / Build 7 – Samsung-Splitscreen-Fix (09.11.2026)
+
+**Nutzerbefund v6:** Android-Splitscreen **war aktiv**, Google Maps lag unten und FahrCockpit oben (Hochformat), aber zusätzlich lag der alte schwebende Overlay-Service über dem nativen FahrCockpit. Dies war ein konkreter Fehler der vorzeitigen Overlay-Fallback-Aktivierung, **kein** Problem mit Google Maps oder Spotify.
+
+**Korrektur:** Beide Bedienarten schließen sich künftig aus. Beim Start der nativen Splitansicht wird ein etwaiger bestehender Overlay-Service sofort beendet; der Splitstart versucht zuerst die Systemteilung ohne überlagerndes Fenster. Erst wenn diese nach einer Verzögerung nicht bestätigt ist, darf der bislang bewährte Overlay-Fallback gestartet werden. Sobald der Split erkannt wird (einschließlich späterem Samsung-Moduswechsel, Rückkehr und Drehung), entfernt die Activity vorhandene Overlays unabhängig davon, wer sie gestartet hatte. Android-Unit-Tests decken Exklusivität und Fehlerfälle ab.
+
+**Plattformgrenze:** Auf einem Samsung im Hochformat ordnet der System-Splitscreen die zwei Apps häufig übereinander an, im Querformat nebeneinander. Standardmäßig ist das Systemverhältnis nicht 70/30; die Trennlinie wird vom Nutzer auf ca. 70/30 verschoben. Diese Teilung kann nicht durch eine normale Drittanbieter-App erzwungen werden. Google Maps bleibt unverändert. Keine neuen Android-Berechtigungen, API-Schlüssel oder Abrechnung.

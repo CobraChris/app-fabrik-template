@@ -33,17 +33,27 @@ public final class SplitCockpitActivity extends Activity {
     private boolean requested;
     private boolean scrubbing;
     private boolean pendingOverlayFallback;
+    private boolean adjacentLaunchAttempted;
     private long activeDuration = -1L;
 
     private final Runnable refresh = new Runnable() {
         @Override public void run() {
             if (track != null) updateMusic();
+            if (isInMultiWindowMode() && pendingOverlayFallback) {
+                // Late split acceptance must never leave two cockpits visible.
+                stopService(new Intent(SplitCockpitActivity.this,
+                    OverlayService.class));
+                pendingOverlayFallback = false;
+            }
             ui.postDelayed(this, 1800L);
         }
     };
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Reentering the native split must remove every existing overlay,
+        // including an older service instance started before this activity.
+        stopService(new Intent(this, OverlayService.class));
         requested = savedInstanceState != null && savedInstanceState.getBoolean(KEY_REQUESTED);
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
@@ -169,7 +179,7 @@ public final class SplitCockpitActivity extends Activity {
             requested = true;
             ui.postDelayed(this::launchMapsAdjacent, 450L);
         }
-        ui.postDelayed(this::updateSplitStatus, 1500L);
+        ui.postDelayed(this::reconcileSplitAndOverlay, 1500L);
     }
 
     private Button control(String label, LinearLayout row) {
@@ -192,25 +202,20 @@ public final class SplitCockpitActivity extends Activity {
             return;
         }
         try {
-            // Make the existing overlay a temporary safety net: if Samsung
-            // rejects the split request, Google Maps remains navigable with
-            // FahrCockpit controls instead of an empty foreground.
-            // Only the already user-granted overlay permission is used.
-            if (!isInMultiWindowMode() && Settings.canDrawOverlays(this)) {
-                try {
-                    startForegroundService(new Intent(this, OverlayService.class)
-                        .setAction(OverlayService.ACTION_SHOW));
-                    pendingOverlayFallback = true;
-                } catch (RuntimeException ignored) {
-                    pendingOverlayFallback = false;
-                }
-            }
+            // Never start an overlay before Android has had a chance to enter
+            // real split-screen. The previous implementation caused a second
+            // cockpit to obscure an already successful Samsung split.
+            stopService(new Intent(this, OverlayService.class));
+            pendingOverlayFallback = false;
+            adjacentLaunchAttempted = true;
             maps.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
             startActivity(maps);
-            ui.postDelayed(this::reconcileSplitAndOverlay, 1800L);
+            ui.postDelayed(this::reconcileSplitAndOverlay, 2200L);
+            ui.postDelayed(this::reconcileSplitAndOverlay, 4000L);
         } catch (RuntimeException e) {
-            reconcileSplitAndOverlay();
+            // The user can still select the proven overlay in this activity.
+            adjacentLaunchAttempted = false;
             splitStatus.setText("Samsung konnte Google Maps nicht nebenan öffnen. " +
                 "Bitte App-Paar über die letzten Apps anlegen.");
         }
@@ -260,15 +265,28 @@ public final class SplitCockpitActivity extends Activity {
     }
 
     private void reconcileSplitAndOverlay() {
-        if (isInMultiWindowMode()) {
-            if (pendingOverlayFallback) {
-                stopService(new Intent(this, OverlayService.class));
-                pendingOverlayFallback = false;
-            }
+        if (SplitPaneRules.mustRemoveOverlay(isInMultiWindowMode())) {
+            // Always remove the service, not only one started by this activity:
+            // the user's v6 screenshot showed a stale overlay on a real split.
+            stopService(new Intent(this, OverlayService.class));
+            pendingOverlayFallback = false;
             updateSplitStatus();
-        } else if (splitStatus != null) {
+            return;
+        }
+        if (SplitPaneRules.shouldStartFallback(
+                isInMultiWindowMode(), adjacentLaunchAttempted,
+                pendingOverlayFallback, Settings.canDrawOverlays(this))) {
+            try {
+                startForegroundService(new Intent(this, OverlayService.class)
+                    .setAction(OverlayService.ACTION_SHOW));
+                pendingOverlayFallback = true;
+            } catch (RuntimeException ignored) {
+                // Leave the native controls available, do not claim success.
+            }
+        }
+        if (splitStatus != null) {
             splitStatus.setText(pendingOverlayFallback
-                ? "Samsung hat Split nicht bestätigt – schwebendes Cockpit bleibt als Ersatz."
+                ? "Samsung hat Split nicht bestätigt – schwebendes Cockpit als Ersatz."
                 : SplitPaneRules.statusText(false));
         }
     }
@@ -286,8 +304,22 @@ public final class SplitCockpitActivity extends Activity {
 
     @Override public void onStart() {
         super.onStart();
+        // Reconciliation also runs on reentry from Maps, Spotify, and rotation.
+        if (isInMultiWindowMode()) {
+            stopService(new Intent(this, OverlayService.class));
+            pendingOverlayFallback = false;
+        }
         ui.removeCallbacks(refresh);
         ui.post(refresh);
+    }
+
+    @Override public void onResume() {
+        super.onResume();
+        if (isInMultiWindowMode()) {
+            stopService(new Intent(this, OverlayService.class));
+            pendingOverlayFallback = false;
+        }
+        ui.post(this::reconcileSplitAndOverlay);
     }
 
     @Override public void onStop() {

@@ -61,8 +61,9 @@ public final class MainActivity extends Activity {
         root.addView(split);
         split.setOnClickListener(v -> {
             try {
-                startActivity(new Intent(this, SplitCockpitActivity.class));
+                // Avoid a stale overlay being visible during the split transition.
                 stopService(new Intent(this, OverlayService.class));
+                startActivity(new Intent(this, SplitCockpitActivity.class));
             } catch (RuntimeException e) {
                 permissions.setText("Split-Modus konnte nicht gestartet werden. " +
                     "Nutze die schwebende Ansicht oder Samsung Multi Window.");
