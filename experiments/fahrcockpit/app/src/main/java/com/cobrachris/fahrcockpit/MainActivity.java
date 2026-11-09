@@ -50,8 +50,30 @@ public final class MainActivity extends Activity {
 
         root.addView(Ui.text(this, "FahrCockpit", 30, Ui.FG, true));
         root.addView(Ui.text(this,
-            "Google Maps bleibt deine Navigation. FahrCockpit legt eine verschiebbare " +
-            "Steuerleiste darüber.", 15, Ui.MUTED, false));
+            "Google Maps bleibt deine Navigation. Wähle die echte geteilte " +
+            "Fahransicht oder das bisherige schwebende Cockpit.",
+            15, Ui.MUTED, false));
+
+        Ui.section(this, root, "70/30 Fahransicht mit Google Maps",
+            "Echter Android-Splitscreen statt Karte unter einem großen Overlay. " +
+            "Google Maps bleibt die Navigations-App. Die Trennlinie legt Samsung fest.");
+        Button split = Ui.button(this, "70/30-Fahransicht starten");
+        root.addView(split);
+        split.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(this, SplitCockpitActivity.class));
+                stopService(new Intent(this, OverlayService.class));
+            } catch (RuntimeException e) {
+                permissions.setText("Split-Modus konnte nicht gestartet werden. " +
+                    "Nutze die schwebende Ansicht oder Samsung Multi Window.");
+            }
+        });
+        root.addView(Ui.text(this,
+            "FahrCockpit versucht, Google Maps direkt daneben zu starten. " +
+            "Wenn Samsung die Fenster nicht automatisch teilt, nutze " +
+            "einmalig die App-Paar-Funktion. Das genaue 70/30-Verhältnis " +
+            "stellst du an der System-Trennlinie ein.",
+            12, Ui.MUTED, false));
 
         Ui.section(this, root, "Schwebendes Cockpit",
             "Spotify • Tankstellen • Warn-App (Saphe oder Blitzer.de)");
