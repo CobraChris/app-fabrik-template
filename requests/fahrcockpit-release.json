@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-09-landscape-left-spotify-v9",
-  "source_sha": "7b777fc22b91fe49fed0e8aa4099fdfb11eec790",
-  "expected_version_code": 9
+  "request_id": "2026-11-09-maps-direct-map-tab-v10",
+  "source_sha": "3e37695b1e971da8255bd0c07f3c7d078d7f012b",
+  "expected_version_code": 10
 }
