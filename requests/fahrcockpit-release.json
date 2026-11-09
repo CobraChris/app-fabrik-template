@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-09-final-70-30-split-v6",
-  "source_sha": "c88056ad590cc02907ed57bd3aef01e39d7c9fde",
+  "request_id": "2026-11-09-70-30-v6-safepin",
+  "source_sha": "ae30e8275c1aea247fd49340b500ee7fa25ac888",
   "expected_version_code": 6
 }
