@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-09-one-tap-docked-v8",
-  "source_sha": "a36a767beb0d921ef76e6d19e89357e89a9cf428",
-  "expected_version_code": 8
+  "request_id": "2026-11-09-landscape-left-spotify-v9",
+  "source_sha": "7b777fc22b91fe49fed0e8aa4099fdfb11eec790",
+  "expected_version_code": 9
 }
