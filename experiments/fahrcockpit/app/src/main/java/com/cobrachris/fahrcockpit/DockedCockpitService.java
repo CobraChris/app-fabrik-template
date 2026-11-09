@@ -11,7 +11,7 @@ import android.view.*;
 import android.widget.*;
 
 /**
- * User-started 30% overlay beside Google Maps (landscape), or below it (portrait).
+ * User-started 30% overlay LEFT of Google Maps (landscape), or below it (portrait).
  * Maps remains FULL-SCREEN behind the opaque controls; its window is never resized.
  * Starts only from an explicit user action; no boot receivers or vendor APIs.
  */
@@ -215,7 +215,7 @@ public final class DockedCockpitService extends Service {
         if(collapsed) {
             params.width=Math.min(w,Ui.dp(this,190));
             params.height=Math.min(h,Ui.dp(this,59));
-            params.x=Math.max(0,w-params.width);
+            params.x=DockedLayoutRules.collapsedX(w,params.width,wide);
             params.y=wide?0:Math.max(0,h-params.height);
         } else {
             params.width=DockedLayoutRules.width(w,wide);
