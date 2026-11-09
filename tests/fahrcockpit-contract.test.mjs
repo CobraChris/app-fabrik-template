@@ -90,3 +90,22 @@ test('native Android split is the one-tap default; overlays cannot auto-return',
   assert.match(split, /stopService\(new Intent\(this, OverlayService\.class\)\)/);
   assert.doesNotMatch(split, /pendingOverlayFallback|fallbackGraceElapsed|shouldStartFallback/);
 });
+
+test('embedded map PoC uses a separate WebView viewport with native Spotify controls', () => {
+  const main = java('MainActivity');
+  const embedded = java('EmbeddedMapActivity');
+  const rules = java('EmbeddedMapRules');
+  const manifest = read('app/src/main/AndroidManifest.xml');
+  assert.match(main, /Integrierte Google-Karte testen \(Prototyp\)/);
+  assert.match(embedded, /new WebView\(this\)/);
+  assert.match(embedded, /LinearLayout\.HORIZONTAL/);
+  assert.match(embedded, /LinearLayout\.VERTICAL/);
+  assert.match(embedded, /7f/);
+  assert.match(embedded, /3f/);
+  assert.match(embedded, /SpotifyMedia\.read\(this\)/);
+  assert.match(embedded, /setJavaScriptEnabled\(true\)/);
+  assert.match(embedded, /setAllowFileAccess\(false\)/);
+  assert.doesNotMatch(embedded, /addJavascriptInterface/);
+  assert.match(rules, /static final String URL = "https:\/\/" \+ HOST \+ PATH/);
+  assert.match(manifest, /android:name="\.EmbeddedMapActivity"/);
+});

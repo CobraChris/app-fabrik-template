@@ -28,6 +28,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".EmbeddedMapActivity"
+            android:exported="false"
+            android:resizeableActivity="true" />
         <activity android:name=".SplitCockpitActivity"
             android:exported="false"
             android:resizeableActivity="true" />
