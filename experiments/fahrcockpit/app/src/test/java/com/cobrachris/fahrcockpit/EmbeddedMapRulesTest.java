@@ -10,6 +10,9 @@ public final class EmbeddedMapRulesTest {
         assertEquals("https://cobrachris.github.io/app-fabrik-template/apps/fahrcockpit-map/",
             EmbeddedMapRules.URL);
         assertTrue(EmbeddedMapRules.allowsPage(EmbeddedMapRules.URL));
+        assertTrue(EmbeddedMapRules.allowsOrigin("https://cobrachris.github.io"));
+        assertFalse(EmbeddedMapRules.allowsOrigin("https://cobrachris.github.io.evil.com"));
+        assertFalse(EmbeddedMapRules.allowsOrigin("http://cobrachris.github.io"));
         assertTrue(EmbeddedMapRules.allowsPage(EmbeddedMapRules.URL + "index.html#map"));
         assertFalse(EmbeddedMapRules.allowsPage(
             "https://cobrachris.github.io.evil.com/app-fabrik-template/apps/fahrcockpit-map/"));
