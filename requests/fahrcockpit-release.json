@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-09-dock-right-selectable-v11",
-  "source_sha": "adf0e02c462a8c247319d279eb851036b4a5ba86",
-  "expected_version_code": 11
+  "request_id": "2026-11-09-keyboard-behind-ime-v12",
+  "source_sha": "0be16c7879f620295837acd10eb7c07bf250a588",
+  "expected_version_code": 12
 }
