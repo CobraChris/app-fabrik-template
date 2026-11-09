@@ -93,21 +93,9 @@ public final class EmbeddedMapActivity extends Activity {
                     String origin, GeolocationPermissions.Callback callback) {
                 // Geolocation only happens after the user's map-position tap.
                 // No broad JavaScript bridge, no silent location permission.
-                if (!EmbeddedMapRules.allowsPage(origin + "/")) {
-                    // WebChromeClient receives an origin, not a document path:
-                    // Validate its scheme/host separately below.
-                    try {
-                        java.net.URI parsed = new java.net.URI(origin);
-                        if (!"https".equalsIgnoreCase(parsed.getScheme())
-                                || !EmbeddedMapRules.HOST.equalsIgnoreCase(parsed.getHost())
-                                || parsed.getPort() != -1) {
-                            callback.invoke(origin, false, false);
-                            return;
-                        }
-                    } catch (Exception error) {
-                        callback.invoke(origin, false, false);
-                        return;
-                    }
+                if (!EmbeddedMapRules.allowsOrigin(origin)) {
+                    callback.invoke(origin, false, false);
+                    return;
                 }
                 if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                         == PackageManager.PERMISSION_GRANTED
