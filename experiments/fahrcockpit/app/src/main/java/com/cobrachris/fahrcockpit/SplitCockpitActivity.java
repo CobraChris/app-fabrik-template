@@ -199,8 +199,8 @@ public final class SplitCockpitActivity extends Activity {
      * Google Maps retains its own task, navigation, traffic and account.
      */
     private void launchMapsAdjacent() {
-        Intent maps = getPackageManager().getLaunchIntentForPackage(MAPS_PACKAGE);
-        if (maps == null) {
+        Intent maps = GoogleMapsLaunch.mapIntent();
+        if (!GoogleMapsLaunch.installed(this)) {
             splitStatus.setText("Google Maps ist nicht installiert oder nicht sichtbar.");
             return;
         }
