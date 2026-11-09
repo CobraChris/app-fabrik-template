@@ -54,11 +54,22 @@ public final class MainActivity extends Activity {
             "Fahransicht oder das bisherige schwebende Cockpit.",
             15, Ui.MUTED, false));
 
-        Ui.section(this, root, "Fahren – Google Maps zuerst",
-            "Empfohlen: FahrCockpit öffnet Google Maps mit einer kleinen " +
-            "verschiebbaren Spotify-Leiste. Die Karte, der Navigationsstart " +
-            "und der Standort bleiben größtenteils frei.");
-        Button dock=Ui.button(this, "Navigation mit Mini-Cockpit starten");
+        Ui.section(this, root, "Fahren – echte Bildschirmteilung",
+            "Empfohlen: Google Maps und FahrCockpit öffnen sich in getrennten " +
+            "Android-Fenstern. Kein Spotify-Overlay verdeckt die Navigation.");
+        Button split = Ui.button(this, "Geteilte Navigation starten");
+        root.addView(split);
+        split.setOnClickListener(v -> startSplitAndMaps());
+        root.addView(Ui.text(this,
+            "Die Samsung-Trennlinie lässt sich auf ungefähr 70 % Google Maps " +
+            "und 30 % FahrCockpit verschieben. Querformat: nebeneinander; " +
+            "Hochformat: meist übereinander. Als Samsung App-Paar speicherbar. " +
+            "Der genaue Split und die Position werden von Android festgelegt.",
+            12, Ui.MUTED, false));
+
+        Ui.section(this, root, "Alternative: schwebendes Mini-Cockpit",
+            "Nur auf Wunsch: Das Overlay kann Elemente der Karte verdecken.");
+        Button dock=Ui.button(this, "Mini-Cockpit über Google Maps starten");
         root.addView(dock);
         dock.setOnClickListener(v->startDockedAndMaps());
 
@@ -99,27 +110,6 @@ public final class MainActivity extends Activity {
             "manuellen Ausklappen überdeckt die große Steuerung vorübergehend " +
             "einen Teil der Karte. FahrCockpit kann Maps nicht neu zentrieren.",
             12,Ui.MUTED,false));
-
-        Ui.section(this, root, "Android-Splitscreen (optional)",
-            "Echter Android-Splitscreen statt Karte unter einem großen Overlay. " +
-            "Google Maps bleibt die Navigations-App. Die Trennlinie legt Samsung fest.");
-        Button split = Ui.button(this, "System-Splitscreen (Größe manuell)");
-        root.addView(split);
-        split.setOnClickListener(v -> {
-            try {
-                stopService(new Intent(this, DockedCockpitService.class));
-                stopService(new Intent(this, OverlayService.class));
-                startActivity(new Intent(this, SplitCockpitActivity.class));
-            } catch (RuntimeException e) {
-                permissions.setText("Split-Modus konnte nicht gestartet werden. " +
-                    "Nutze die schwebende Ansicht oder Samsung Multi Window.");
-            }
-        });
-        root.addView(Ui.text(this,
-            "Diese optionale Systemteilung beginnt auf Samsung oft mit 50/50. " +
-            "Sie startet NICHT das gespeicherte App-Paar. " +
-            "Für den Ein-Klick-Betrieb ist der Fahrmodus oben vorgesehen.",
-            12, Ui.MUTED, false));
 
         Ui.section(this, root, "Schwebendes Cockpit",
             "Spotify • Tankstellen • Warn-App (Saphe oder Blitzer.de)");
@@ -294,7 +284,7 @@ public final class MainActivity extends Activity {
 
         // Do not automatically launch from notification/settings or rotation.
         if(savedInstanceState==null && fromAppIcon(getIntent())) {
-            scroll.post(this::startDockedAndMaps);
+            scroll.post(this::startSplitAndMaps);
         }
 
         blitzerStatus.setText(prefs.getBoolean(KEY_HAS_REQUEST, false)
@@ -313,7 +303,19 @@ public final class MainActivity extends Activity {
         super.onNewIntent(i);
         setIntent(i);
         if(fromAppIcon(i)) new android.os.Handler(android.os.Looper.getMainLooper())
-            .post(this::startDockedAndMaps);
+            .post(this::startSplitAndMaps);
+    }
+
+    private void startSplitAndMaps() {
+        try {
+            // Never leave a previous full-screen overlay covering Maps.
+            stopService(new Intent(this, DockedCockpitService.class));
+            stopService(new Intent(this, OverlayService.class));
+            startActivity(new Intent(this, SplitCockpitActivity.class));
+        } catch (RuntimeException e) {
+            if (permissions != null) permissions.setText(
+                "Split-Fahransicht konnte nicht starten. Samsung Multi Window prüfen.");
+        }
     }
 
     private void startDockedAndMaps() {
