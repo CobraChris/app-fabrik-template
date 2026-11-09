@@ -60,6 +60,14 @@ public final class MainActivity extends Activity {
         Button split = Ui.button(this, "Geteilte Navigation starten");
         root.addView(split);
         split.setOnClickListener(v -> startSplitAndMaps());
+        Button embedded = Ui.button(this,
+            "Integrierte Google-Karte testen (Prototyp)");
+        root.addView(embedded);
+        embedded.setOnClickListener(v -> {
+            stopService(new Intent(this, OverlayService.class));
+            stopService(new Intent(this, DockedCockpitService.class));
+            startActivity(new Intent(this, EmbeddedMapActivity.class));
+        });
         root.addView(Ui.text(this,
             "Die Samsung-Trennlinie lässt sich auf ungefähr 70 % Google Maps " +
             "und 30 % FahrCockpit verschieben. Querformat: nebeneinander; " +
