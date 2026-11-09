@@ -1,4 +1,4 @@
-# FahrCockpit 0.9.3-beta – Android-Test-MVP
+# FahrCockpit 0.9.4-beta – vollständiger Android-Testkandidat
 
 **Status (08.11.2026):** FahrCockpit 0.9.2-beta (Build 4) wurde als dauerhaft signierte APK veröffentlicht und auf einem Samsung Android 16 installiert. Overlay, Spotify-Metadaten, Mediensteuerung und Minimieren sind auf dem Gerät bestätigt. Die signierte Version 0.9.3-beta (Build 5) ist am 08.11.2026 mit geprüftem, zu v4 identischem Zertifikat veröffentlicht; die **In-place-Installation v4→v5 auf dem Gerät steht noch aus**. PR #27 und der nachfolgende Diagnostik-PR bleiben bis zur Geräteabnahme Draft. Der Diagnostik-Zweig ist keine veröffentlichte Version.
 
