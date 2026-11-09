@@ -235,7 +235,7 @@ public final class MainActivity extends Activity {
             "Google Maps wird nicht ersetzt. Spotify läuft über die Android-Mediensteuerung.");
         Button maps = Ui.button(this, "Google Maps öffnen");
         root.addView(maps);
-        maps.setOnClickListener(v -> openPackage("com.google.android.apps.maps", "Google Maps"));
+        maps.setOnClickListener(v -> openMapContent());
         Button spotify = Ui.button(this, "Spotify öffnen");
         root.addView(spotify);
         spotify.setOnClickListener(v -> openPackage("com.spotify.music", "Spotify"));
@@ -294,10 +294,8 @@ public final class MainActivity extends Activity {
             stopService(new Intent(this,OverlayService.class));
             startForegroundService(new Intent(this,DockedCockpitService.class)
                 .setAction(DockedCockpitService.SHOW));
-            Intent maps=getPackageManager().getLaunchIntentForPackage(
-                "com.google.android.apps.maps");
-            if(maps!=null) {
-                maps.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if(GoogleMapsLaunch.installed(this)) {
+                Intent maps=GoogleMapsLaunch.mapIntent();
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{
                     try{startActivity(maps);}
                     catch(RuntimeException e){
@@ -390,7 +388,7 @@ public final class MainActivity extends Activity {
             if (getSharedPreferences(CockpitViewRules.DISPLAY_PREFS, MODE_PRIVATE)
                 .getBoolean(CockpitViewRules.KEY_OPEN_MAPS, true)) {
                 new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
-                    () -> openPackage("com.google.android.apps.maps", "Google Maps"), 450);
+                    this::openMapContent, 450);
             }
         } catch (RuntimeException e) {
             permissions.setText("Cockpit konnte nicht gestartet werden: " +
@@ -430,6 +428,18 @@ public final class MainActivity extends Activity {
         blitzerStatus.setText(result == BlitzerBridge.SendResult.SENT_UNCONFIRMED
             ? "Modus-Befehl gesendet – keine Empfangsbestätigung."
             : "Blitzer.de PRO fehlt oder Befehl wurde blockiert.");
+    }
+
+    private void openMapContent() {
+        if (!GoogleMapsLaunch.installed(this)) {
+            permissions.setText("Google Maps ist nicht installiert.");
+            return;
+        }
+        try {
+            startActivity(GoogleMapsLaunch.mapIntent());
+        } catch (RuntimeException error) {
+            permissions.setText("Google Maps konnte die Kartenansicht nicht öffnen.");
+        }
     }
 
     private void openPackage(String packageName, String label) {

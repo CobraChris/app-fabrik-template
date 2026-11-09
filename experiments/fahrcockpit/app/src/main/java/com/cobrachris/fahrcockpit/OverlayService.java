@@ -382,11 +382,8 @@ public final class OverlayService extends Service {
 
     private void openGoogleMaps() {
         try {
-            Intent open = getPackageManager().getLaunchIntentForPackage(
-                "com.google.android.apps.maps");
-            if (open != null) {
-                open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(open);
+            if (GoogleMapsLaunch.installed(this)) {
+                startActivity(GoogleMapsLaunch.mapIntent());
             } else {
                 toast("Google Maps nicht installiert.");
             }

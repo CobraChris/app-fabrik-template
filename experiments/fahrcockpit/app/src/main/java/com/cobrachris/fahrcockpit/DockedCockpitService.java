@@ -181,10 +181,10 @@ public final class DockedCockpitService extends Service {
         toast(SpotifyMedia.send(this,a));updateMusic();
     }
     private void openMaps() {
-        Intent i=getPackageManager().getLaunchIntentForPackage(
-            "com.google.android.apps.maps");
-        if(i==null){toast("Google Maps nicht installiert.");return;}
-        try{startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));}
+        if(!GoogleMapsLaunch.installed(this)){
+            toast("Google Maps nicht installiert."); return;
+        }
+        try{startActivity(GoogleMapsLaunch.mapIntent());}
         catch(RuntimeException e){toast("Google Maps nicht erreichbar.");}
     }
     private void updateMusic() {
