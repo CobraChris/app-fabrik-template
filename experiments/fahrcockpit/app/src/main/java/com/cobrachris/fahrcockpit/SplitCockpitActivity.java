@@ -261,9 +261,12 @@ public final class SplitCockpitActivity extends Activity {
             content.addView(saved);
             saved.setOnClickListener(v -> field.setText(target));
         }
+        ScrollView dialogScroll = new ScrollView(this);
+        dialogScroll.setFillViewport(false);
+        dialogScroll.addView(content);
         AlertDialog dialog = new AlertDialog.Builder(this)
             .setTitle("Google-Navigation im Splitscreen")
-            .setView(content)
+            .setView(dialogScroll)
             .setNegativeButton("Abbrechen", (d, which) -> {})
             .setPositiveButton("Navigation starten", null)
             .create();
