@@ -8,6 +8,7 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.WebChromeClient;
@@ -36,7 +37,7 @@ public final class EmbeddedMapActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private WebView webView;
     private TextView musicStatus, track, elapsed, duration;
-    private Button play, previous, next, back15, forward15;
+    private Button play, previous, next, back15, forward15, spotifyAction;
     private SeekBar progress;
     private boolean touchingProgress;
     private long durationMs = -1L;
@@ -165,6 +166,11 @@ public final class EmbeddedMapActivity extends Activity {
         content.addView(Ui.text(this, "FahrCockpit · Spotify", 19, Ui.FG, true));
         musicStatus = Ui.text(this, "Medienstatus wird geprüft …", 12, Ui.MUTED, false);
         content.addView(musicStatus);
+        // This is the ONLY onboarding button needed inside the actual driving
+        // pane. Hidden as soon as Android exposes an active Spotify session.
+        spotifyAction = Ui.button(this, "Spotify öffnen");
+        content.addView(spotifyAction);
+        spotifyAction.setOnClickListener(v -> runSpotifyNextStep());
         track = Ui.text(this, "–", 14, Ui.FG, true);
         track.setMaxLines(2);
         content.addView(track);
@@ -259,6 +265,34 @@ public final class EmbeddedMapActivity extends Activity {
         }
     }
 
+    private void runSpotifyNextStep() {
+        // Never request notification-listener access implicitly. Android owns
+        // the consent UI, and we guide the user to the exact setting.
+        if (!Permissions.isMediaListenerEnabled(this)) {
+            musicStatus.setText("Android-Einstellungen → Benachrichtigungszugriff → "
+                + "FahrCockpit (Test) aktivieren. Danach mit Zurück zurückkehren.");
+            try {
+                startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+            } catch (RuntimeException unavailable) {
+                musicStatus.setText("Android-Einstellungen → Apps → Spezieller Zugriff → "
+                    + "Benachrichtigungszugriff → FahrCockpit (Test) einschalten.");
+            }
+            return;
+        }
+        Intent spotify = getPackageManager().getLaunchIntentForPackage("com.spotify.music");
+        if (spotify == null) {
+            musicStatus.setText("Spotify ist nicht installiert oder lässt sich nicht öffnen.");
+            return;
+        }
+        try {
+            startActivity(spotify);
+            musicStatus.setText("Spotify-App: Titel starten, danach mit Zurück "
+                + "wieder zu FahrCockpit wechseln.");
+        } catch (RuntimeException error) {
+            musicStatus.setText("Spotify konnte nicht geöffnet werden.");
+        }
+    }
+
     private void send(SpotifyMedia.Action action) {
         musicStatus.setText(SpotifyMedia.send(this, action));
         handler.postDelayed(this::updateMusic, 500L);
@@ -266,6 +300,11 @@ public final class EmbeddedMapActivity extends Activity {
 
     private void updateMusic() {
         SpotifyMedia.State state = SpotifyMedia.read(this);
+        boolean listenerGranted = Permissions.isMediaListenerEnabled(this);
+        String nextAction = SpotifyDisplayRules.nextAction(listenerGranted, state.connected);
+        spotifyAction.setVisibility(nextAction == null ? View.GONE : View.VISIBLE);
+        if (nextAction != null) spotifyAction.setText(nextAction);
+        track.setVisibility(state.connected ? View.VISIBLE : View.GONE);
         track.setText(state.line);
         play.setText(state.playing ? "⏸" : "▶");
         play.setEnabled(state.connected);
@@ -288,12 +327,11 @@ public final class EmbeddedMapActivity extends Activity {
             }
             duration.setText(TrackProgressRules.time(state.durationMs));
         }
-        if (!state.connected) musicStatus.setText(
-            Permissions.isMediaListenerEnabled(this)
-                ? "Spotify öffnen und Musik starten."
-                : "Spotify-Medienzugriff in FahrCockpit freigeben.");
-        else if (musicStatus.getText().toString().startsWith("Spotify "))
-            musicStatus.setText("Spotify verbunden");
+        if (!state.connected) {
+            musicStatus.setText(SpotifyDisplayRules.notConnected(listenerGranted));
+        } else {
+            musicStatus.setText(SpotifyDisplayRules.connectedStatus(state.playing));
+        }
     }
 
     @Override public void onRequestPermissionsResult(int code,
