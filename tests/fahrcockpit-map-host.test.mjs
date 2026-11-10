@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
 const read=p=>readFileSync(new URL('../apps/fahrcockpit-google-v16/'+p,import.meta.url),'utf8');
 const legacy=p=>readFileSync(new URL('../apps/fahrcockpit-map/'+p,import.meta.url),'utf8');
 
@@ -63,4 +64,70 @@ test('Google pairing can import a key copied from a different installed browser 
  assert.match(js,/crypto\.subtle\.encrypt\(\{name:'AES-GCM',iv\}/);
  assert.match(js,/MAX_SESSION_AGE_MS=4\*60\*1000/);
  assert.doesNotMatch(js,/fetch\(|XMLHttpRequest|sendBeacon|postMessage\(/);
+});
+
+test('GPS recenter draws a visible blue point with a white border and accuracy ring',()=>{
+ const listeners={};
+ const status={textContent:''},placeholder={hidden:false};
+ const els={
+  'center':{addEventListener(name,fn){listeners[name]=fn;}},
+  'google-map':{},'status':status,'not-connected':placeholder
+ };
+ const maps=[],markers=[],circles=[];
+ let fix={coords:{latitude:36.7484,longitude:139.6143,accuracy:35}};
+ class FakeMap{
+  constructor(el,options){this.options=options;maps.push(this);}
+  setCenter(p){this.center=p;}
+  setZoom(z){this.zoom=z;}
+ }
+ class FakeMarker{
+  constructor(options){this.options=options;this.position=options.position;markers.push(this);}
+  setPosition(p){this.position=p;}
+ }
+ class FakeCircle{
+  constructor(options){this.options=options;this.center=options.center;this.radius=options.radius;this.map=options.map;circles.push(this);}
+  setCenter(p){this.center=p;}
+  setRadius(r){this.radius=r;}
+  setMap(m){this.map=m;}
+ }
+ const sandbox={
+  URLSearchParams,
+  localStorage:{getItem(key){return key==='fahrcockpit-map-demo-key-v1'?'AIza'+'x'.repeat(35):null;}},
+  navigator:{geolocation:{getCurrentPosition(success){success(fix);}}},
+  document:{
+   getElementById:id=>els[id],
+   createElement:()=>({}),
+   head:{append(){}}
+  },
+  google:{maps:{Map:FakeMap,Marker:FakeMarker,Circle:FakeCircle,
+   SymbolPath:{CIRCLE:'circle'}}},
+  setTimeout:()=>1,clearTimeout:()=>{}
+ };
+ runInNewContext(read('app.js'),sandbox);
+ sandbox.__fahrcockpitMapsReady();
+ assert.equal(maps.length,1);
+ assert.equal(markers.length,0,'do not invent a location before consent');
+ listeners.click();
+ assert.equal(maps[0].center.lat,36.7484);
+ assert.equal(maps[0].center.lng,139.6143);
+ assert.equal(maps[0].zoom,16);
+ assert.equal(markers.length,1,'blue dot marker must be created');
+ assert.equal(markers[0].position.lat,36.7484);
+ assert.equal(markers[0].options.icon.fillColor,'#1a73e8');
+ assert.equal(markers[0].options.icon.strokeColor,'#ffffff');
+ assert.equal(markers[0].options.icon.fillOpacity,1);
+ assert.equal(markers[0].options.map,maps[0]);
+ assert.equal(circles.length,1,'accuracy radius must be drawn');
+ assert.equal(circles[0].radius,35);
+ assert.match(status.textContent,/Blauer Punkt/);
+ fix={coords:{latitude:36.7500,longitude:139.6200,accuracy:12}};
+ listeners.click();
+ assert.equal(markers.length,1,'recenter should update not stack markers');
+ assert.equal(circles.length,1,'recenter should update not stack accuracy circles');
+ assert.equal(markers[0].position.lat,36.75);
+ assert.equal(circles[0].radius,12);
+ fix={coords:{latitude:36.7510,longitude:139.6210,accuracy:5000}};
+ listeners.click();
+ assert.equal(markers[0].position.lat,36.751);
+ assert.equal(circles[0].map,null,'hide misleading oversized accuracy circle');
 });
