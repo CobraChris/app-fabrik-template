@@ -12,6 +12,7 @@
  const $=id=>document.getElementById(id);
  const mapEl=$('google-map'),status=$('status'),empty=$('not-connected');
  let googleMap=null,loading=false,script=null,loadTimer=null,position=null;
+ let positionMarker=null,accuracyCircle=null,positionAccuracy=null;
  const setStatus=value=>{status.textContent=value;};
  function stored(){
   try{
@@ -30,6 +31,41 @@
   empty.hidden=false;
   setStatus(msg||'Google-Zugang noch nicht verbunden.');
  }
+ // A centered map is not a location marker. Draw and retain a visible
+ // GPS symbol, updating the SAME marker on every explicit recenter tap.
+ function showPosition(point,accuracy){
+  if(!googleMap)return false;
+  const maps=globalThis.google?.maps;
+  if(!maps?.Marker || !maps?.SymbolPath?.CIRCLE)return false;
+  try{
+   if(!positionMarker){
+    positionMarker=new maps.Marker({
+     map:googleMap,position:point,title:'Mein Standort',
+     clickable:false,zIndex:1000,
+     icon:{
+      path:maps.SymbolPath.CIRCLE,scale:9,
+      fillColor:'#1a73e8',fillOpacity:1,
+      strokeColor:'#ffffff',strokeOpacity:1,strokeWeight:3
+     }
+    });
+   }else positionMarker.setPosition(point);
+   const precise=Number.isFinite(accuracy)&&accuracy>0&&accuracy<=2000;
+   if(precise&&maps.Circle){
+    if(!accuracyCircle){
+     accuracyCircle=new maps.Circle({
+      map:googleMap,center:point,radius:accuracy,clickable:false,
+      strokeColor:'#1a73e8',strokeOpacity:.4,strokeWeight:1,
+      fillColor:'#1a73e8',fillOpacity:.12,zIndex:1
+     });
+    }else{
+     accuracyCircle.setCenter(point);
+     accuracyCircle.setRadius(accuracy);
+     accuracyCircle.setMap(googleMap);
+    }
+   }else if(accuracyCircle)accuracyCircle.setMap(null);
+   return true;
+  }catch{return false;}
+ }
  function ready(){
   if(!loading)return;
   clearTimeout(loadTimer);loadTimer=null;
@@ -41,6 +77,7 @@
     gestureHandling:'greedy',clickableIcons:true
    });
    empty.hidden=true;loading=false;
+   if(position)showPosition(position,positionAccuracy);
    setStatus('Google-Karte aktiv · noch keine Abbiegenavigation');
   }catch{showUnconfigured('Google-Karte konnte nicht gestartet werden.');}
  }
@@ -63,8 +100,13 @@
   navigator.geolocation.getCurrentPosition(p=>{
    const lat=p.coords.latitude,lng=p.coords.longitude;
    if(!Number.isFinite(lat)||!Number.isFinite(lng))return setStatus('GPS-Daten ungültig.');
-   position={lat,lng};googleMap.setCenter(position);googleMap.setZoom(16);
-   setStatus('Auf Standort zentriert · keine Abbiegenavigation');
+   position={lat,lng};
+   positionAccuracy=Number(p.coords.accuracy);
+   googleMap.setCenter(position);googleMap.setZoom(16);
+   const visible=showPosition(position,positionAccuracy);
+   setStatus(visible
+    ?'Blauer Punkt: dein Standort · keine Abbiegenavigation'
+    :'Standort zentriert, Positionssymbol nicht verfügbar.');
   },()=>setStatus('Standort nicht freigegeben oder nicht verfügbar.'),
   {enableHighAccuracy:true,timeout:12000,maximumAge:3000});
  });
