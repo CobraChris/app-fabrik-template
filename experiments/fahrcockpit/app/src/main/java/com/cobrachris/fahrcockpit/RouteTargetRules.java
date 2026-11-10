@@ -1,7 +1,6 @@
 package com.cobrachris.fahrcockpit;
 
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /**
@@ -51,6 +50,11 @@ final class RouteTargetRules {
     }
 
     private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+        // The String charset-name overload is available on our minSdk 30.
+        try {
+            return URLEncoder.encode(value, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException impossible) {
+            throw new IllegalStateException("UTF-8 not supported", impossible);
+        }
     }
 }
