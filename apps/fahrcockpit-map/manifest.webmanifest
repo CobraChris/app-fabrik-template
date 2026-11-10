@@ -1,7 +1,7 @@
 {
-  "name": "FahrCockpit Google-Karte",
+  "name": "FahrCockpit Karte",
   "short_name": "FahrCockpit",
-  "description": "Eingebettete Google-Karte für FahrCockpit. Vorhandenen Demo-Key aus der Live-Karte übernehmen, ohne OpenStreetMap.",
+  "description": "Schlüsselfreie integrierte OpenStreetMap-Karte für FahrCockpit. Google-Demo optional, keine Abbiegenavigation.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
