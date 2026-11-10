@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const read=p=>readFileSync(new URL('../apps/fahrcockpit-map/'+p,import.meta.url),'utf8');
+const read=p=>readFileSync(new URL('../apps/fahrcockpit-google-v16/'+p,import.meta.url),'utf8');
+const legacy=p=>readFileSync(new URL('../apps/fahrcockpit-map/'+p,import.meta.url),'utf8');
 
 test('Google is the only embedded map; existing Live-Karte key automatically reused in same browser',()=>{
  const html=read('index.html'),css=read('styles.css'),js=read('app.js');
@@ -38,4 +39,13 @@ test('Google-only map manifest keeps a separate PWA scope',()=>{
  const m=JSON.parse(read('manifest.webmanifest'));
  assert.equal(m.id,'./');assert.equal(m.scope,'./');
  assert.equal(m.start_url,'./');assert.equal(m.display,'standalone');
+});
+
+test('the signed v15 map host is untouched while v16 is Google-only',()=>{
+ const oldHtml=legacy('index.html'),oldJs=legacy('app.js');
+ assert.match(oldHtml,/id="osm-map"/);
+ assert.match(oldJs,/function startOSM\(\)/);
+ const newHtml=read('index.html'),newJs=read('app.js');
+ assert.doesNotMatch(newHtml,/id="osm-map"|leaflet\.js/);
+ assert.doesNotMatch(newJs,/startOSM\(|tile\.openstreetmap\.org/);
 });
