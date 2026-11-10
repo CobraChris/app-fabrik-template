@@ -34,7 +34,7 @@ final class GoogleKeyTransfer {
     private static final String EXPIRES = "expires";
     private static final long VALID_MS = 5L * 60L * 1000L;
     private static final String PAGE =
-        "https://cobrachris.github.io/app-fabrik-template/apps/fahrcockpit-map/transfer.html";
+        "https://cobrachris.github.io/app-fabrik-template/apps/fahrcockpit-google-v16/transfer.html";
     private static final Pattern GOOGLE =
         Pattern.compile("^AIza[0-9A-Za-z_-]{25,90}$");
     private static final int BASE64_FLAGS =

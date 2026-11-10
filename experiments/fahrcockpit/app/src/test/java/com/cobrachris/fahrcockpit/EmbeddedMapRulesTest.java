@@ -7,7 +7,7 @@ import org.junit.Test;
 
 public final class EmbeddedMapRulesTest {
     @Test public void onlyHttpsMapHostIsAllowed() {
-        assertEquals("https://cobrachris.github.io/app-fabrik-template/apps/fahrcockpit-map/",
+        assertEquals("https://cobrachris.github.io/app-fabrik-template/apps/fahrcockpit-google-v16/",
             EmbeddedMapRules.URL);
         assertTrue(EmbeddedMapRules.allowsPage(EmbeddedMapRules.URL));
         assertTrue(EmbeddedMapRules.allowsOrigin("https://cobrachris.github.io"));
@@ -15,13 +15,13 @@ public final class EmbeddedMapRulesTest {
         assertFalse(EmbeddedMapRules.allowsOrigin("http://cobrachris.github.io"));
         assertTrue(EmbeddedMapRules.allowsPage(EmbeddedMapRules.URL + "index.html#map"));
         assertFalse(EmbeddedMapRules.allowsPage(
-            "https://cobrachris.github.io.evil.com/app-fabrik-template/apps/fahrcockpit-map/"));
+            "https://cobrachris.github.io.evil.com/app-fabrik-template/apps/fahrcockpit-google-v16/"));
         assertFalse(EmbeddedMapRules.allowsPage(
-            "http://cobrachris.github.io/app-fabrik-template/apps/fahrcockpit-map/"));
+            "http://cobrachris.github.io/app-fabrik-template/apps/fahrcockpit-google-v16/"));
         assertFalse(EmbeddedMapRules.allowsPage(
             "https://cobrachris.github.io/meine-livekarte/"));
         assertFalse(EmbeddedMapRules.allowsPage(
-            "https://cobrachris.github.io/app-fabrik-template/apps/fahrcockpit-map/../../other/"));
+            "https://cobrachris.github.io/app-fabrik-template/apps/fahrcockpit-google-v16/../../other/"));
         assertFalse(EmbeddedMapRules.allowsPage("javascript:alert(1)"));
         assertFalse(EmbeddedMapRules.allowsPage(null));
     }
