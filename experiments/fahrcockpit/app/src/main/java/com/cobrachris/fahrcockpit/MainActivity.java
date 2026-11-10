@@ -354,7 +354,14 @@ public final class MainActivity extends Activity {
         try {
             stopService(new Intent(this, DockedCockpitService.class));
             stopService(new Intent(this, OverlayService.class));
-            startActivity(new Intent(this, EmbeddedMapActivity.class));
+            // After separately approved Google Cloud setup, the same app icon
+            // opens the truly embedded 70/30 navigator by default.
+            // Ordinary keyless builds retain the accepted v19 Google map.
+            boolean navigationAuthorizedBuild = BuildConfig.NAVSDK_API_KEY != null
+                && !BuildConfig.NAVSDK_API_KEY.isEmpty();
+            startActivity(navigationAuthorizedBuild
+                ? new Intent(this, IntegratedNavigationActivity.class)
+                : new Intent(this, EmbeddedMapActivity.class));
         } catch (RuntimeException e) {
             if (permissions != null) permissions.setText(
                 "Integrierte Kartenansicht konnte nicht gestartet werden.");
