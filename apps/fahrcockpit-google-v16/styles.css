@@ -9,6 +9,12 @@ button:focus-visible,a:focus-visible{outline:3px solid #ffe39f;outline-offset:3p
 .controls button{min-width:43px;height:40px;min-height:40px;padding:0;font-size:23px;background:#2f6260;color:#f6fff9}
 .map-surface{position:relative;flex:1;min-height:0;overflow:hidden;background:#193940}
 #google-map{position:absolute;inset:0;height:100%;width:100%}
+.gps-position-dot{position:absolute;left:0;top:0;width:20px;height:20px;box-sizing:border-box;
+  border:3px solid #fff;border-radius:50%;background:#1a73e8;
+  box-shadow:0 0 0 2px rgba(26,115,232,.19),0 2px 6px rgba(0,0,0,.48);
+  transform:translate(-50%,-50%);pointer-events:none;z-index:1001}
+.gps-position-dot.gps-center-fallback{left:50%;top:50%;z-index:20}
+.gps-position-dot[hidden]{display:none!important}
 .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:linear-gradient(150deg,#27545a,#17272e);gap:12px;padding:17px;z-index:2;overflow:auto}
 .placeholder strong{font-size:20px}.placeholder p{max-width:370px;font-size:13px;line-height:1.5;margin:0;color:#d6e9e4}
 .placeholder .small{font-size:11px}.footer{min-height:27px;padding:5px 9px;background:#102529;color:#bdd9d0;font-size:11px}

@@ -99,8 +99,8 @@ test('GPS recenter draws a visible blue point with a white border and accuracy r
    createElement:()=>({}),
    head:{append(){}}
   },
-  google:{maps:{Map:FakeMap,Marker:FakeMarker,Circle:FakeCircle,
-   SymbolPath:{CIRCLE:'circle'}}},
+  // Reproduce the actual Samsung WebView: SymbolPath is NOT available.
+  google:{maps:{Map:FakeMap,Marker:FakeMarker,Circle:FakeCircle}},
   setTimeout:()=>1,clearTimeout:()=>{}
  };
  runInNewContext(read('app.js'),sandbox);
@@ -130,4 +130,81 @@ test('GPS recenter draws a visible blue point with a white border and accuracy r
  listeners.click();
  assert.equal(markers[0].position.lat,36.751);
  assert.equal(circles[0].map,null,'hide misleading oversized accuracy circle');
+});
+
+test('when Google Marker API is missing, a coordinate-anchored HTML overlay displays GPS',()=>{
+ const listeners={},dots=[],status={textContent:''},placeholder={hidden:false};
+ const center={addEventListener(event,fn){listeners[event]=fn;}};
+ const els={'center':center,'google-map':{},'status':status,'not-connected':placeholder};
+ let coords={latitude:36.7484,longitude:139.6143,accuracy:22};
+ const document={
+  getElementById:id=>els[id],
+  createElement:()=>({style:{},setAttribute(){},classList:{add(){}},remove(){}}),
+  head:{append(){}}
+ };
+ class FakeMap{setCenter(point){this.point=point;}setZoom(zoom){this.zoom=zoom;}}
+ class FakeOverlay{
+  getPanes(){return {overlayMouseTarget:{appendChild:el=>dots.push(el)}};}
+  getProjection(){return {fromLatLngToDivPixel:p=>({x:p.lng*2,y:p.lat*2})};}
+  setMap(map){this.map=map;this.onAdd();this.draw();}
+ }
+ const sandbox={
+  URLSearchParams,document,google:{maps:{Map:FakeMap,OverlayView:FakeOverlay}},
+  localStorage:{getItem:key=>key==='fahrcockpit-map-demo-key-v1'?'AIza'+'x'.repeat(35):null},
+  navigator:{geolocation:{getCurrentPosition:success=>success({coords})}},
+  setTimeout:()=>1,clearTimeout:()=>{}
+ };
+ runInNewContext(read('app.js'),sandbox);
+ sandbox.__fahrcockpitMapsReady();
+ listeners.click();
+ assert.equal(dots.length,1,'HTML marker must be attached to the Google overlay pane');
+ assert.equal(dots[0].style.left,(139.6143*2)+'px');
+ assert.equal(dots[0].style.top,(36.7484*2)+'px');
+ assert.equal(dots[0].getAttribute,undefined,'no SVG SymbolPath is required');
+ assert.match(status.textContent,/Blauer Punkt/);
+ coords={latitude:36.75,longitude:139.62,accuracy:12};
+ listeners.click();
+ assert.equal(dots.length,1,'recenter must update the same HTML marker');
+ assert.equal(dots[0].style.left,(139.62*2)+'px');
+});
+
+test('even without Google Marker or OverlayView, a center-only dot appears and hides when panned',()=>{
+ const listeners={},mapEvents={},container={children:[],appendChild(el){this.children.push(el);}};
+ const status={textContent:''};
+ const elements={
+  'google-map':{parentElement:container},
+  'center':{addEventListener(event,fn){listeners[event]=fn;}},
+  'status':status,'not-connected':{hidden:false}
+ };
+ class FakeMap{
+  setCenter(point){this.center=point;}setZoom(zoom){this.zoom=zoom;}
+  addListener(event,fn){mapEvents[event]=fn;}
+ }
+ const sandbox={
+  URLSearchParams,document:{
+   getElementById:id=>elements[id],
+   createElement:()=>({style:{},classList:{items:[],add(name){this.items.push(name);}},setAttribute(){},hidden:false}),
+   head:{append(){}}
+  },google:{maps:{Map:FakeMap}},
+  localStorage:{getItem:key=>key==='fahrcockpit-map-demo-key-v1'?'AIza'+'x'.repeat(35):null},
+  navigator:{geolocation:{getCurrentPosition:success=>success({
+   coords:{latitude:36.7484,longitude:139.6143,accuracy:28}})}},
+  setTimeout:()=>1,clearTimeout:()=>{}
+ };
+ runInNewContext(read('app.js'),sandbox);
+ sandbox.__fahrcockpitMapsReady();
+ assert.equal(container.children.length,0,'do not display a location before user permits GPS');
+ listeners.click();
+ assert.equal(container.children.length,1);
+ const dot=container.children[0];
+ assert.equal(dot.className,'gps-position-dot');
+ assert.equal(dot.classList.items[0],'gps-center-fallback');
+ assert.equal(dot.hidden,false);
+ assert.match(status.textContent,/Blauer Punkt/);
+ mapEvents.dragstart();
+ assert.equal(dot.hidden,true,'manual pan must not leave a misleading fixed GPS dot');
+ listeners.click();
+ assert.equal(dot.hidden,false,'recenter restores the indicator');
+ assert.equal(container.children.length,1,'do not stack dots');
+ assert.match(read('styles.css'),/\.gps-position-dot\.gps-center-fallback/);
 });
