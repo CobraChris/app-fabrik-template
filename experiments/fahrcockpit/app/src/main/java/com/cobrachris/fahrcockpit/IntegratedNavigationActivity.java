@@ -181,13 +181,13 @@ public final class IntegratedNavigationActivity extends Activity {
                     boolean fromUser) {
                 if (fromUser && totalDuration > 0)
                     elapsed.setText(TrackProgressRules.time(
-                        TrackProgressRules.positionFromSlider(val, totalDuration)));
+                        TrackProgressRules.targetPosition(val, totalDuration)));
             }
             @Override public void onStopTrackingTouch(SeekBar bar) {
                 touchingSeek = false;
                 if (totalDuration > 0) SpotifyMedia.seekAbsolute(
                     IntegratedNavigationActivity.this,
-                    TrackProgressRules.positionFromSlider(bar.getProgress(),
+                    TrackProgressRules.targetPosition(bar.getProgress(),
                         totalDuration));
             }
         });
