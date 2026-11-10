@@ -2,6 +2,11 @@ package com.cobrachris.fahrcockpit;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.SharedPreferences;
+import android.net.Uri;
+import android.widget.EditText;
+import android.widget.Toast;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
@@ -34,9 +39,12 @@ import android.widget.TextView;
  */
 public final class EmbeddedMapActivity extends Activity {
     private static final int REQUEST_GEO = 317;
+    private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
+    private static final String TARGET_STATE = "selected_route_target";
     private final Handler handler = new Handler(Looper.getMainLooper());
     private WebView webView;
-    private TextView musicStatus, track, elapsed, duration;
+    private TextView musicStatus, track, elapsed, duration, routeStatus;
+    private String currentTarget;
     private Button play, previous, next, back15, forward15, spotifyAction;
     private SeekBar progress;
     private boolean touchingProgress;
@@ -55,6 +63,9 @@ public final class EmbeddedMapActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         importedGoogleKey = getIntent().getStringExtra(GoogleKeyTransfer.EXTRA_KEY);
+        if (savedInstanceState != null) {
+            currentTarget = savedInstanceState.getString(TARGET_STATE);
+        }
         // Never let an old overlay cover the independent Google map viewport.
         stopService(new Intent(this, OverlayService.class));
         stopService(new Intent(this, DockedCockpitService.class));
@@ -89,7 +100,17 @@ public final class EmbeddedMapActivity extends Activity {
                 // Subresources from Google are loaded normally. Never navigate the
                 // main frame away from the dedicated map page.
                 if (!request.isForMainFrame()) return false;
-                if (GoogleKeyTransfer.isImportStart(request.getUrl())) {
+                Uri targetUri = request.getUrl();
+                if ("fahrcockpit".equalsIgnoreCase(targetUri.getScheme())
+                        && "destination".equalsIgnoreCase(targetUri.getHost())) {
+                    // This unexported Activity only accepts map taps from the
+                    // pinned HTTPS first-party WebView, never arbitrary pages.
+                    if (EmbeddedMapRules.allowsPage(view.getUrl())) {
+                        runOnUiThread(() -> acceptMapPoint(targetUri));
+                    }
+                    return true;
+                }
+                if (GoogleKeyTransfer.isImportStart(targetUri)) {
                     if (!GoogleKeyTransfer.openBrowser(EmbeddedMapActivity.this)
                             && musicStatus != null) {
                         musicStatus.setText("Browser für Google-Übernahme nicht verfügbar.");
@@ -163,6 +184,16 @@ public final class EmbeddedMapActivity extends Activity {
     }
 
     private void buildControls(LinearLayout content) {
+        Button chooseRoute = Ui.button(this, "📍 Ziel / Route wählen");
+        content.addView(chooseRoute);
+        chooseRoute.setOnClickListener(v -> showDestinationDialog(currentTarget));
+        routeStatus = Ui.text(this,
+            currentTarget == null ? "Google-Route auswählen · Navigation in Google Maps"
+                : "Ziel: " + currentTarget,
+            11, Ui.MUTED, false);
+        routeStatus.setMaxLines(2);
+        routeStatus.setVisibility(currentTarget == null ? View.GONE : View.VISIBLE);
+        content.addView(routeStatus);
         content.addView(Ui.text(this, "FahrCockpit · Spotify", 19, Ui.FG, true));
         musicStatus = Ui.text(this, "Medienstatus wird geprüft …", 12, Ui.MUTED, false);
         content.addView(musicStatus);
@@ -242,6 +273,165 @@ public final class EmbeddedMapActivity extends Activity {
         content.addView(settings);
         settings.setOnClickListener(v ->
             startActivity(new Intent(this, MainActivity.class)));
+    }
+
+    private void acceptMapPoint(Uri uri) {
+        if (uri == null || !"fahrcockpit".equalsIgnoreCase(uri.getScheme())
+                || !"destination".equalsIgnoreCase(uri.getHost())) return;
+        String chosen = RouteTargetRules.coordinates(
+            uri.getQueryParameter("lat"), uri.getQueryParameter("lng"));
+        if (chosen == null) {
+            if (routeStatus != null) routeStatus.setText("Ungültiger Kartenpunkt.");
+            return;
+        }
+        currentTarget = chosen;
+        showDestinationDialog(chosen); // User chooses an action; never auto-navigate.
+    }
+
+    private void selectedTarget(String target) {
+        currentTarget = target;
+        if (routeStatus != null) {
+            routeStatus.setText("Ziel: " + target);
+            routeStatus.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private java.util.List<String> savedDestinations() {
+        SharedPreferences prefs = getSharedPreferences(ROUTES_PREFS, MODE_PRIVATE);
+        java.util.ArrayList<String> result = new java.util.ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            String value = RouteTargetRules.clean(prefs.getString("target_" + i, ""));
+            if (value != null && !result.contains(value)) result.add(value);
+        }
+        return result;
+    }
+
+    private void rememberDestination(String target) {
+        java.util.List<String> list = savedDestinations();
+        SharedPreferences.Editor editor =
+            getSharedPreferences(ROUTES_PREFS, MODE_PRIVATE).edit();
+        editor.clear();
+        editor.putString("target_0", target);
+        int slot = 1;
+        for (String previous : list) {
+            if (previous.equalsIgnoreCase(target)) continue;
+            if (slot >= 5) break;
+            editor.putString("target_" + slot, previous);
+            slot++;
+        }
+        editor.apply();
+    }
+
+    private void launchGoogleRoute(String target, boolean navigate) {
+        String cleaned = RouteTargetRules.clean(target);
+        if (cleaned == null) {
+            Toast.makeText(this, "Bitte ein gültiges Ziel eingeben.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        selectedTarget(cleaned);
+        if (!GoogleMapsLaunch.installed(this)) {
+            routeStatus.setText("Google Maps ist nicht installiert · Route nicht gestartet.");
+            return;
+        }
+        Intent route = navigate ? GoogleMapsLaunch.navigationIntent(cleaned)
+            : GoogleMapsLaunch.directionsIntent(cleaned);
+        if (route == null) return;
+        try {
+            startActivity(route);
+            routeStatus.setText("Ziel: " + cleaned + " · Google Maps geöffnet");
+        } catch (RuntimeException unavailable) {
+            routeStatus.setText("Google Maps konnte nicht geöffnet werden.");
+        }
+    }
+
+    private void showDestinationDialog(String proposed) {
+        final LinearLayout column = Ui.column(this);
+        column.setPadding(Ui.dp(this, 15), Ui.dp(this, 5),
+            Ui.dp(this, 15), Ui.dp(this, 10));
+        TextView explanation = Ui.text(this,
+            "Adresse, Ortsname oder Koordinaten. Die Route wird in der "
+            + "installierten Google-Maps-App berechnet, nicht in dieser Karte.",
+            12, Ui.MUTED, false);
+        column.addView(explanation);
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setTextColor(Ui.FG);
+        input.setHintTextColor(Ui.MUTED);
+        input.setHint("Ziel, Adresse oder Ort");
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+        input.setText(proposed == null ? "" : proposed);
+        column.addView(input);
+
+        android.widget.ScrollView scroller = new android.widget.ScrollView(this);
+        scroller.setFillViewport(false);
+        scroller.addView(column);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle("Google-Navigation")
+            .setView(scroller)
+            .setNegativeButton("Schließen", (d, which) -> {})
+            .create();
+
+        java.util.List<String> recent = savedDestinations();
+        if (!recent.isEmpty()) {
+            column.addView(Ui.text(this, "Gespeicherte Ziele", 13, Ui.FG, true));
+            for (String remembered : recent) {
+                Button item = Ui.button(this, remembered);
+                item.setMaxLines(1);
+                column.addView(item);
+                item.setOnClickListener(v -> input.setText(remembered));
+            }
+            Button clear = Ui.button(this, "Gespeicherte Ziele löschen");
+            column.addView(clear);
+            clear.setOnClickListener(v -> {
+                getSharedPreferences(ROUTES_PREFS, MODE_PRIVATE).edit().clear().apply();
+                dialog.dismiss();
+                showDestinationDialog(input.getText().toString());
+            });
+        }
+
+        Button save = Ui.button(this, "Ziel merken");
+        column.addView(save);
+        save.setOnClickListener(v -> {
+            String target = RouteTargetRules.clean(input.getText().toString());
+            if (target == null) {
+                input.setError("Bitte ein gültiges Ziel eingeben (max. 160 Zeichen).");
+                return;
+            }
+            selectedTarget(target);
+            rememberDestination(target);
+            Toast.makeText(this, "Ziel gespeichert.", Toast.LENGTH_SHORT).show();
+            dialog.dismiss();
+        });
+
+        Button preview = Ui.button(this, "Route in Google Maps ansehen");
+        column.addView(preview);
+        preview.setOnClickListener(v -> {
+            String target = RouteTargetRules.clean(input.getText().toString());
+            if (target == null) {
+                input.setError("Bitte ein gültiges Ziel eingeben (max. 160 Zeichen).");
+                return;
+            }
+            dialog.dismiss();
+            launchGoogleRoute(target, false);
+        });
+
+        Button start = Ui.button(this, "Autonavigation in Google Maps starten");
+        column.addView(start);
+        start.setOnClickListener(v -> {
+            String target = RouteTargetRules.clean(input.getText().toString());
+            if (target == null) {
+                input.setError("Bitte ein gültiges Ziel eingeben (max. 160 Zeichen).");
+                return;
+            }
+            dialog.dismiss();
+            launchGoogleRoute(target, true);
+        });
+        dialog.show();
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        if (currentTarget != null) state.putString(TARGET_STATE, currentTarget);
+        super.onSaveInstanceState(state);
     }
 
     private void injectImportedGoogleKey() {
