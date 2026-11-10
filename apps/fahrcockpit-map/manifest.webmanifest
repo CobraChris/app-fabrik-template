@@ -1,7 +1,7 @@
 {
-  "name": "FahrCockpit Kartenprototyp",
-  "short_name": "FC Karte",
-  "description": "Eigenständige Google-Demokarte als Kartenbereich für FahrCockpit, ohne Abbiegenavigation.",
+  "name": "FahrCockpit Karte",
+  "short_name": "FahrCockpit",
+  "description": "Schlüsselfreie integrierte OpenStreetMap-Karte für FahrCockpit. Google-Demo optional, keine Abbiegenavigation.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
