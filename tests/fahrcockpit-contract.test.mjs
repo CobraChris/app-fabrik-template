@@ -136,3 +136,19 @@ test('Google Demo Key handoff is on-device, single-use and uses AES-GCM',()=>{
  assert.match(manifest,/android:scheme="fahrcockpit" android:host="transfer"/);
  assert.doesNotMatch(embedded,/addJavascriptInterface|L\.tileLayer/);
 });
+
+test('embedded driving pane has a single context-aware Spotify repair button',()=>{
+ const embedded=java('EmbeddedMapActivity'),rules=java('SpotifyDisplayRules');
+ assert.match(embedded,/spotifyAction = Ui\.button\(this, "Spotify öffnen"\)/);
+ assert.match(embedded,/spotifyAction\.setOnClickListener\(v -> runSpotifyNextStep\(\)\)/);
+ assert.match(embedded,/SpotifyDisplayRules\.nextAction\(listenerGranted, state\.connected\)/);
+ assert.match(embedded,/spotifyAction\.setVisibility\(nextAction == null \? View\.GONE : View\.VISIBLE\)/);
+ assert.match(embedded,/new Intent\(Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS\)/);
+ assert.match(embedded,/getLaunchIntentForPackage\("com\.spotify\.music"\)/);
+ assert.match(embedded,/getPackageManager\(\)/);
+ assert.match(embedded,/Benachrichtigungszugriff/);
+ assert.match(embedded,/SpotifyDisplayRules\.connectedStatus\(state\.playing\)/);
+ assert.match(rules,/hasMediaAccess/);
+ assert.match(rules,/Spotify öffnen und Musik starten/);
+ assert.doesNotMatch(embedded,/startForegroundService.*Spotify|addJavascriptInterface/);
+});
