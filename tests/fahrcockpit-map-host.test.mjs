@@ -208,3 +208,113 @@ test('even without Google Marker or OverlayView, a center-only dot appears and h
  assert.equal(container.children.length,1,'do not stack dots');
  assert.match(read('styles.css'),/\.gps-position-dot\.gps-center-fallback/);
 });
+
+test('foreground live GPS follows position, pauses on drag/background and resumes without zoom resets',()=>{
+ const events={},windowEvents={},watches=[],cleared=[],markers=[],circles=[];
+ const status={textContent:''};
+ const controls={
+  'center':{addEventListener(type,fn){events.centerClick=fn;}},
+  'gps-toggle':{hidden:true,textContent:'',attrs:{},addEventListener(type,fn){events.gpsClick=fn;},
+   setAttribute(name,value){this.attrs[name]=value;}},
+  'google-map':{},'status':status,'not-connected':{hidden:false}
+ };
+ const document={hidden:false,getElementById:key=>controls[key],
+  createElement:()=>({style:{},classList:{add(){}},setAttribute(){},remove(){}}),
+  head:{append(){}},
+  addEventListener(type,fn){windowEvents[type]=fn;}
+ };
+ class Map{
+  constructor(){this.centers=[];this.zooms=[];}
+  setCenter(point){this.centers.push({...point});}
+  setZoom(zoom){this.zooms.push(zoom);}
+  addListener(type,fn){events[type]=fn;}
+ }
+ class Marker{
+  constructor(opts){this.position=opts.position;markers.push(this);}
+  setPosition(position){this.position=position;}
+ }
+ class Circle{
+  constructor(opts){this.radius=opts.radius;circles.push(this);}
+  setCenter(point){this.point=point;}
+  setRadius(radius){this.radius=radius;}
+  setMap(map){this.map=map;}
+ }
+ const coords=(lat,lng,accuracy=25)=>({coords:{latitude:lat,longitude:lng,accuracy}});
+ let first=coords(36.7484,139.6143);
+ const geolocation={
+  getCurrentPosition(success){success(first);},
+  watchPosition(success,error,options){
+   const id=watches.length+11;
+   watches.push({id,success,error,options});
+   return id;
+  },
+  clearWatch(id){cleared.push(id);}
+ };
+ const sandbox={
+  URLSearchParams,
+  document,
+  localStorage:{getItem:key=>key==='fahrcockpit-map-demo-key-v1'?'AIza'+'x'.repeat(35):null},
+  navigator:{geolocation},
+  google:{maps:{Map,Marker,Circle}},
+  setTimeout:()=>1,clearTimeout:()=>{}
+ };
+ runInNewContext(read('app.js'),sandbox);
+ sandbox.__fahrcockpitMapsReady();
+ assert.equal(watches.length,0,'no background GPS before opt-in');
+ assert.equal(controls['gps-toggle'].hidden,true);
+ events.centerClick();
+ const map=markers.length && watches.length ? sandbox : null;
+ assert.ok(map,'start must create visible marker and GPS watch');
+ assert.equal(watches.length,1);
+ assert.equal(markers[0].position.lat,36.7484);
+ assert.equal(controls['gps-toggle'].hidden,false);
+ assert.equal(controls['gps-toggle'].textContent,'GPS Pause');
+ const initialCenters=watches.length && markers[0].position.lat;
+ assert.equal(initialCenters,36.7484);
+ watches[0].success(coords(36.75,139.62,12));
+ assert.equal(markers[0].position.lat,36.75);
+ assert.equal(circles[0].radius,12);
+ assert.match(status.textContent,/GPS live/);
+ events.dragstart();
+ watches[0].success(coords(36.76,139.63,17));
+ assert.equal(markers[0].position.lat,36.76,
+  'location dot updates while user is freely inspecting a different area');
+ assert.match(status.textContent,/freie Kartenansicht/);
+ document.hidden=true;
+ windowEvents.visibilitychange();
+ assert.deepEqual(cleared,[11]);
+ assert.match(status.textContent,/Hintergrund pausiert/);
+ // A stale callback from an old watch must not update location in background.
+ watches[0].success(coords(0,0));
+ assert.equal(markers[0].position.lat,36.76);
+ document.hidden=false;
+ windowEvents.visibilitychange();
+ assert.equal(watches.length,2,'resume while foreground without additional clicks');
+ watches[1].success(coords(36.77,139.64));
+ assert.equal(markers[0].position.lat,36.77);
+ events.gpsClick();
+ assert.deepEqual(cleared,[11,12]);
+ assert.equal(controls['gps-toggle'].textContent,'GPS Start');
+ assert.match(status.textContent,/GPS pausiert/);
+ watches[1].success(coords(0,0));
+ assert.equal(markers[0].position.lat,36.77,'no processing after GPS pause');
+ events.gpsClick();
+ assert.equal(watches.length,3);
+ watches[2].success(coords(36.78,139.65));
+ assert.equal(markers[0].position.lat,36.78);
+ assert.match(status.textContent,/GPS live/);
+ first=coords(36.79,139.66);
+ events.centerClick();
+ assert.equal(markers[0].position.lat,36.79);
+ assert.equal(watches.length,3,'recenter does not start a duplicate GPS watch');
+ assert.match(status.textContent,/blauer Punkt/);
+});
+
+test('GPS denial stops live watches and never restarts location tracking silently',()=>{
+ const js=read('app.js');
+ assert.match(js,/error\?\.code===1/);
+ assert.match(js,/stopWatching\(\);trackingRequested=false;updateGpsButton\(\)/);
+ assert.match(js,/document\.addEventListener\('visibilitychange'/);
+ assert.match(js,/!trackingRequested\|\|!googleMap\|\|gpsWatchId!==null\|\|document\.hidden/);
+ assert.doesNotMatch(js,/localStorage\.setItem\('position|fetch\(.*coords/);
+});
