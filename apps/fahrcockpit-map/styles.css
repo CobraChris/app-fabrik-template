@@ -1,22 +1,16 @@
 :root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#e8f6ee;background:#101c20}
 *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0}
-button,input{font:inherit}button{background:#9fe6c3;color:#132b27;border:0;border-radius:12px;padding:9px 11px;font-weight:720;cursor:pointer;min-height:42px}
-button:focus-visible,input:focus-visible{outline:3px solid #ffe39f;outline-offset:3px}
+button,input{font:inherit}button,.primary-link{background:#9fe6c3;color:#132b27;border:0;border-radius:12px;padding:10px 13px;font-weight:730;cursor:pointer;min-height:42px}
+.primary-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;text-align:center}
+button:focus-visible,a:focus-visible{outline:3px solid #ffe39f;outline-offset:3px}
 .map-shell{height:100%;height:100dvh;min-height:240px;display:flex;flex-direction:column;overflow:hidden;position:relative}
-.toolbar{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:7px 10px;background:#173338}
-.brand{display:flex;flex-direction:column;min-width:0}.brand strong{font-size:16px}.brand small{font-size:10px;opacity:.85}
-.controls{display:flex;gap:6px;flex-shrink:0}.controls button{min-width:39px;height:40px;min-height:40px;padding:0 6px;font-size:17px;background:#2f6260;color:#f6fff9}
-.controls #center,.controls #settings{font-size:22px}.controls #osm[aria-pressed="true"],.controls #google[aria-pressed="true"]{background:#9fe6c3;color:#132b27}
+.toolbar{min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:#173338}
+.brand{display:flex;flex-direction:column;min-width:0}.brand strong{font-size:16px}.brand small{font-size:11px;opacity:.85}
+.controls button{min-width:43px;height:40px;min-height:40px;padding:0;font-size:23px;background:#2f6260;color:#f6fff9}
 .map-surface{position:relative;flex:1;min-height:0;overflow:hidden;background:#193940}
-#osm-map,#google-map{position:absolute;inset:0;height:100%;width:100%}
-#osm-map[hidden],#google-map[hidden]{display:none!important}
-.leaflet-container{font-family:inherit;background:#d8e6db}
-.leaflet-control-attribution{font-size:10px!important}
-.footer{min-height:27px;padding:5px 9px;background:#102529;color:#bdd9d0;font-size:11px}
-.settings-panel{position:absolute;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:100;padding:14px}
-.settings-panel form{background:#19373b;border:1px solid #62988a;border-radius:16px;padding:16px;width:min(100%,430px);box-shadow:0 12px 40px #0008}
-.settings-panel h2{margin:0;font-size:19px}.settings-panel p{color:#d3e7df;font-size:13px;line-height:1.4}
-.settings-panel label{display:block;font-weight:700;margin:10px 0 5px}.settings-panel input{width:100%;padding:11px;border:1px solid #89bcad;border-radius:9px;background:#0e252a;color:#fff}
-.actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}.actions .secondary{background:#32595a;color:#e9f8f2}
+#google-map{position:absolute;inset:0;height:100%;width:100%}
+.placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:linear-gradient(150deg,#27545a,#17272e);gap:12px;padding:17px;z-index:2;overflow:auto}
+.placeholder strong{font-size:20px}.placeholder p{max-width:370px;font-size:13px;line-height:1.5;margin:0;color:#d6e9e4}
+.placeholder .small{font-size:11px}.footer{min-height:27px;padding:5px 9px;background:#102529;color:#bdd9d0;font-size:11px}
 [hidden]{display:none!important}
-@media (orientation:landscape) and (max-height:390px){.toolbar{min-height:43px;padding:3px 8px}.brand strong{font-size:14px}.controls button{height:36px;min-height:36px}.footer{min-height:22px;font-size:10px}}
+@media (orientation:landscape) and (max-height:390px){.toolbar{min-height:42px;padding:3px 8px}.brand strong{font-size:14px}.controls button{height:36px;min-height:36px}.footer{min-height:22px;font-size:10px}.placeholder{gap:5px}.placeholder strong{font-size:16px}.placeholder p{font-size:10px}}
