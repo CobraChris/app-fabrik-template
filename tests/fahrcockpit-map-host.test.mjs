@@ -3,28 +3,39 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const read=p=>readFileSync(new URL('../apps/fahrcockpit-map/'+p,import.meta.url),'utf8');
 
-test('zero-configuration map starts directly with Leaflet/OSM and no key prompt',()=>{
+test('Google is the only embedded map; existing Live-Karte key automatically reused in same browser',()=>{
  const html=read('index.html'),css=read('styles.css'),js=read('app.js');
- assert.match(html,/src="\.\/vendor\/leaflet\.js"/);
- assert.match(html,/id="osm-map"/);
- assert.match(css,/#osm-map,#google-map/);
- assert.match(js,/startOSM\(\);\s*enableGoogleButton\(\)/);
- assert.match(js,/L\.tileLayer\('https:\/\/tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png'/);
- assert.doesNotMatch(js,/const old=stored\(\);if\(GOOGLE_KEY\.test\(old\)\)loadMap/);
- assert.doesNotMatch(html, /Karte einrichten|Demo-Schlüssel eingeben/);
-});
-test('local demo key is optional and used only for explicit Google selection',()=>{
- const js=read('app.js'),html=read('index.html');
- assert.match(html,/id="google" hidden/);
- assert.match(js,/googleBtn\.addEventListener\('click'/);
- assert.match(js,/localStorage\.setItem\(KEY,key\)/);
+ assert.match(html,/id="google-map"/);
+ assert.match(css,/#google-map\{position:absolute;inset:0/);
+ assert.doesNotMatch(html,/id="osm-map"|leaflet|OpenStreetMap/);
+ assert.doesNotMatch(js,/L\.tileLayer|startOSM|openstreetmap\.org/);
+ assert.match(js,/LIVE_KEY='livekarte-google-demo-key-v1'/);
+ assert.match(js,/localStorage\.getItem\(LIVE_KEY\)/);
+ assert.match(js,/loadGoogle\(stored\(\)\)/);
+ assert.match(js,/https:\/\/maps\.googleapis\.com\/maps\/api\/js/);
  assert.match(js,/auth_referrer_policy:'origin'/);
  assert.doesNotMatch(js,/AIza[0-9A-Za-z_-]{25,90}/);
  assert.doesNotMatch(js,/DirectionsService|computeRoutes|PlacesService|fetch\(/);
 });
-test('OSM license and isolated manifest are supplied',()=>{
+test('no Google key: explicit pairing prompt, never silently fall back to a different provider',()=>{
+ const html=read('index.html'),js=read('app.js');
+ assert.match(html,/href="fahrcockpit:\/\/import"/);
+ assert.match(js,/function showUnconfigured/);
+ assert.match(js,/empty\.hidden=false/);
+ assert.doesNotMatch(js,/selectOSM|startOSM|tile\.openstreetmap/);
+});
+test('existing browser key is transferred only as authenticated AES-GCM ciphertext',()=>{
+ const html=read('transfer.html'),js=read('transfer.js');
+ assert.match(html,/Content-Security-Policy/);
+ assert.match(html,/script defer src="\.\/transfer\.js"/);
+ assert.match(js,/livekarte-google-demo-key-v1/);
+ assert.match(js,/history\.replaceState/);
+ assert.match(js,/crypto\.subtle\.encrypt\(\{name:'AES-GCM',iv\}/);
+ assert.match(js,/scheme=fahrcockpit;package=com\.cobrachris\.fahrcockpit/);
+ assert.doesNotMatch(js,/fetch\(|XMLHttpRequest|sendBeacon/);
+});
+test('Google-only map manifest keeps a separate PWA scope',()=>{
  const m=JSON.parse(read('manifest.webmanifest'));
- assert.equal(m.scope,'./');assert.equal(m.start_url,'./');assert.equal(m.id,'./');
- assert.match(read('vendor/LEAFLET-LICENSE'),/BSD 2-Clause License/);
- assert.match(read('app.js'),/openstreetmap\.org\/copyright/);
+ assert.equal(m.id,'./');assert.equal(m.scope,'./');
+ assert.equal(m.start_url,'./');assert.equal(m.display,'standalone');
 });
