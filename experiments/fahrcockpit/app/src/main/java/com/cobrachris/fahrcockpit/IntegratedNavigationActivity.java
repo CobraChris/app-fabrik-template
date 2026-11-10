@@ -117,6 +117,10 @@ public final class IntegratedNavigationActivity extends Activity {
         status.setMaxLines(3);
         panel.addView(status);
 
+        // Route creation is intentionally collapsed during driving; Spotify
+        // stays visible in the limited 30 % panel without manual searching.
+        LinearLayout routePanel = Ui.column(this);
+        routePanel.setVisibility(View.GONE);
         destination = new EditText(this);
         destination.setSingleLine(true);
         destination.setTextColor(Ui.FG);
@@ -124,18 +128,18 @@ public final class IntegratedNavigationActivity extends Activity {
         destination.setTextSize(14);
         destination.setHint("Ziel, Adresse oder Koordinaten");
         destination.setText(chosenTarget == null ? "" : chosenTarget);
-        panel.addView(destination);
+        routePanel.addView(destination);
 
         Button remembered = Ui.button(this, "Gespeicherte Ziele wählen");
-        panel.addView(remembered);
+        routePanel.addView(remembered);
         remembered.setOnClickListener(v -> showSavedTargets());
 
         Button route = Ui.button(this, "Route in dieser App berechnen");
-        panel.addView(route);
+        routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
         route.setOnClickListener(v -> resolveAndConfirmRoute());
         stopButton = Ui.button(this, "Navigation beenden");
-        panel.addView(stopButton);
+        routePanel.addView(stopButton);
         stopButton.setEnabled(engine != null && engine.configured());
         stopButton.setOnClickListener(v -> {
             if (engine == null) return;
@@ -144,7 +148,7 @@ public final class IntegratedNavigationActivity extends Activity {
         });
 
         Button fallback = Ui.button(this, "Kostenlose v19-Google-Navigation starten");
-        panel.addView(fallback);
+        routePanel.addView(fallback);
         fallback.setOnClickListener(v -> {
             String text = RouteTargetRules.clean(destination.getText().toString());
             Intent intent = new Intent(this, SplitCockpitActivity.class);
@@ -212,6 +216,17 @@ public final class IntegratedNavigationActivity extends Activity {
         panel.addView(skip);
         backward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_BACK));
         forward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_FORWARD));
+
+        Button toggleRoutes = Ui.button(this, "📍 Ziel / Route");
+        panel.addView(toggleRoutes);
+        panel.addView(routePanel);
+        toggleRoutes.setOnClickListener(v -> {
+            boolean open = routePanel.getVisibility() != View.VISIBLE;
+            routePanel.setVisibility(open ? View.VISIBLE : View.GONE);
+            toggleRoutes.setText(open ? "Zielmenü schließen" : "📍 Ziel / Route");
+            if (open) scroll.post(() -> scroll.smoothScrollTo(0,
+                routePanel.getTop()));
+        });
 
         Button fuel = Ui.button(this, "⛽ Tankstellen");
         panel.addView(fuel);
