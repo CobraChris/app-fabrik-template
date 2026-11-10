@@ -1,0 +1,39 @@
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#e8f6ee;background:#101c20}
+*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0}
+button,input{font:inherit}button,.primary-link{background:#9fe6c3;color:#132b27;border:0;border-radius:12px;padding:10px 13px;font-weight:730;cursor:pointer;min-height:42px}
+.primary-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;text-align:center}
+button:focus-visible,a:focus-visible{outline:3px solid #ffe39f;outline-offset:3px}
+.map-shell{height:100%;height:100dvh;min-height:240px;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.toolbar{min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:#173338}
+.brand{display:flex;flex-direction:column;min-width:0}.brand strong{font-size:16px}.brand small{font-size:11px;opacity:.85}
+.controls button{min-width:43px;height:40px;min-height:40px;padding:0;font-size:23px;background:#2f6260;color:#f6fff9}
+.controls #gps-toggle{font-size:12px;min-width:78px;padding:0 7px;font-weight:700}
+.controls #gps-toggle[aria-pressed="false"]{background:#456269;color:#e5eaf0}
+.controls #gps-toggle[aria-pressed="true"]{background:#9fe6c3;color:#12312b}
+.map-surface{position:relative;flex:1;min-height:0;overflow:hidden;background:#193940}
+#google-map{position:absolute;inset:0;height:100%;width:100%}
+.gps-position-dot{position:absolute;left:0;top:0;width:20px;height:20px;box-sizing:border-box;
+  border:3px solid #fff;border-radius:50%;background:#1a73e8;
+  box-shadow:0 0 0 2px rgba(26,115,232,.19),0 2px 6px rgba(0,0,0,.48);
+  transform:translate(-50%,-50%);pointer-events:none;z-index:1001}
+.gps-position-dot.gps-center-fallback{left:50%;top:50%;z-index:20}
+.gps-position-dot[hidden]{display:none!important}
+.placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:linear-gradient(150deg,#27545a,#17272e);gap:12px;padding:17px;z-index:2;overflow:auto}
+.placeholder strong{font-size:20px}.placeholder p{max-width:370px;font-size:13px;line-height:1.5;margin:0;color:#d6e9e4}
+.placeholder .small{font-size:11px}.footer{min-height:36px;padding:4px 8px;background:#102529;color:#bdd9d0;font-size:11px;
+ display:flex;align-items:center;gap:7px}
+.footer #status{flex:1;min-width:0;line-height:1.3}
+.footer #traffic{flex:0 0 auto;min-height:29px;padding:5px 8px;border-radius:8px;
+ font-size:11px;font-weight:700;background:#315d5b;color:#e8f6ee}
+.footer #traffic[aria-pressed="true"]{background:#9fe6c3;color:#132b27}
+.footer #traffic:disabled{opacity:.55}
+[hidden]{display:none!important}
+@media (orientation:landscape) and (max-height:390px){.toolbar{min-height:42px;padding:3px 8px}.brand strong{font-size:14px}.controls button{height:36px;min-height:36px}.footer{min-height:22px;font-size:10px}.placeholder{gap:5px}.placeholder strong{font-size:16px}.placeholder p{font-size:10px}}
+
+.map-target{position:absolute;left:10px;right:10px;bottom:12px;z-index:5;
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:8px;
+  border:1px solid #75b5a7;border-radius:13px;background:#17383df2;
+  box-shadow:0 5px 15px #0007;color:#f4fff9;font-size:12px}
+.map-target span{flex:1;min-width:120px}
+.map-target button{font-size:12px;min-height:38px;padding:7px 10px}
+.map-target #map-target-close{width:38px;background:#45666a;color:white}
