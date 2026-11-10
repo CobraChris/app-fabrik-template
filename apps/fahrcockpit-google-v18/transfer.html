@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; object-src 'none'; form-action 'none'">
+<title>FahrCockpit · Google aus Live-Karte übernehmen</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,Arial,sans-serif;background:#101c20;color:#e8f6ee}
+body{margin:0;padding:18px}main{max-width:490px;margin:6vh auto;padding:24px;border:1px solid #486e66;border-radius:18px;background:#19373b}
+h1{font-size:24px;line-height:1.2}p{line-height:1.55}a.button,button.button{display:block;text-align:center;padding:15px;border:0;border-radius:13px;background:#9fe6c3;color:#132b27;text-decoration:none;font-weight:750;font-size:16px;min-height:46px;width:100%;box-sizing:border-box;cursor:pointer;margin:12px 0}
+a[hidden],button[hidden],form[hidden]{display:none}
+input{display:block;width:100%;padding:11px;background:#092026;color:#fff;border:1px solid #89bcad;border-radius:9px;box-sizing:border-box;font-size:15px}
+small{color:#b9d4cb}a:not(.button){color:#a6e6ca}
+ol{padding-left:20px;line-height:1.55}li+li{margin-top:7px}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #ffe39f;outline-offset:3px}
+</style>
+<script defer src="./transfer.js"></script>
+</head>
+<body><main>
+<h1>Google mit FahrCockpit verbinden</h1>
+<p id="message" role="status" aria-live="polite">Prüfe deine Google-Konfiguration in diesem Browser …</p>
+<a id="send" class="button" hidden>Mit FahrCockpit verbinden</a>
+<div id="alternate" hidden>
+  <p>Der Google-Schlüssel liegt offenbar in deiner installierten Live-Karte, nicht in diesem Chrome-Speicher. Du musst ihn nicht neu eingeben.</p>
+  <ol>
+    <li>Öffne deine <strong>installierte Live-Karte</strong> über ihr App-Symbol.</li>
+    <li>Unter <strong>Google → ⚙ Einstellungen</strong> tippe auf <strong>„Google-Key für FahrCockpit kopieren“</strong>.</li>
+    <li>Kehre zu dieser Chrome-Seite zurück und tippe unten auf <strong>„Aus Zwischenablage übernehmen“</strong>.</li>
+  </ol>
+  <button type="button" id="clipboard" class="button">Aus Zwischenablage übernehmen</button>
+  <button type="button" id="retry" class="button">Chrome-Speicher erneut prüfen</button>
+  <form id="paste-form" hidden>
+    <label for="pasted-key">Falls Chrome die Zwischenablage nicht automatisch freigibt: Schlüssel hier nur <strong>einfügen</strong>, nicht abtippen.</label>
+    <input id="pasted-key" type="password" autocomplete="off" spellcheck="false" placeholder="Hier lange drücken → Einfügen">
+    <button type="submit" class="button">Eingefügten Schlüssel übernehmen</button>
+  </form>
+</div>
+<p><small>Der Schlüssel wird nicht zu GitHub hochgeladen. Er wird in diesem Browser lokal verschlüsselt und an die installierte FahrCockpit-App übergeben. Die Zwischenablage enthält den Schlüssel vorübergehend; lösche sie anschließend bei Bedarf. Keine neue Google-Abrechnung.</small></p>
+<p><a href="/meine-livekarte/" target="_blank" rel="noopener noreferrer">Live-Karte im Chrome-Browser öffnen (optional)</a></p>
+</main></body>
+</html>
