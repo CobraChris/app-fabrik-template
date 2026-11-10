@@ -1,0 +1,30 @@
+package com.cobrachris.fahrcockpit;
+
+import android.content.res.Configuration;
+import android.os.Bundle;
+import android.view.View;
+
+/**
+ * The real Navigation SDK adapter is optional. The normal signed APK builds
+ * without a key, SDK, billable calls or any new Android permission.
+ */
+interface NavigationEngine {
+    interface Status {
+        void onStatus(String message);
+    }
+
+    boolean configured();
+    View createNavigationView(Bundle savedState, Status status);
+    void initializeAfterLocationPermission();
+    boolean ready();
+    void startConfirmedRoute(double lat, double lng, String label);
+    void stopGuidanceAndClearRoute();
+    void onStart();
+    void onResume();
+    void onPause();
+    void onStop();
+    void onDestroy(boolean activityFinishing);
+    void onSaveInstanceState(Bundle state);
+    void onConfigurationChanged(Configuration config);
+    void onTrimMemory(int level);
+}
