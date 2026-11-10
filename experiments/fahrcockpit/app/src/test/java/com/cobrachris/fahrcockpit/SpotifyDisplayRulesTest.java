@@ -15,6 +15,25 @@ public final class SpotifyDisplayRulesTest {
             SpotifyDisplayRules.notConnected(true));
     }
 
+    @Test public void correctNextActionForMissingPermission() {
+        assertEquals("Medienzugriff freigeben (Android)",
+            SpotifyDisplayRules.nextAction(false, false));
+    }
+
+    @Test public void grantedPermissionOpensSpotifyButDoesNotRepeatConsent() {
+        assertEquals("Spotify öffnen und Musik starten",
+            SpotifyDisplayRules.nextAction(true, false));
+    }
+
+    @Test public void connectedSpotifyHidesSetupAction() {
+        assertEquals(null, SpotifyDisplayRules.nextAction(true, true));
+        assertEquals(null, SpotifyDisplayRules.nextAction(false, true));
+        assertEquals("Spotify spielt · Steuerung aktiv",
+            SpotifyDisplayRules.connectedStatus(true));
+        assertEquals("Spotify verbunden · Wiedergabe pausiert",
+            SpotifyDisplayRules.connectedStatus(false));
+    }
+
     @Test public void formatsTitleAndArtist() {
         assertEquals("Elektrobank – Single Version · The Chemical Brothers",
             SpotifyDisplayRules.trackLabel("Elektrobank – Single Version",
