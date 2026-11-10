@@ -25,6 +25,8 @@ public final class GoogleNavigationEngine implements NavigationEngine {
     private Navigator navigator;
     private Status status = value -> {};
     private boolean startedRoute;
+    private boolean calculating;
+    private int routeGeneration;
     private boolean closed;
 
     public GoogleNavigationEngine(Activity host) {
@@ -101,6 +103,10 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             status.onStatus("Navigation SDK noch nicht bereit.");
             return;
         }
+        if (calculating) {
+            status.onStatus("Routenberechnung läuft bereits · keine doppelte Anfrage.");
+            return;
+        }
         if (IntegratedNavigationRules.displayCoordinates(latitude, longitude) == null) {
             status.onStatus("Ungültige Zielkoordinaten – Route nicht angefordert.");
             return;
@@ -114,11 +120,16 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         RoutingOptions options = new RoutingOptions();
         options.travelMode(RoutingOptions.TravelMode.DRIVING);
         startedRoute = false;
+        calculating = true;
+        final int requestGeneration = ++routeGeneration;
         status.onStatus("Google-Route wird berechnet (Navigation Request).");
-        ListenableResultFuture<Navigator.RouteStatus> request =
-            navigator.setDestination(waypoint, options);
-        request.setOnResultListener(result -> {
-            if (closed || host.isFinishing() || host.isDestroyed()) return;
+        try {
+            ListenableResultFuture<Navigator.RouteStatus> request =
+                navigator.setDestination(waypoint, options);
+            request.setOnResultListener(result -> {
+            if (closed || requestGeneration != routeGeneration
+                    || host.isFinishing() || host.isDestroyed()) return;
+            calculating = false;
             if (result == Navigator.RouteStatus.OK) {
                 // Nav SDK 7.6.1 still uses the integer guidance flags.
                 // AudioGuidanceSettings was introduced in later SDK releases.
@@ -133,14 +144,20 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                 startedRoute = false;
                 status.onStatus("Google-Route nicht verfügbar: " + result);
             }
-        });
+            });
+        } catch (RuntimeException routeFailure) {
+            calculating = false;
+            status.onStatus("Google-Routenanforderung fehlgeschlagen.");
+        }
     }
 
     @Override public void stopGuidanceAndClearRoute() {
+        routeGeneration++; // Ignore the result of a canceled async request.
+        calculating = false;
+        startedRoute = false;
         if (navigator == null) return;
         navigator.stopGuidance();
         navigator.clearDestinations();
-        startedRoute = false;
         status.onStatus("Navigation gestoppt.");
     }
 
