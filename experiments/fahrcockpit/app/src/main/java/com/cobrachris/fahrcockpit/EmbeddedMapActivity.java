@@ -27,9 +27,9 @@ import android.widget.TextView;
  * FahrCockpit: a REAL allocated map viewport and native Spotify controls in
  * independent layout panes. Neither pane overlays the other.
  *
- * The HTTPS map host starts OpenStreetMap without a key. Google Maps JS demo
- * is optional and never required to use the interface.
- * Neither map is a turn-by-turn driving navigator.
+ * Only Google Maps JavaScript is embedded. An existing Demo Key can be
+ * transferred with a one-time encrypted browser handoff without typing.
+ * This is not turn-by-turn driving navigation.
  */
 public final class EmbeddedMapActivity extends Activity {
     private static final int REQUEST_GEO = 317;
@@ -42,6 +42,7 @@ public final class EmbeddedMapActivity extends Activity {
     private long durationMs = -1L;
     private GeolocationPermissions.Callback pendingGeo;
     private String pendingGeoOrigin;
+    private String importedGoogleKey;
 
     private final Runnable refreshMusic = new Runnable() {
         @Override public void run() {
@@ -52,6 +53,7 @@ public final class EmbeddedMapActivity extends Activity {
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        importedGoogleKey = getIntent().getStringExtra(GoogleKeyTransfer.EXTRA_KEY);
         // Never let an old overlay cover the independent Google map viewport.
         stopService(new Intent(this, OverlayService.class));
         stopService(new Intent(this, DockedCockpitService.class));
@@ -73,10 +75,6 @@ public final class EmbeddedMapActivity extends Activity {
 
         webView = new WebView(this);
         webView.setBackgroundColor(Ui.BG);
-        // Identify this WebView to community OSM tile servers; no impersonation.
-        webView.getSettings().setUserAgentString(
-            webView.getSettings().getUserAgentString()
-                + " FahrCockpit/0.9.13-beta (+https://github.com/CobraChris/app-fabrik-template)");
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setAllowFileAccess(false);
@@ -90,18 +88,20 @@ public final class EmbeddedMapActivity extends Activity {
                 // Subresources from Google are loaded normally. Never navigate the
                 // main frame away from the dedicated map page.
                 if (!request.isForMainFrame()) return false;
-                String target = request.getUrl().toString();
-                if (EmbeddedMapRules.allowsPage(target)) return false;
-                // Permit OSM's legally required attribution link outside the
-                // embedded map without granting arbitrary in-app navigation.
-                if ("https://www.openstreetmap.org/copyright".equals(target)) {
-                    try {
-                        startActivity(new Intent(Intent.ACTION_VIEW, request.getUrl()));
-                    } catch (RuntimeException ignored) {
-                        // Still do not navigate the map WebView elsewhere.
+                if (GoogleKeyTransfer.isImportStart(request.getUrl())) {
+                    if (!GoogleKeyTransfer.openBrowser(EmbeddedMapActivity.this)
+                            && musicStatus != null) {
+                        musicStatus.setText("Browser für Google-Übernahme nicht verfügbar.");
                     }
+                    return true;
                 }
-                return true;
+                // No navigation outside our pinned HTTPS map host.
+                return !EmbeddedMapRules.allowsPage(request.getUrl().toString());
+            }
+
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                if (EmbeddedMapRules.allowsPage(url)) injectImportedGoogleKey();
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -228,13 +228,35 @@ public final class EmbeddedMapActivity extends Activity {
             else musicStatus.setText("Google Maps ist nicht installiert.");
         });
         content.addView(Ui.text(this,
-            "Die integrierte OSM-Karte startet ohne Schlüssel. Keine Abbiege- " +
-            "oder Sprachführung: Für Fahrnavigation Google Maps öffnen.",
+            "Google-Kartenprototyp ohne OpenStreetMap. Beim ersten Start den " +
+            "vorhandenen Google-Demoschlüssel aus deiner Live-Karte übernehmen. " +
+            "Keine Abbiege- oder Sprachführung: Für Fahrt-Navigation Google Maps öffnen.",
             11, Ui.WARN, false));
         Button settings = Ui.button(this, "FahrCockpit-Einstellungen");
         content.addView(settings);
         settings.setOnClickListener(v ->
             startActivity(new Intent(this, MainActivity.class)));
+    }
+
+    private void injectImportedGoogleKey() {
+        String key = importedGoogleKey;
+        if (webView == null || !GoogleKeyTransfer.validKey(key)) return;
+        if (!EmbeddedMapRules.allowsPage(webView.getUrl())) return;
+        importedGoogleKey = null;
+        // JSON escaping and strict key validation prevent JS injection.
+        String js = "localStorage.setItem('fahrcockpit-map-demo-key-v1', "
+            + org.json.JSONObject.quote(key) + "); location.reload();";
+        webView.evaluateJavascript(js, ignored -> {});
+    }
+
+    @Override protected void onNewIntent(Intent incoming) {
+        super.onNewIntent(incoming);
+        setIntent(incoming);
+        String received = incoming.getStringExtra(GoogleKeyTransfer.EXTRA_KEY);
+        if (GoogleKeyTransfer.validKey(received)) {
+            importedGoogleKey = received;
+            injectImportedGoogleKey();
+        }
     }
 
     private void send(SpotifyMedia.Action action) {

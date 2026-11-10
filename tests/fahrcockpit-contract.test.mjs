@@ -96,7 +96,7 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
   const embedded = java('EmbeddedMapActivity');
   const rules = java('EmbeddedMapRules');
   const manifest = read('app/src/main/AndroidManifest.xml');
-  assert.match(main, /FahrCockpit mit Karte starten/);
+  assert.match(main, /FahrCockpit mit Google-Karte starten/);
   assert.match(embedded, /new WebView\(this\)/);
   assert.match(embedded, /LinearLayout\.HORIZONTAL/);
   assert.match(embedded, /LinearLayout\.VERTICAL/);
@@ -110,12 +110,29 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
   assert.match(manifest, /android:name="\.EmbeddedMapActivity"/);
 });
 
-test('keyless embedded OSM view is the default and keeps native controls separate', () => {
+test('embedded Google-only map keeps native Spotify controls separate', () => {
   const main=java('MainActivity'),embedded=java('EmbeddedMapActivity');
   assert.match(main, /scroll\.post\(this::startEmbeddedMap\)/);
   assert.match(main, /startActivity\(new Intent\(this, EmbeddedMapActivity\.class\)\)/);
-  assert.match(embedded, /FahrCockpit\/0\.9\.13-beta/);
+  assert.match(embedded, /GoogleKeyTransfer\.isImportStart/);
   assert.match(embedded, /stopService\(new Intent\(this, OverlayService\.class\)\)/);
-  assert.match(embedded, /OpenStreetMap/);
+  assert.match(embedded, /Google-Kartenprototyp ohne OpenStreetMap/);
   assert.doesNotMatch(embedded, /addJavascriptInterface/);
+});
+
+test('Google Demo Key handoff is on-device, single-use and uses AES-GCM',()=>{
+ const transfer=java('GoogleKeyTransfer'),main=java('MainActivity'),
+       embedded=java('EmbeddedMapActivity'),
+       manifest=read('app/src/main/AndroidManifest.xml');
+ assert.match(transfer,/AES\/GCM\/NoPadding/);
+ assert.match(transfer,/new SecureRandom\(\)\.nextBytes/);
+ assert.match(transfer,/System\.currentTimeMillis\(\) \+ VALID_MS/);
+ assert.match(transfer,/Uri\.parse\(PAGE \+ "#k=" \+ session\)/);
+ assert.match(transfer,/setPackage\("com\.android\.chrome"\)/);
+ assert.match(transfer,/prefs\.edit\(\)\.clear\(\)\.commit\(\)/);
+ assert.match(embedded,/org\.json\.JSONObject\.quote\(key\)/);
+ assert.match(embedded,/localStorage\.setItem\('fahrcockpit-map-demo-key-v1'/);
+ assert.match(main,/GoogleKeyTransfer\.consume\(this, intent\)/);
+ assert.match(manifest,/android:scheme="fahrcockpit" android:host="transfer"/);
+ assert.doesNotMatch(embedded,/addJavascriptInterface|L\.tileLayer/);
 });

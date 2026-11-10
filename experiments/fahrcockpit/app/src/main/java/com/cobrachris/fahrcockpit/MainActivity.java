@@ -50,15 +50,15 @@ public final class MainActivity extends Activity {
 
         root.addView(Ui.text(this, "FahrCockpit", 30, Ui.FG, true));
         root.addView(Ui.text(this,
-            "Karte und Spotify laufen in getrennten Bereichen. OpenStreetMap " +
-            "startet ohne Schlüssel. Die vollständige Google-Maps-Navigation " +
-            "ist separat als Alternative erreichbar.",
+            "Google-Karte und Spotify haben getrennte Bildschirmbereiche. " +
+            "Die bereits vorhandene Google-Demo-Einrichtung kann ohne " +
+            "Abtippen aus deiner Live-Karte übernommen werden.",
             15, Ui.MUTED, false));
 
         Ui.section(this, root, "Fahren – Karte und Spotify ohne Überdeckung",
-            "Standard: eigene OpenStreetMap-Karte und Spotify-Bedienung. " +
-            "Keine Schlüssel oder Google-Cloud-Abrechnung nötig.");
-        Button embedded = Ui.button(this, "FahrCockpit mit Karte starten");
+            "Google ist die einzige eingebettete Karte. Beim ersten Start " +
+            "Google aus Live-Karte übernehmen; kein neuer Cloud-Dienst.");
+        Button embedded = Ui.button(this, "FahrCockpit mit Google-Karte starten");
         root.addView(embedded);
         embedded.setOnClickListener(v -> startEmbeddedMap());
 
@@ -294,6 +294,7 @@ public final class MainActivity extends Activity {
             scroll.post(this::startEmbeddedMap);
         }
 
+        handleGoogleTransfer(getIntent());
         blitzerStatus.setText(prefs.getBoolean(KEY_HAS_REQUEST, false)
             ? "Zuletzt " + (blitzerSwitch.isChecked() ? "EIN" : "AUS") +
               " angefordert – tatsächlicher Zustand unbekannt."
@@ -309,8 +310,28 @@ public final class MainActivity extends Activity {
     @Override protected void onNewIntent(Intent i) {
         super.onNewIntent(i);
         setIntent(i);
+        if (GoogleKeyTransfer.isTransfer(i)) {
+            handleGoogleTransfer(i);
+            return;
+        }
         if(fromAppIcon(i)) new android.os.Handler(android.os.Looper.getMainLooper())
             .post(this::startEmbeddedMap);
+    }
+
+    private void handleGoogleTransfer(Intent intent) {
+        if (!GoogleKeyTransfer.isTransfer(intent)) return;
+        String imported = GoogleKeyTransfer.consume(this, intent);
+        // A one-time encrypted session is consumed even for malformed input.
+        setIntent(new Intent(this, MainActivity.class));
+        if (imported == null) {
+            if (permissions != null)
+                permissions.setText("Google-Übernahme nicht bestätigt. Bitte erneut aus der Karte starten.");
+            return;
+        }
+        Intent map = new Intent(this, EmbeddedMapActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        map.putExtra(GoogleKeyTransfer.EXTRA_KEY, imported);
+        startActivity(map);
     }
 
     private void startEmbeddedMap() {
