@@ -23,6 +23,11 @@
     </header>
     <section class="map-surface" aria-label="Interaktive Google-Karte">
       <div id="google-map" aria-label="Google-Karte"></div>
+      <div id="map-target" class="map-target" hidden>
+        <span id="map-target-label">Zielpunkt ausgewählt</span>
+        <button type="button" id="map-target-open">Als Ziel übernehmen</button>
+        <button type="button" id="map-target-close" aria-label="Zielauswahl schließen">×</button>
+      </div>
       <div id="not-connected" class="placeholder" hidden>
         <strong>Google-Karte verbinden</strong>
         <p>Deinen vorhandenen Google-Demoschlüssel aus der Live-Karte übernehmen – ohne ihn einzutippen.</p>
