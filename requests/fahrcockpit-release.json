@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-10-fahrcockpit-v17-spotify-assistant",
-  "source_sha": "5f07f8bb98f5f58daaf3dd05ae744f87d36abb43",
-  "expected_version_code": 17
+  "request_id": "2026-11-10-fahrcockpit-v18-navigation-bundle",
+  "source_sha": "2d2bf2688a6fdb69041615ba89e73d726c8b5803",
+  "expected_version_code": 18
 }
