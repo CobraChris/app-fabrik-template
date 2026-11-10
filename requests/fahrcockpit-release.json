@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-10-fahrcockpit-v18-navigation-bundle",
-  "source_sha": "2d2bf2688a6fdb69041615ba89e73d726c8b5803",
-  "expected_version_code": 18
+  "request_id": "2026-11-10-fahrcockpit-v19-split-google-navigation",
+  "source_sha": "1f8a65a3ca16d9cc13a3cf8d2444bce58b8fc436",
+  "expected_version_code": 19
 }
