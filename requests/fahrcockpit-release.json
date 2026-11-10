@@ -2,6 +2,6 @@
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
   "request_id": "2026-11-10-fahrcockpit-v19-split-google-navigation",
-  "source_sha": "1f8a65a3ca16d9cc13a3cf8d2444bce58b8fc436",
+  "source_sha": "4acbf7839c957574f961ea8d42b8cc7bbef52bee",
   "expected_version_code": 19
 }
