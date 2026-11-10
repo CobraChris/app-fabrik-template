@@ -10,10 +10,11 @@
  const CALLBACK='__fahrcockpitMapsReady';
  const GOOGLE_KEY=/^AIza[0-9A-Za-z_-]{25,90}$/;
  const $=id=>document.getElementById(id);
- const mapEl=$('google-map'),status=$('status'),empty=$('not-connected');
+ const mapEl=$('google-map'),status=$('status'),empty=$('not-connected'),gpsToggle=$('gps-toggle');
  let googleMap=null,loading=false,script=null,loadTimer=null,position=null;
  let positionMarker=null,accuracyCircle=null,positionAccuracy=null;
  let positionOverlay=null,positionDot=null;
+ let trackingRequested=false,gpsWatchId=null,followPosition=true;
  const setStatus=value=>{status.textContent=value;};
  function stored(){
   try{
@@ -104,8 +105,8 @@
       googleMap.addListener('dragstart',()=>{if(positionDot)positionDot.hidden=true;});
      }
     }
-    positionDot.hidden=false;
-    shown=true;
+    positionDot.hidden=!followPosition;
+    shown=followPosition;
    }catch{shown=false;}
   }
 
@@ -140,6 +141,13 @@
    });
    empty.hidden=true;loading=false;
    if(position)showPosition(position,positionAccuracy);
+   if(typeof googleMap.addListener==='function'){
+    googleMap.addListener('dragstart',()=>{
+     followPosition=false;
+     if(positionDot)positionDot.hidden=true;
+     if(trackingRequested)setStatus('GPS live · Karte frei verschoben · Fadenkreuz zum Folgen');
+    });
+   }
    setStatus('Google-Karte aktiv · noch keine Abbiegenavigation');
   }catch{showUnconfigured('Google-Karte konnte nicht gestartet werden.');}
  }
@@ -155,22 +163,108 @@
   loadTimer=setTimeout(()=>showUnconfigured('Zeitüberschreitung beim Google-Kartenstart.'),18000);
   document.head.append(script);
  }
+ // On-device location is tracked only while the map page is in the foreground.
+ // No coordinates are stored, logged, or sent to a separate location service.
+ function updateGpsButton(){
+  if(!gpsToggle)return;
+  gpsToggle.hidden=!trackingRequested&&!position;
+  gpsToggle.textContent=trackingRequested?'GPS Pause':'GPS Start';
+  gpsToggle.setAttribute('aria-pressed',String(trackingRequested));
+  gpsToggle.setAttribute('aria-label',
+   trackingRequested?'Automatische GPS-Aktualisierung pausieren':'Automatische GPS-Aktualisierung starten');
+ }
+ function stopWatching(){
+  if(gpsWatchId!==null){
+   try{navigator.geolocation?.clearWatch?.(gpsWatchId);}catch{}
+   gpsWatchId=null;
+  }
+ }
+ function updateFromFix(fix,first){
+  if(!googleMap||!fix?.coords)return false;
+  const lat=Number(fix.coords.latitude),lng=Number(fix.coords.longitude);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat>90||lat< -90||lng>180||lng< -180)return false;
+  position={lat,lng};
+  positionAccuracy=Number(fix.coords.accuracy);
+  if(followPosition){
+   googleMap.setCenter(position);
+   if(first)googleMap.setZoom(16); // Do not fight the user's chosen zoom while tracking.
+  }
+  const visible=showPosition(position,positionAccuracy);
+  updateGpsButton();
+  if(!followPosition){
+   setStatus(trackingRequested?'GPS live · freie Kartenansicht · Fadenkreuz zum Folgen':
+    'Standort aktualisiert · Kartenansicht frei');
+  }else{
+   setStatus(visible
+    ? (trackingRequested?'GPS live · blauer Punkt folgt deinem Standort · keine Abbiegenavigation':
+       'Blauer Punkt: dein Standort · keine Abbiegenavigation')
+    :'Standort zentriert, Positionssymbol nicht verfügbar.');
+  }
+  return visible;
+ }
+ function startWatching(){
+  if(!trackingRequested||!googleMap||gpsWatchId!==null||document.hidden)return;
+  if(typeof navigator.geolocation?.watchPosition!=='function'){
+   trackingRequested=false;updateGpsButton();
+   setStatus('Blauer Punkt: dein Standort · Live-GPS auf diesem Gerät nicht verfügbar.');
+   return;
+  }
+  try{
+   gpsWatchId=navigator.geolocation.watchPosition(fix=>{
+    if(trackingRequested&&!document.hidden)updateFromFix(fix,false);
+   },error=>{
+    if(error?.code===1){
+     stopWatching();trackingRequested=false;updateGpsButton();
+     setStatus('Standortfreigabe verweigert · Live-GPS gestoppt.');
+    }else{
+     setStatus('GPS-Signal gestört · letzter bekannter Standort, nicht live.');
+    }
+   },{enableHighAccuracy:true,maximumAge:2000,timeout:15000});
+  }catch{
+   trackingRequested=false;updateGpsButton();
+   setStatus('Live-GPS konnte nicht gestartet werden. Fadenkreuz für Einzelortung.');
+  }
+ }
  $('center').addEventListener('click',()=>{
   if(!googleMap){setStatus('Google-Karte zuerst mit der Live-Karte verbinden.');return;}
-  if(!navigator.geolocation){setStatus('Standortbestimmung nicht verfügbar.');return;}
+  if(!navigator.geolocation?.getCurrentPosition){
+   setStatus('Standortbestimmung nicht verfügbar.');return;
+  }
+  // Explicitly request live tracking from this tap, never upon page load.
+  followPosition=true;
+  trackingRequested=true;
+  if(positionDot)positionDot.hidden=false;
   setStatus('Standort wird bestimmt …');
-  navigator.geolocation.getCurrentPosition(p=>{
-   const lat=p.coords.latitude,lng=p.coords.longitude;
-   if(!Number.isFinite(lat)||!Number.isFinite(lng))return setStatus('GPS-Daten ungültig.');
-   position={lat,lng};
-   positionAccuracy=Number(p.coords.accuracy);
-   googleMap.setCenter(position);googleMap.setZoom(16);
-   const visible=showPosition(position,positionAccuracy);
-   setStatus(visible
-    ?'Blauer Punkt: dein Standort · keine Abbiegenavigation'
-    :'Standort zentriert, Positionssymbol nicht verfügbar.');
-  },()=>setStatus('Standort nicht freigegeben oder nicht verfügbar.'),
-  {enableHighAccuracy:true,timeout:12000,maximumAge:3000});
+  navigator.geolocation.getCurrentPosition(fix=>{
+   updateFromFix(fix,true);
+   startWatching();
+  },error=>{
+   if(error?.code===1){stopWatching();trackingRequested=false;updateGpsButton();}
+   setStatus('Standort nicht freigegeben oder nicht verfügbar.');
+  },{enableHighAccuracy:true,timeout:12000,maximumAge:3000});
  });
+ gpsToggle?.addEventListener('click',()=>{
+  if(trackingRequested){
+   trackingRequested=false;
+   stopWatching();
+   setStatus('GPS pausiert · blauer Punkt zeigt den letzten Standort.');
+  }else{
+   trackingRequested=true;
+   setStatus('Live-GPS startet · Fadenkreuz für automatische Zentrierung');
+   startWatching();
+  }
+  updateGpsButton();
+ });
+ if(typeof document.addEventListener==='function'){
+  document.addEventListener('visibilitychange',()=>{
+   if(document.hidden){
+    stopWatching();
+    if(trackingRequested)setStatus('GPS im Hintergrund pausiert · kein aktives Tracking.');
+   }else if(trackingRequested){
+    setStatus('Live-GPS wird im Vordergrund fortgesetzt …');
+    startWatching();
+   }
+  });
+ }
  loadGoogle(stored());
 })();

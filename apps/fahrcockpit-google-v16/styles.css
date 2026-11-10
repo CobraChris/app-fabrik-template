@@ -7,6 +7,9 @@ button:focus-visible,a:focus-visible{outline:3px solid #ffe39f;outline-offset:3p
 .toolbar{min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;background:#173338}
 .brand{display:flex;flex-direction:column;min-width:0}.brand strong{font-size:16px}.brand small{font-size:11px;opacity:.85}
 .controls button{min-width:43px;height:40px;min-height:40px;padding:0;font-size:23px;background:#2f6260;color:#f6fff9}
+.controls #gps-toggle{font-size:12px;min-width:78px;padding:0 7px;font-weight:700}
+.controls #gps-toggle[aria-pressed="false"]{background:#456269;color:#e5eaf0}
+.controls #gps-toggle[aria-pressed="true"]{background:#9fe6c3;color:#12312b}
 .map-surface{position:relative;flex:1;min-height:0;overflow:hidden;background:#193940}
 #google-map{position:absolute;inset:0;height:100%;width:100%}
 .gps-position-dot{position:absolute;left:0;top:0;width:20px;height:20px;box-sizing:border-box;
