@@ -11,9 +11,6 @@
  const GOOGLE_KEY=/^AIza[0-9A-Za-z_-]{25,90}$/;
  const $=id=>document.getElementById(id);
  const mapEl=$('google-map'),status=$('status'),empty=$('not-connected'),gpsToggle=$('gps-toggle'),trafficBtn=$('traffic');
- const targetBox=$('map-target'),targetLabel=$('map-target-label');
- const targetOpen=$('map-target-open'),targetClose=$('map-target-close');
- let targetCoordinate=null;
  let googleMap=null,loading=false,script=null,loadTimer=null,position=null;
  let positionMarker=null,accuracyCircle=null,positionAccuracy=null;
  let positionOverlay=null,positionDot=null;
@@ -173,30 +170,6 @@
   }
  }
  trafficBtn?.addEventListener('click',()=>{void toggleTraffic();});
- function selectMapTarget(event){
-  if(!targetBox||!targetLabel||!event?.latLng)return;
-  const lat=Number(event.latLng.lat()),lng=Number(event.latLng.lng());
-  if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)return;
-  // Six decimals are plenty for a road destination; no precise GPS history.
-  targetCoordinate={lat:lat.toFixed(6),lng:lng.toFixed(6)};
-  targetLabel.textContent='Zielpunkt: '+targetCoordinate.lat+', '+targetCoordinate.lng;
-  targetBox.hidden=false;
-  setStatus('Kartenpunkt gewählt · „Als Ziel übernehmen“ für Google-Navigation');
- }
- targetClose?.addEventListener('click',()=>{
-  if(targetBox)targetBox.hidden=true;
-  targetCoordinate=null;
- });
- targetOpen?.addEventListener('click',()=>{
-  if(!targetCoordinate)return;
-  const url='fahrcockpit://destination?lat='
-    +encodeURIComponent(targetCoordinate.lat)+'&lng='+encodeURIComponent(targetCoordinate.lng);
-  // Native WebView intercepts this first-party scheme and asks the user
-  // whether to preview or start navigation in the installed Google Maps.
-  if(typeof location!=='undefined'&&typeof location.assign==='function')
-   location.assign(url);
-  else setStatus('Karten-Zielübernahme nur in der FahrCockpit-App möglich.');
- });
  function ready(){
   if(!loading)return;
   clearTimeout(loadTimer);loadTimer=null;
@@ -210,7 +183,6 @@
    empty.hidden=true;loading=false;
    if(position)showPosition(position,positionAccuracy);
    if(typeof googleMap.addListener==='function'){
-    googleMap.addListener('click',selectMapTarget);
     googleMap.addListener('dragstart',()=>{
      followPosition=false;
      if(positionDot)positionDot.hidden=true;
