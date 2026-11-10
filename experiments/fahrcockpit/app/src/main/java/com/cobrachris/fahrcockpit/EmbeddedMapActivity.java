@@ -187,6 +187,16 @@ public final class EmbeddedMapActivity extends Activity {
         Button chooseRoute = Ui.button(this, "📍 Ziel / Route wählen");
         content.addView(chooseRoute);
         chooseRoute.setOnClickListener(v -> showDestinationDialog(currentTarget));
+        Button splitNavigation = Ui.button(this,
+            "▶ Google-Navigation + Spotify geteilt starten");
+        content.addView(splitNavigation);
+        splitNavigation.setOnClickListener(v -> {
+            if (RouteTargetRules.clean(currentTarget) == null) {
+                showDestinationDialog(null);
+            } else {
+                launchSplitNavigation(currentTarget);
+            }
+        });
         routeStatus = Ui.text(this,
             currentTarget == null ? "Google-Route auswählen · Navigation in Google Maps"
                 : "Ziel: " + currentTarget,
@@ -322,6 +332,30 @@ public final class EmbeddedMapActivity extends Activity {
         editor.apply();
     }
 
+    private void launchSplitNavigation(String target) {
+        String chosen = RouteTargetRules.clean(target);
+        if (chosen == null) {
+            Toast.makeText(this, "Bitte zuerst ein Ziel auswählen.",
+                Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (!GoogleMapsLaunch.installed(this)) {
+            if (routeStatus != null) {
+                routeStatus.setText("Google Maps fehlt · geteilter Bildschirm nicht gestartet.");
+            }
+            return;
+        }
+        selectedTarget(chosen);
+        try {
+            // The companion cockpit remains visible in a separate Android
+            // window if Samsung honors LAUNCH_ADJACENT. Never use an overlay.
+            startActivity(new Intent(this, SplitCockpitActivity.class)
+                .putExtra(SplitCockpitActivity.EXTRA_NAVIGATION_TARGET, chosen));
+        } catch (RuntimeException unavailable) {
+            routeStatus.setText("Geteilte Fahransicht konnte nicht gestartet werden.");
+        }
+    }
+
     private void launchGoogleRoute(String target, boolean navigate) {
         String cleaned = RouteTargetRules.clean(target);
         if (cleaned == null) {
@@ -413,6 +447,19 @@ public final class EmbeddedMapActivity extends Activity {
             }
             dialog.dismiss();
             launchGoogleRoute(target, false);
+        });
+
+        Button split = Ui.button(this,
+            "Google-Navigation + Spotify im Splitscreen starten");
+        column.addView(split);
+        split.setOnClickListener(v -> {
+            String target = RouteTargetRules.clean(input.getText().toString());
+            if (target == null) {
+                input.setError("Bitte ein gültiges Ziel eingeben (max. 160 Zeichen).");
+                return;
+            }
+            dialog.dismiss();
+            launchSplitNavigation(target);
         });
 
         Button start = Ui.button(this, "Autonavigation in Google Maps starten");
