@@ -285,3 +285,14 @@ test('v20 SDK is not in the default signed variant and cannot route without expl
  assert.doesNotMatch(java('MainActivity'),/new GoogleNavigationEngine/);
  assert.doesNotMatch(nav,/AIza[A-Za-z0-9_-]{30}/);
 });
+
+test('v20 keeps primary Spotify controls visible before optional route form in 30 percent pane',()=>{
+ const shell=java('IntegratedNavigationActivity');
+ assert.match(shell,/routePanel\.setVisibility\(View\.GONE\)/);
+ assert.match(shell,/Button toggleRoutes = Ui\.button\(this, "📍 Ziel \/ Route"\)/);
+ assert.match(shell,/toggleRoutes\.setOnClickListener/);
+ assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(routePanel);'));
+ assert.ok(shell.indexOf('panel.addView(skip);') < shell.indexOf('panel.addView(routePanel);'));
+ assert.match(shell,/scroll\.smoothScrollTo\(0,/);
+ assert.match(shell,/SOFT_INPUT_ADJUST_RESIZE/);
+});
