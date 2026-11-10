@@ -62,6 +62,22 @@ public final class MainActivity extends Activity {
         root.addView(embedded);
         embedded.setOnClickListener(v -> startEmbeddedMap());
 
+        Ui.section(this, root, "Zielarchitektur – eine App mit fester 70/30-Aufteilung",
+            "Google Navigation SDK und Spotify innerhalb derselben App. "
+            + "Ohne separat freigegebenes Cloud-Billing bleibt dies "
+            + "eine Layoutvorschau; die funktionierende v19-Navigation "
+            + "steht weiterhin zur Verfügung.");
+        Button integrated = Ui.button(this,
+            "Integriertes Google-Cockpit (SDK-Vorbereitung)");
+        root.addView(integrated);
+        integrated.setOnClickListener(v -> startActivity(
+            new Intent(this, IntegratedNavigationActivity.class)));
+        root.addView(Ui.text(this,
+            "Der Google-SDK-Routenabruf wird erst nach Google-Cloud-Freigabe "
+            + "und einer zusätzlichen Zielbestätigung aktiviert. "
+            + "Keine Schlüssel oder Abrechnung werden automatisch eingerichtet.",
+            12, Ui.WARN, false));
+
         Ui.section(this, root, "Alternative – vollständige Google-Navigation",
             "Echter Android-Splitscreen mit der separaten Google-Maps-App. " +
             "Samsung legt die Fenstergrößen fest.");
