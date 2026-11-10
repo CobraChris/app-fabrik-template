@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-10-google-only-livekarte-v16",
-  "source_sha": "9622ae1cc4188eab8bf956fc7c6d803c0ca959e9",
-  "expected_version_code": 16
+  "request_id": "2026-11-10-fahrcockpit-v17-spotify-assistant",
+  "source_sha": "5f07f8bb98f5f58daaf3dd05ae744f87d36abb43",
+  "expected_version_code": 17
 }
