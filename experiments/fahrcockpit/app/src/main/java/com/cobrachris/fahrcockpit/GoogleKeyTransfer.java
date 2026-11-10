@@ -28,6 +28,7 @@ import javax.crypto.spec.SecretKeySpec;
  * The Google Demo Key itself is scoped to the existing trusted website origin.
  */
 final class GoogleKeyTransfer {
+    static final String EXTRA_KEY = "fahrcockpit_google_import_key_v1";
     private static final String PREFS = "fahrcockpit_google_transfer_v1";
     private static final String SESSION = "session";
     private static final String EXPIRES = "expires";
@@ -40,6 +41,10 @@ final class GoogleKeyTransfer {
         Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING;
 
     private GoogleKeyTransfer() {}
+
+    static boolean validKey(String key) {
+        return key != null && GOOGLE.matcher(key).matches();
+    }
 
     static boolean isImportStart(Uri uri) {
         return uri != null && "fahrcockpit".equals(uri.getScheme())
@@ -64,7 +69,7 @@ final class GoogleKeyTransfer {
         new SecureRandom().nextBytes(secret);
         String session = Base64.encodeToString(secret, BASE64_FLAGS);
         state(activity).edit().putString(SESSION, session)
-            .putLong(EXPIRES, System.currentTimeMillis() + VALID_MS).apply();
+            .putLong(EXPIRES, System.currentTimeMillis() + VALID_MS).commit();
         Arrays.fill(secret, (byte) 0);
         Uri url = Uri.parse(PAGE + "#k=" + session);
         try {
@@ -90,7 +95,7 @@ final class GoogleKeyTransfer {
         String session = prefs.getString(SESSION, "");
         long expires = prefs.getLong(EXPIRES, 0);
         // The session must not be reusable even after invalid ciphertext.
-        prefs.edit().clear().apply();
+        prefs.edit().clear().commit();
         if (System.currentTimeMillis() > expires || session.isEmpty()) return null;
         try {
             String token = intent.getData().getQueryParameter("data");
@@ -109,7 +114,7 @@ final class GoogleKeyTransfer {
             String result = new String(decrypted, StandardCharsets.UTF_8);
             Arrays.fill(rawSession, (byte) 0);
             Arrays.fill(decrypted, (byte) 0);
-            return GOOGLE.matcher(result).matches() ? result : null;
+            return validKey(result) ? result : null;
         } catch (Exception invalidOrTampered) {
             return null;
         }
