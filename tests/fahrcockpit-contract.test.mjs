@@ -212,7 +212,10 @@ test('v19 split Google-Navigation uses Android window management with no overlay
  assert.match(manifest,/<activity android:name="\.SplitCockpitActivity"[\s\S]*?android:resizeableActivity="true"/);
  assert.match(split,/stopService\(new Intent\(this, OverlayService\.class\)\)/);
  assert.match(split,/stopService\(new Intent\(this, DockedCockpitService\.class\)\)/);
- assert.doesNotMatch(split,/TYPE_APPLICATION_OVERLAY|AccessibilityService|startForegroundService/);
+ // Old explicit user-initiated overlay mode is retained, but never
+ // launched automatically as a fallback if Samsung rejects native split.
+ assert.match(split,/overlay.setOnClickListener\(v -> \{/);
+ assert.doesNotMatch(split,/TYPE_APPLICATION_OVERLAY|AccessibilityService|pendingOverlayFallback|fallbackGraceElapsed/);
  assert.doesNotMatch(maps,/NavigationSdk|API_KEY|AIza/);
  assert.match(rules,/google\.navigation:q=/);
 });
