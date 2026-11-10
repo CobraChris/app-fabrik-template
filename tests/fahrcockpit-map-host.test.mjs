@@ -49,3 +49,18 @@ test('the signed v15 map host is untouched while v16 is Google-only',()=>{
  assert.doesNotMatch(newHtml,/id="osm-map"|leaflet\.js/);
  assert.doesNotMatch(newJs,/startOSM\(|tile\.openstreetmap\.org/);
 });
+
+test('Google pairing can import a key copied from a different installed browser profile',()=>{
+ const html=read('transfer.html'),js=read('transfer.js');
+ assert.match(html,/id="clipboard"/);
+ assert.match(html,/Aus Zwischenablage übernehmen/);
+ assert.match(html,/id="pasted-key"/);
+ assert.match(html,/id="retry"/);
+ assert.match(js,/navigator\.clipboard\.readText\(\)/);
+ assert.match(js,/pasteForm\.addEventListener\('submit'/);
+ assert.match(js,/document\.addEventListener\('visibilitychange'/);
+ assert.match(js,/VALID_GOOGLE_KEY\.test\(key\)/);
+ assert.match(js,/crypto\.subtle\.encrypt\(\{name:'AES-GCM',iv\}/);
+ assert.match(js,/MAX_SESSION_AGE_MS=4\*60\*1000/);
+ assert.doesNotMatch(js,/fetch\(|XMLHttpRequest|sendBeacon|postMessage\(/);
+});
