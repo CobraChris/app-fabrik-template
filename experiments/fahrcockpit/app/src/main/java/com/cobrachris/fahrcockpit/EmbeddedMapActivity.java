@@ -24,11 +24,12 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 /**
- * FahrCockpit proof of concept: a REAL allocated map viewport and native Spotify
- * controls in independent layout panes. Neither pane overlays the other.
+ * FahrCockpit: a REAL allocated map viewport and native Spotify controls in
+ * independent layout panes. Neither pane overlays the other.
  *
- * This is NOT Google turn-by-turn navigation; the map comes from a small HTTPS
- * Maps JS demo host. A valid demo key must be entered into that page locally.
+ * The HTTPS map host starts OpenStreetMap without a key. Google Maps JS demo
+ * is optional and never required to use the interface.
+ * Neither map is a turn-by-turn driving navigator.
  */
 public final class EmbeddedMapActivity extends Activity {
     private static final int REQUEST_GEO = 317;
@@ -72,6 +73,10 @@ public final class EmbeddedMapActivity extends Activity {
 
         webView = new WebView(this);
         webView.setBackgroundColor(Ui.BG);
+        // Identify this WebView to community OSM tile servers; no impersonation.
+        webView.getSettings().setUserAgentString(
+            webView.getSettings().getUserAgentString()
+                + " FahrCockpit/0.9.13-beta (+https://github.com/CobraChris/app-fabrik-template)");
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
         webView.getSettings().setAllowFileAccess(false);
@@ -84,8 +89,19 @@ public final class EmbeddedMapActivity extends Activity {
                     WebResourceRequest request) {
                 // Subresources from Google are loaded normally. Never navigate the
                 // main frame away from the dedicated map page.
-                return request.isForMainFrame()
-                    && !EmbeddedMapRules.allowsPage(request.getUrl().toString());
+                if (!request.isForMainFrame()) return false;
+                String target = request.getUrl().toString();
+                if (EmbeddedMapRules.allowsPage(target)) return false;
+                // Permit OSM's legally required attribution link outside the
+                // embedded map without granting arbitrary in-app navigation.
+                if ("https://www.openstreetmap.org/copyright".equals(target)) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, request.getUrl()));
+                    } catch (RuntimeException ignored) {
+                        // Still do not navigate the map WebView elsewhere.
+                    }
+                }
+                return true;
             }
         });
         webView.setWebChromeClient(new WebChromeClient() {
@@ -212,9 +228,9 @@ public final class EmbeddedMapActivity extends Activity {
             else musicStatus.setText("Google Maps ist nicht installiert.");
         });
         content.addView(Ui.text(this,
-            "PROTOTYP: Die eingebettete Google-Karte besitzt noch keine " +
-            "Abbiege- oder Sprachführung. Vor einer Fahrt die reguläre " +
-            "Google-Maps-Navigation verwenden.", 11, Ui.WARN, false));
+            "Die integrierte OSM-Karte startet ohne Schlüssel. Keine Abbiege- " +
+            "oder Sprachführung: Für Fahrnavigation Google Maps öffnen.",
+            11, Ui.WARN, false));
         Button settings = Ui.button(this, "FahrCockpit-Einstellungen");
         content.addView(settings);
         settings.setOnClickListener(v ->
