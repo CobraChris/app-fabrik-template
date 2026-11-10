@@ -5,7 +5,6 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.View;
 
-import com.google.android.libraries.navigation.AudioGuidanceSettings;
 import com.google.android.libraries.navigation.ListenableResultFuture;
 import com.google.android.libraries.navigation.NavigationApi;
 import com.google.android.libraries.navigation.NavigationView;
@@ -109,11 +108,12 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         request.setOnResultListener(result -> {
             if (closed || host.isFinishing() || host.isDestroyed()) return;
             if (result == Navigator.RouteStatus.OK) {
-                AudioGuidanceSettings audio = AudioGuidanceSettings.builder()
-                    .setGuidanceMode(
-                        AudioGuidanceSettings.GuidanceMode.VOICE_ALERTS_AND_GUIDANCE)
-                    .build();
-                navigator.setAudioGuidanceSettings(audio);
+                // Nav SDK 7.6.1 still uses the integer guidance flags.
+                // AudioGuidanceSettings was introduced in later SDK releases.
+                navigator.setAudioGuidance(
+                    Navigator.AudioGuidance.VOICE_ALERTS_AND_GUIDANCE
+                    | Navigator.AudioGuidance.VIBRATION
+                    | Navigator.AudioGuidance.BLUETOOTH_AUDIO);
                 navigator.startGuidance();
                 startedRoute = true;
                 status.onStatus("Echte Google-Abbiegenavigation in FahrCockpit aktiv.");
