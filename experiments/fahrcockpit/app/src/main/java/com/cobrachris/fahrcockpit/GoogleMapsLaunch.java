@@ -13,6 +13,22 @@ final class GoogleMapsLaunch {
             .getLaunchIntentForPackage(GoogleMapsUrlRules.GOOGLE_MAPS_PACKAGE) != null;
     }
 
+    /** The user chooses "Route ansehen": show the route before starting it. */
+    static Intent directionsIntent(String target) {
+        String url = RouteTargetRules.directionsUrl(target);
+        if (url == null) return null;
+        return new Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            .setPackage(GoogleMapsUrlRules.GOOGLE_MAPS_PACKAGE);
+    }
+
+    /** Explicit driving navigation in Google's own app; no Maps SDK/billing. */
+    static Intent navigationIntent(String target) {
+        String url = RouteTargetRules.navigationUri(target);
+        if (url == null) return null;
+        return new Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            .setPackage(GoogleMapsUrlRules.GOOGLE_MAPS_PACKAGE);
+    }
+
     static Intent mapIntent() {
         return new Intent(Intent.ACTION_VIEW,
             Uri.parse(GoogleMapsUrlRules.MAP_WITH_TRAFFIC))

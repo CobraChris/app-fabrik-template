@@ -152,3 +152,31 @@ test('embedded driving pane has a single context-aware Spotify repair button',()
  assert.match(rules,/Spotify öffnen und Musik starten/);
  assert.doesNotMatch(embedded,/startForegroundService.*Spotify|addJavascriptInterface/);
 });
+
+test('driving navigation packet provides native goal dialog, saved destinations, route preview, launch',()=>{
+ const embedded=java('EmbeddedMapActivity');
+ const maps=java('GoogleMapsLaunch');
+ const rules=java('RouteTargetRules');
+ assert.match(embedded,/📍 Ziel \/ Route wählen/);
+ assert.match(embedded,/new AlertDialog\.Builder\(this\)/);
+ assert.match(embedded,/Ziel merken/);
+ assert.match(embedded,/Gespeicherte Ziele löschen/);
+ assert.match(embedded,/Route in Google Maps ansehen/);
+ assert.match(embedded,/Autonavigation in Google Maps starten/);
+ assert.match(embedded,/getSharedPreferences\(ROUTES_PREFS, MODE_PRIVATE\)/);
+ assert.match(embedded,/if \(slot >= 5\) break/);
+ assert.match(embedded,/RouteTargetRules\.coordinates/);
+ assert.match(embedded,/EmbeddedMapRules\.allowsPage\(view\.getUrl\(\)\)/);
+ assert.match(embedded,/GoogleMapsLaunch\.navigationIntent\(cleaned\)/);
+ assert.match(embedded,/GoogleMapsLaunch\.directionsIntent\(cleaned\)/);
+ assert.match(embedded,/showDestinationDialog\(chosen\)/);
+ assert.match(embedded,/onSaveInstanceState/);
+ assert.match(maps,/Uri\.parse\(url\)/);
+ assert.match(maps,/setPackage\(GoogleMapsUrlRules\.GOOGLE_MAPS_PACKAGE\)/);
+ assert.match(rules,/google\.navigation:q=/);
+ assert.match(rules,/www\.google\.com\/maps\/dir\/\?api=1&destination=/);
+ assert.match(rules,/travelmode=driving/);
+ assert.match(rules,/mode=d/);
+ assert.doesNotMatch(embedded,/addJavascriptInterface|NavigationSdk|startForegroundService/);
+ assert.doesNotMatch(rules,/maps\.googleapis\.com|apiKey|AIza/);
+});

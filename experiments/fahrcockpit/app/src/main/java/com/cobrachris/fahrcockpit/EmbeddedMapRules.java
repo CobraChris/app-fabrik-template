@@ -5,7 +5,7 @@ import java.net.URI;
 /** Restrict main-frame navigation to the dedicated, public HTTPS map host. */
 final class EmbeddedMapRules {
     static final String HOST = "cobrachris.github.io";
-    static final String PATH = "/app-fabrik-template/apps/fahrcockpit-google-v16/";
+    static final String PATH = "/app-fabrik-template/apps/fahrcockpit-google-v18/";
     static final String URL = "https://" + HOST + PATH;
 
     private EmbeddedMapRules() {}
