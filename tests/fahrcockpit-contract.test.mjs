@@ -263,7 +263,8 @@ test('v20 SDK is not in the default signed variant and cannot route without expl
  const gradle=read('app/build.gradle');
  const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
  const resolver=java('NavigationDestinationResolver');
- const script=readFileSync(new URL('../scripts/fahrcockpit-release-request.mjs', import.meta.url), 'utf8');
+ // The protected release validator is on main, not on this source branch.
+ // Check the no-key Gradle gate here; the signed-release gate stays unchanged.
  assert.match(gradle,/withGoogleNavSdk/);
  assert.match(gradle,/orElse\('false'\)/);
  assert.match(gradle,/if \(withGoogleNavSdk\) java\.srcDir 'src\/navsdk\/java'/);
@@ -283,7 +284,8 @@ test('v20 SDK is not in the default signed variant and cannot route without expl
  assert.match(nav,/map\.onSaveInstanceState/);
  assert.match(resolver,/Geocoder\.isPresent\(\)/);
  assert.match(resolver,/Geocoder\.GeocodeListener/);
- assert.match(script,/refs\/heads\/feature\/fahrcockpit-blitzer-bridge/);
+ assert.match(gradle,/if \(!withGoogleNavSdk && googleNavKey\)/);
+ assert.match(gradle,/throw new GradleException\('Navigation SDK key must not be used in ordinary releases'\)/);
  assert.doesNotMatch(java('MainActivity'),/new GoogleNavigationEngine/);
  assert.doesNotMatch(nav,/AIza[A-Za-z0-9_-]{30}/);
 });
