@@ -57,9 +57,21 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             @Override public void onNavigatorReady(Navigator result) {
                 if (closed || host.isFinishing() || host.isDestroyed()) return;
                 navigator = result;
-                map.getMapAsync(googleMap ->
-                    googleMap.followMyLocation(
-                        com.google.android.gms.maps.GoogleMap.CameraPerspective.TILTED));
+                map.getMapAsync(googleMap -> {
+                    if (host.checkSelfPermission(
+                            android.Manifest.permission.ACCESS_FINE_LOCATION)
+                            != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        status.onStatus("Standortberechtigung fehlt – "
+                            + "Google-Kamera folgt nicht.");
+                        return;
+                    }
+                    try {
+                        googleMap.followMyLocation(
+                            com.google.android.gms.maps.GoogleMap.CameraPerspective.TILTED);
+                    } catch (SecurityException permissionRevoked) {
+                        status.onStatus("Standortberechtigung wurde entzogen.");
+                    }
+                });
                 status.onStatus("Google Navigation bereit · bitte Ziel wählen.");
             }
 
