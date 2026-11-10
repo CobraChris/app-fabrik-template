@@ -5,6 +5,7 @@ on:
     branches: [feature/fahrcockpit-v20-integrated-navigation-gated, feature/fahrcockpit-blitzer-bridge]
     paths:
       - 'experiments/fahrcockpit/**'
+      - 'tests/fahrcockpit-contract.test.mjs'
       - '.github/workflows/fahrcockpit-navsdk-compile.yml'
 
 permissions:
