@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-10-keyless-integrated-map-v15",
-  "source_sha": "d36e508645765849ece31011c37e95c81dd04809",
-  "expected_version_code": 15
+  "request_id": "2026-11-10-google-only-livekarte-v16",
+  "source_sha": "9622ae1cc4188eab8bf956fc7c6d803c0ca959e9",
+  "expected_version_code": 16
 }
