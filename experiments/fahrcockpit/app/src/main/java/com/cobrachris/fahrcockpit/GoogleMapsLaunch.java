@@ -29,6 +29,19 @@ final class GoogleMapsLaunch {
             .setPackage(GoogleMapsUrlRules.GOOGLE_MAPS_PACKAGE);
     }
 
+    /**
+     * Request an actual system split with the unmodified Google Maps app.
+     * Android (not FahrCockpit) decides whether adjacent launch succeeds.
+     * No OverlayService and no embedded navigation, keys or cloud billing.
+     */
+    static Intent adjacentDrivingIntent(String rawTarget) {
+        Intent result = rawTarget == null ? mapIntent() : navigationIntent(rawTarget);
+        if (result == null) return null;
+        result.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+            | Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
+        return result;
+    }
+
     static Intent mapIntent() {
         return new Intent(Intent.ACTION_VIEW,
             Uri.parse(GoogleMapsUrlRules.MAP_WITH_TRAFFIC))
