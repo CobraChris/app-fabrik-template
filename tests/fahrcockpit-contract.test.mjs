@@ -81,8 +81,8 @@ test('Fuel searches on user action, stores key locally and does not poll', () =>
 test('native Android split is the one-tap default; overlays cannot auto-return', () => {
   const main = java('MainActivity');
   const split = java('SplitCockpitActivity');
-  assert.match(main, /scroll\.post\(this::startSplitAndMaps\)/);
-  assert.match(main, /\.post\(this::startSplitAndMaps\)/);
+  assert.match(main, /scroll\.post\(this::startEmbeddedMap\)/);
+  assert.match(main, /\.post\(this::startEmbeddedMap\)/);
   assert.match(main, /FLAG_ACTIVITY_LAUNCH_ADJACENT|SplitCockpitActivity\.class/);
   assert.match(split, /FLAG_ACTIVITY_LAUNCH_ADJACENT/);
   assert.match(split, /FLAG_ACTIVITY_NEW_TASK/);
@@ -96,7 +96,7 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
   const embedded = java('EmbeddedMapActivity');
   const rules = java('EmbeddedMapRules');
   const manifest = read('app/src/main/AndroidManifest.xml');
-  assert.match(main, /Integrierte Google-Karte testen \(Prototyp\)/);
+  assert.match(main, /FahrCockpit mit Karte starten/);
   assert.match(embedded, /new WebView\(this\)/);
   assert.match(embedded, /LinearLayout\.HORIZONTAL/);
   assert.match(embedded, /LinearLayout\.VERTICAL/);
@@ -108,4 +108,14 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
   assert.doesNotMatch(embedded, /addJavascriptInterface/);
   assert.match(rules, /static final String URL = "https:\/\/" \+ HOST \+ PATH/);
   assert.match(manifest, /android:name="\.EmbeddedMapActivity"/);
+});
+
+test('keyless embedded OSM view is the default and keeps native controls separate', () => {
+  const main=java('MainActivity'),embedded=java('EmbeddedMapActivity');
+  assert.match(main, /scroll\.post\(this::startEmbeddedMap\)/);
+  assert.match(main, /startActivity\(new Intent\(this, EmbeddedMapActivity\.class\)\)/);
+  assert.match(embedded, /FahrCockpit\/0\.9\.13-beta/);
+  assert.match(embedded, /stopService\(new Intent\(this, OverlayService\.class\)\)/);
+  assert.match(embedded, /OpenStreetMap/);
+  assert.doesNotMatch(embedded, /addJavascriptInterface/);
 });
