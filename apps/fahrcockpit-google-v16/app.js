@@ -10,11 +10,12 @@
  const CALLBACK='__fahrcockpitMapsReady';
  const GOOGLE_KEY=/^AIza[0-9A-Za-z_-]{25,90}$/;
  const $=id=>document.getElementById(id);
- const mapEl=$('google-map'),status=$('status'),empty=$('not-connected'),gpsToggle=$('gps-toggle');
+ const mapEl=$('google-map'),status=$('status'),empty=$('not-connected'),gpsToggle=$('gps-toggle'),trafficBtn=$('traffic');
  let googleMap=null,loading=false,script=null,loadTimer=null,position=null;
  let positionMarker=null,accuracyCircle=null,positionAccuracy=null;
  let positionOverlay=null,positionDot=null;
  let trackingRequested=false,gpsWatchId=null,followPosition=true;
+ let trafficLayer=null,trafficEnabled=false,trafficLoading=false;
  const setStatus=value=>{status.textContent=value;};
  function stored(){
   try{
@@ -129,6 +130,46 @@
   }catch{if(accuracyCircle)try{accuracyCircle.setMap(null);}catch{}}
   return shown;
  }
+ function updateTrafficButton(){
+  if(!trafficBtn)return;
+  trafficBtn.textContent=trafficEnabled?'Verkehr aus':'Verkehr';
+  trafficBtn.setAttribute('aria-pressed',String(trafficEnabled));
+  trafficBtn.setAttribute('aria-label',trafficEnabled
+   ?'Google Verkehrslage ausblenden':'Google Verkehrslage anzeigen');
+ }
+ async function toggleTraffic(){
+  if(!googleMap){setStatus('Google-Karte zuerst verbinden.');return;}
+  if(trafficLoading)return;
+  trafficLoading=true;
+  trafficBtn.disabled=true;
+  try{
+   if(!trafficLayer){
+    let Layer=globalThis.google?.maps?.TrafficLayer;
+    if(typeof Layer!=='function'&&typeof google.maps.importLibrary==='function'){
+     const library=await google.maps.importLibrary('maps');
+     Layer=library?.TrafficLayer;
+    }
+    if(typeof Layer!=='function'){
+     setStatus('Google-Verkehrsebene mit diesem Demoschlüssel nicht verfügbar.');
+     return;
+    }
+    trafficLayer=new Layer();
+   }
+   const next=!trafficEnabled;
+   trafficLayer.setMap(next?googleMap:null);
+   trafficEnabled=next;
+   updateTrafficButton();
+   setStatus(next
+    ?'Google-Verkehrsebene aktiviert · nur wo Verkehrsdaten vorhanden sind'
+    :'Google-Verkehrsebene ausgeschaltet');
+  }catch{
+   setStatus('Google-Verkehrsebene konnte nicht geladen werden.');
+  }finally{
+   trafficLoading=false;
+   trafficBtn.disabled=false;
+  }
+ }
+ trafficBtn?.addEventListener('click',()=>{void toggleTraffic();});
  function ready(){
   if(!loading)return;
   clearTimeout(loadTimer);loadTimer=null;

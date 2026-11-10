@@ -318,3 +318,68 @@ test('GPS denial stops live watches and never restarts location tracking silentl
  assert.match(js,/!trackingRequested\|\|!googleMap\|\|gpsWatchId!==null\|\|document\.hidden/);
  assert.doesNotMatch(js,/localStorage\.setItem\('position|fetch\(.*coords/);
 });
+
+test('Google traffic layer is opt-in and can be switched on/off without map overlay or keys',async()=>{
+ const listeners={},records=[],status={textContent:''};
+ const button={disabled:false,attrs:{},addEventListener(type,callback){listeners.traffic=callback;},
+  setAttribute(name,val){this.attrs[name]=val;}};
+ const elements={
+  'google-map':{},'status':status,'not-connected':{hidden:true},
+  'center':{addEventListener(){}},
+  'gps-toggle':{addEventListener(){},setAttribute(){}},
+  'traffic':button
+ };
+ let map;
+ class Map{constructor(){map=this;}}
+ class TrafficLayer{setMap(value){records.push(value);}}
+ const sandbox={
+  URLSearchParams,
+  google:{maps:{Map,TrafficLayer}},
+  document:{hidden:false,getElementById:id=>elements[id],
+   createElement:()=>({}),head:{append(){}},addEventListener(){}},
+  navigator:{geolocation:{}},
+  localStorage:{getItem:key=>key==='fahrcockpit-map-demo-key-v1'?'AIza'+'x'.repeat(35):null},
+  setTimeout:()=>1,clearTimeout:()=>{}
+ };
+ runInNewContext(read('app.js'),sandbox);
+ sandbox.__fahrcockpitMapsReady();
+ assert.ok(map);
+ assert.equal(records.length,0,'traffic must not be enabled before opt-in');
+ listeners.traffic();await new Promise(setImmediate);
+ assert.equal(records.length,1);
+ assert.equal(records[0],map);
+ assert.equal(button.attrs['aria-pressed'],'true');
+ assert.equal(button.textContent,'Verkehr aus');
+ listeners.traffic();await new Promise(setImmediate);
+ assert.equal(records.length,2);
+ assert.equal(records[1],null);
+ assert.equal(button.attrs['aria-pressed'],'false');
+ assert.equal(button.textContent,'Verkehr');
+ assert.equal(button.disabled,false);
+ const html=read('index.html'),css=read('styles.css');
+ assert.match(html,/id="traffic"/);
+ assert.match(html,/aria-pressed="false"/);
+ assert.match(css,/\.footer #traffic/);
+ assert.doesNotMatch(read('app.js'),/fetch\(['"]https?:|DirectionsService|new google\.maps\.PlacesService/);
+});
+
+test('unsupported Google traffic library reports unavailability and does not claim active traffic',async()=>{
+ const listeners={},status={textContent:''};
+ const btn={disabled:false,attrs:{},addEventListener(type,callback){listeners.traffic=callback;},
+ setAttribute(name,val){this.attrs[name]=val;}};
+ const elements={'google-map':{},'status':status,'not-connected':{hidden:true},
+  'center':{addEventListener(){}},'gps-toggle':{addEventListener(){},setAttribute(){}},
+  'traffic':btn};
+ const sandbox={URLSearchParams,
+  google:{maps:{Map:class{}}},
+  document:{hidden:false,getElementById:id=>elements[id],createElement:()=>({}),head:{append(){}},addEventListener(){}},
+  navigator:{geolocation:{}},
+  localStorage:{getItem:key=>key==='fahrcockpit-map-demo-key-v1'?'AIza'+'x'.repeat(35):null},
+  setTimeout:()=>1,clearTimeout:()=>{}};
+ runInNewContext(read('app.js'),sandbox);
+ sandbox.__fahrcockpitMapsReady();
+ listeners.traffic();await new Promise(setImmediate);
+ assert.match(status.textContent,/nicht verfügbar/);
+ assert.notEqual(btn.attrs['aria-pressed'],'true');
+ assert.equal(btn.disabled,false);
+});
