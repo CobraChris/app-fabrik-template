@@ -115,7 +115,9 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
 test('embedded Google-only map keeps native Spotify controls separate', () => {
   const main=java('MainActivity'),embedded=java('EmbeddedMapActivity');
   assert.match(main, /scroll\.post\(this::startEmbeddedMap\)/);
-  assert.match(main, /startActivity\(new Intent\(this, EmbeddedMapActivity\.class\)\)/);
+  // Default keyless app launch must keep the accepted v19 Google map.
+  assert.match(main, /: new Intent\(this, EmbeddedMapActivity\.class\)/);
+  assert.match(main, /navigationAuthorizedBuild/);
   assert.match(embedded, /GoogleKeyTransfer\.isImportStart/);
   assert.match(embedded, /stopService\(new Intent\(this, OverlayService\.class\)\)/);
   assert.match(embedded, /Google-Kartenprototyp ohne OpenStreetMap/);
@@ -261,7 +263,7 @@ test('v20 SDK is not in the default signed variant and cannot route without expl
  const gradle=read('app/build.gradle');
  const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
  const resolver=java('NavigationDestinationResolver');
- const script=read('../../scripts/fahrcockpit-release-request.mjs');
+ const script=readFileSync(new URL('../scripts/fahrcockpit-release-request.mjs', import.meta.url), 'utf8');
  assert.match(gradle,/withGoogleNavSdk/);
  assert.match(gradle,/orElse\('false'\)/);
  assert.match(gradle,/if \(withGoogleNavSdk\) java\.srcDir 'src\/navsdk\/java'/);
