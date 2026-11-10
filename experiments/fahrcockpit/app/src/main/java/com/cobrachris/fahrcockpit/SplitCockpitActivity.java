@@ -1,6 +1,9 @@
 package com.cobrachris.fahrcockpit;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.provider.Settings;
+import android.widget.EditText;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
@@ -22,12 +25,15 @@ import android.widget.TextView;
  * or an App pair. Never activate an overlay automatically. No Accessibility automation.
  */
 public final class SplitCockpitActivity extends Activity {
-    private static final String MAPS_PACKAGE = "com.google.android.apps.maps";
+    static final String EXTRA_NAVIGATION_TARGET = "fahrcockpit_split_navigation_target";
+    private static final String KEY_TARGET = "selected_split_target";
     private static final String KEY_REQUESTED = "requested_adjacent_maps";
+    private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
     private final Handler ui = new Handler(Looper.getMainLooper());
 
-    private TextView splitStatus, spotifyStatus, track, currentTime, durationTime;
-    private Button play, previous, next, back15, forward15;
+    private TextView splitStatus, spotifyStatus, track, currentTime, durationTime, targetLabel;
+    private Button play, previous, next, back15, forward15, spotifyAction;
+    private String routeTarget;
     private SeekBar position;
     private boolean requested;
     private boolean scrubbing;
@@ -47,6 +53,9 @@ public final class SplitCockpitActivity extends Activity {
         stopService(new Intent(this, OverlayService.class));
         stopService(new Intent(this, DockedCockpitService.class));
         requested = savedInstanceState != null && savedInstanceState.getBoolean(KEY_REQUESTED);
+        routeTarget = RouteTargetRules.clean(savedInstanceState != null
+            ? savedInstanceState.getString(KEY_TARGET)
+            : getIntent().getStringExtra(EXTRA_NAVIGATION_TARGET));
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
         ScrollView scroll = new ScrollView(this);
@@ -70,8 +79,21 @@ public final class SplitCockpitActivity extends Activity {
         splitStatus = Ui.text(this,
             SplitPaneRules.statusText(isInMultiWindowMode()), 12, Ui.MUTED, false);
         root.addView(splitStatus);
+        targetLabel = Ui.text(this, routeTarget == null
+            ? "Google Maps rechts/links · Ziel noch nicht festgelegt"
+            : "Google-Navigation zum Ziel: " + routeTarget,
+            12, Ui.ACCENT, false);
+        targetLabel.setMaxLines(3);
+        root.addView(targetLabel);
+        Button targetButton = Ui.button(this, "📍 Ziel für Google-Navigation wählen");
+        root.addView(targetButton);
+        targetButton.setOnClickListener(v -> chooseDrivingDestination());
+
         spotifyStatus = Ui.text(this, "Spotify wird gesucht …", 12, Ui.MUTED, false);
         root.addView(spotifyStatus);
+        spotifyAction = Ui.button(this, "Spotify öffnen und Musik starten");
+        root.addView(spotifyAction);
+        spotifyAction.setOnClickListener(v -> runSpotifyNextStep());
         track = Ui.text(this, "–", 14, Ui.FG, true);
         track.setMaxLines(2);
         root.addView(track);
@@ -129,7 +151,10 @@ public final class SplitCockpitActivity extends Activity {
         Ui.gap(this, root, 7);
         Button maps = Ui.button(this, "Google Maps nebenan anzeigen");
         root.addView(maps);
-        maps.setOnClickListener(v -> launchMapsAdjacent());
+        maps.setOnClickListener(v -> launchMapsAdjacent(routeTarget));
+        Button help = Ui.button(this, "Wenn Maps Vollbild öffnet: Split-Hilfe");
+        root.addView(help);
+        help.setOnClickListener(v -> showSplitHelp());
 
         Button fuel = Ui.button(this, "⛽ Tankstellen");
         root.addView(fuel);
@@ -156,11 +181,10 @@ public final class SplitCockpitActivity extends Activity {
         });
 
         TextView note = Ui.text(this,
-            "70 % Maps / 30 % FahrCockpit: Trennlinie einmalig in Samsung Multi Window " +
-            "verschieben. Die genaue Aufteilung steuert Android. In Samsung kannst " +
-            "du die beiden Apps danach als App-Paar speichern. " +
-            "Im Querformat liegen die Fenster nebeneinander, hochkant " +
-            "in der Regel übereinander. Nur im Stand bedienen.",
+            "Echte Google-Abbiegenavigation in einem separaten Android-Fenster; "
+            + "FahrCockpit steuert Spotify im zweiten Fenster. Die Anordnung "
+            + "und Trennlinie bestimmt Samsung, nicht diese App. "
+            + "Nur im Stand bedienen.",
             12, Ui.MUTED, false);
         root.addView(note);
         Button settings = Ui.button(this, "FahrCockpit-Einstellungen");
@@ -169,7 +193,7 @@ public final class SplitCockpitActivity extends Activity {
 
         if (!requested) {
             requested = true;
-            ui.postDelayed(this::launchMapsAdjacent, 450L);
+            ui.postDelayed(() -> launchMapsAdjacent(routeTarget), 450L);
         }
         // Early status refresh must not start a fallback during split animation.
         ui.postDelayed(this::updateSplitStatus, 1500L);
@@ -188,8 +212,8 @@ public final class SplitCockpitActivity extends Activity {
      * Best-effort native system split. Not a custom Google Maps embedding:
      * Google Maps retains its own task, navigation, traffic and account.
      */
-    private void launchMapsAdjacent() {
-        Intent maps = GoogleMapsLaunch.mapIntent();
+    private void launchMapsAdjacent(String target) {
+        Intent maps = GoogleMapsLaunch.adjacentDrivingIntent(target);
         if (!GoogleMapsLaunch.installed(this)) {
             splitStatus.setText("Google Maps ist nicht installiert oder nicht sichtbar.");
             return;
@@ -200,9 +224,12 @@ public final class SplitCockpitActivity extends Activity {
             // cockpit to obscure an already successful Samsung split.
             stopService(new Intent(this, OverlayService.class));
             stopService(new Intent(this, DockedCockpitService.class));
-            maps.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                | Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT);
+            // The explicit Google Intent already carries NEW_TASK+LAUNCH_ADJACENT.
+            // This only requests an Android split; it cannot force Samsung's UI.
             startActivity(maps);
+            targetLabel.setText(target == null
+                ? "Google Maps als zweites Fenster angefordert"
+                : "Google-Navigation angefordert: " + target);
             // Confirm state only after Samsung has had time to arrange both windows.
             ui.postDelayed(this::updateSplitStatus, 2600L);
             ui.postDelayed(this::updateSplitStatus, 4800L);
@@ -210,6 +237,85 @@ public final class SplitCockpitActivity extends Activity {
             // The user can still select the proven overlay in this activity.
             splitStatus.setText("Samsung konnte Google Maps nicht nebenan öffnen. " +
                 "Bitte App-Paar über die letzten Apps anlegen.");
+        }
+    }
+
+    private void chooseDrivingDestination() {
+        LinearLayout content = Ui.column(this);
+        content.setPadding(Ui.dp(this, 18), Ui.dp(this, 8),
+            Ui.dp(this, 18), Ui.dp(this, 8));
+        EditText field = new EditText(this);
+        field.setSingleLine(true);
+        field.setTextColor(Ui.FG);
+        field.setHintTextColor(Ui.MUTED);
+        field.setHint("Adresse, Ort oder Koordinaten");
+        field.setText(routeTarget == null ? "" : routeTarget);
+        content.addView(field);
+        android.content.SharedPreferences prefs =
+            getSharedPreferences(ROUTES_PREFS, MODE_PRIVATE);
+        for (int i = 0; i < 5; i++) {
+            String target = RouteTargetRules.clean(prefs.getString("target_" + i, ""));
+            if (target == null) continue;
+            Button saved = Ui.button(this, target);
+            saved.setMaxLines(1);
+            content.addView(saved);
+            saved.setOnClickListener(v -> field.setText(target));
+        }
+        AlertDialog dialog = new AlertDialog.Builder(this)
+            .setTitle("Google-Navigation im Splitscreen")
+            .setView(content)
+            .setNegativeButton("Abbrechen", (d, which) -> {})
+            .setPositiveButton("Navigation starten", null)
+            .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(
+            AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String target = RouteTargetRules.clean(field.getText().toString());
+            if (target == null) {
+                field.setError("Bitte ein gültiges Ziel angeben (maximal 160 Zeichen).");
+                return;
+            }
+            routeTarget = target;
+            dialog.dismiss();
+            launchMapsAdjacent(routeTarget);
+        }));
+        dialog.show();
+    }
+
+    private void showSplitHelp() {
+        new AlertDialog.Builder(this)
+            .setTitle("Google Maps + FahrCockpit nebeneinander")
+            .setMessage("Android/Samsung entscheidet, ob der automatische "
+                + "Splitscreen-Start möglich ist. Wenn Google Maps nur im "
+                + "Vollbild erscheint: Öffne die Android-Übersicht der "
+                + "zuletzt verwendeten Apps, wähle dort die geteilte "
+                + "Bildschirmansicht für FahrCockpit und Google Maps. "
+                + "Die Trennlinie kannst du dann verschieben. FahrCockpit "
+                + "kann Google Maps nicht in sein eigenes Fenster zwingen.")
+            .setPositiveButton("Verstanden", (d, which) -> {})
+            .show();
+    }
+
+    private void runSpotifyNextStep() {
+        if (!Permissions.isMediaListenerEnabled(this)) {
+            spotifyStatus.setText("Medienzugriff für FahrCockpit in Android freigeben.");
+            try {
+                startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+            } catch (RuntimeException unavailable) {
+                spotifyStatus.setText("Android-Einstellungen: Benachrichtigungszugriff "
+                    + "für FahrCockpit freigeben.");
+            }
+            return;
+        }
+        Intent spotify = getPackageManager().getLaunchIntentForPackage("com.spotify.music");
+        if (spotify == null) {
+            spotifyStatus.setText("Spotify ist nicht installiert.");
+            return;
+        }
+        try {
+            startActivity(spotify);
+            spotifyStatus.setText("Spotify: Musik starten und zu FahrCockpit zurückkehren.");
+        } catch (RuntimeException unavailable) {
+            spotifyStatus.setText("Spotify konnte nicht geöffnet werden.");
         }
     }
 
@@ -222,6 +328,11 @@ public final class SplitCockpitActivity extends Activity {
 
     private void updateMusic() {
         SpotifyMedia.State state = SpotifyMedia.read(this);
+        boolean granted = Permissions.isMediaListenerEnabled(this);
+        String nextStep = SpotifyDisplayRules.nextAction(granted, state.connected);
+        spotifyAction.setVisibility(nextStep == null ? View.GONE : View.VISIBLE);
+        if (nextStep != null) spotifyAction.setText(nextStep);
+        track.setVisibility(state.connected ? View.VISIBLE : View.GONE);
         track.setText(state.line);
         play.setText(state.playing ? "⏸" : "▶");
         play.setEnabled(state.connected);
@@ -243,12 +354,9 @@ public final class SplitCockpitActivity extends Activity {
         durationTime.setVisibility(hasProgress ? View.VISIBLE : View.GONE);
         if (hasProgress) durationTime.setText(
             TrackProgressRules.time(state.durationMs));
-        if (!state.connected) spotifyStatus.setText(
-            Permissions.isMediaListenerEnabled(this)
-                ? "Spotify öffnen und Musik starten."
-                : "Spotify-Medienzugriff in FahrCockpit freigeben.");
-        else if (spotifyStatus.getText().toString().startsWith("Spotify "))
-            spotifyStatus.setText("Spotify verbunden");
+        spotifyStatus.setText(state.connected
+            ? SpotifyDisplayRules.connectedStatus(state.playing)
+            : SpotifyDisplayRules.notConnected(granted));
     }
 
     private void updateSplitStatus() {
@@ -271,6 +379,7 @@ public final class SplitCockpitActivity extends Activity {
 
     @Override public void onSaveInstanceState(Bundle state) {
         state.putBoolean(KEY_REQUESTED, requested);
+        state.putString(KEY_TARGET, routeTarget);
         super.onSaveInstanceState(state);
     }
 
