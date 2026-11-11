@@ -56,9 +56,13 @@ jobs:
           "$apksigner_path" verify --print-certs \
             "$RUNNER_TEMP/fahrcockpit-v19-cert/fahrcockpit-release.apk" \
             > "$RUNNER_TEMP/fahrcockpit-v19-cert/certificate.txt"
-          sha1="$(awk -F': ' '/Signer #1 certificate SHA-1 digest:/ {print $2; exit}' \
-            "$RUNNER_TEMP/fahrcockpit-v19-cert/certificate.txt")"
-          [[ "$sha1" =~ ^[0-9a-fA-F]{40}$ ]]
+          echo "Oeffentliche Zertifikatpruefung (SHA-1):"
+          grep -i -E 'SHA-1|SHA1' "$RUNNER_TEMP/fahrcockpit-v19-cert/certificate.txt" || true
+          sha1="$(sed -nE 's/.*certificate SHA-1 digest:[[:space:]]*([0-9a-fA-F:]{40,59}).*/\1/p' \
+            "$RUNNER_TEMP/fahrcockpit-v19-cert/certificate.txt" | head -n 1 | tr -d ':')"
+          if [[ ! "$sha1" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::Unerwartetes SHA-1-Ausgabeformat, kein Key erstellt."; exit 1
+          fi
           colon_sha1="$(printf '%s' "$sha1" | tr '[:lower:]' '[:upper:]' | sed 's/../&:/g;s/:$//')"
           echo "Android-Paketname: com.cobrachris.fahrcockpit"
           echo "Original-v19-Zertifikat SHA-1 (Google Cloud Android-Einschraenkung): $colon_sha1"
