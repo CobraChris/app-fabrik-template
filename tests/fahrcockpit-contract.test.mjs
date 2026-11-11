@@ -300,3 +300,17 @@ test('v20 keeps primary Spotify controls visible before optional route form in 3
  assert.match(shell,/scroll\.smoothScrollTo\(0,/);
  assert.match(shell,/SOFT_INPUT_ADJUST_RESIZE/);
 });
+
+
+test('v20 local 20-per-UTC-day spending guard reserves before Google requests',()=>{
+ const budget=java('NavigationRequestBudget');
+ const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+ assert.match(budget,/MAX_DAILY_REQUESTS = 20/);
+ assert.match(budget,/Math\.floorDiv\(System\.currentTimeMillis\(\), MILLIS_PER_DAY\)/);
+ assert.match(budget,/currentUtcDay < storedUtcDay/);
+ assert.match(budget,/\.putInt\(COUNT, nextCount\)\.commit\(\)/);
+ assert.match(budget,/catch \(RuntimeException cannotPersist\)/);
+ assert.match(engine,/if \(!NavigationRequestBudget\.reserve\(host\)\)/);
+ assert.ok(engine.indexOf('NavigationRequestBudget.reserve(host)') <
+    engine.indexOf('navigator.setDestination(waypoint, options)'));
+});

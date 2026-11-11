@@ -28,7 +28,7 @@ verwendet `com.google.android.libraries.navigation:navigation:7.6.1`, Android AP
 
 Eine echte Routenabfrage erfolgt **nur** nach:
 1. ausdrücklicher Freigabe von Google-Cloud-Billing, Cloud-Projekt und Navigation SDK durch den Nutzer
-2. separatem, Android-App/SHA-256-signing-certificate-restringiertem Google Navigation SDK API-Key; kein Schlüssel im Repository
+2. separatem, Android-App/SHA-1-signing-certificate-restringiertem Google Navigation SDK API-Key; kein Schlüssel im Repository
 3. authentifiziertem SDK-Initialisieren und ausdrücklicher Standortfreigabe
 4. Eingabe/Geocoding des Ziels sowie einer **zweiten sichtbaren Bestätigung**, dass der Routenabruf gegen die Nav-SDK-Quote zählt
 5. `Navigator.setDestination(...)`, und nur nach Erfolg `Navigator.startGuidance()` mit Sprachführung.
@@ -67,3 +67,9 @@ Der Nutzer hat die Nutzung eines Google-Cloud-Abrechnungskontos fuer die echte I
 - Erst nach verifizierter Cloud-Verbindung, Lizenz/Attribution, signiertem v20 Testbuild mit demselben Originalzertifikat und echtem Samsung-Test die geschuetzte v20 Releasefreigabe einholen. v19 bleibt unveraendert.
 
 Offizielle Quellen: https://developers.google.com/maps/documentation/navigation/android-sdk/get-api-key , https://developers.google.com/maps/documentation/navigation/android-sdk/pricing
+
+## Zusätzliche lokale Kostenbremse
+
+v20 reserviert vor jedem ausdrücklich bestätigten `Navigator.setDestination`-Aufruf einen lokalen Platz. Maximal 20 Plätze pro UTC-Tag werden im Android-App-Speicher gespeichert; ein nicht speicherbarer Zähler sperrt weitere Anfragen. Ein SDK-Fehler gibt den Platz konservativ nicht zurück. Die Prüfung verbietet auch das einfache Zurückstellen der Systemzeit auf einen früheren UTC-Tag. JUnit- und Node-Vertragstests decken das ab.
+
+**Keine harte Kostengarantie:** Neuinstallation, Löschen der App-Daten und andere Geräte können die lokale Sperre umgehen. Daher ist zusätzlich eine in Google Cloud durchgesetzte Navigation-Request-Tagesquote verpflichtend. Die Freigabe für Billing bestätigt noch nicht, dass Konto, Quote oder API-Schlüssel bereits eingerichtet wurden. Das signierte v19-Release wird nicht verändert.

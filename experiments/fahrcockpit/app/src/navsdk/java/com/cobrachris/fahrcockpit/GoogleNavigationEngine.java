@@ -111,6 +111,14 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             status.onStatus("Ungültige Zielkoordinaten – Route nicht angefordert.");
             return;
         }
+        // Reserve the local daily allowance before any potentially billable
+        // setDestination() call. Deny routing if storage cannot commit.
+        // This is defense in depth, NOT a substitute for Google's Cloud quota.
+        if (!NavigationRequestBudget.reserve(host)) {
+            status.onStatus("Lokale Routensperre: maximal 20 Anfragen pro UTC-Tag "
+                + "oder Kontingentspeicherung fehlgeschlagen. Cloud-Quote gilt zusätzlich.");
+            return;
+        }
         // This call can consume billable Navigation Request quota. The native
         // UI must have shown an explicit per-route confirmation first.
         final Waypoint waypoint = Waypoint.builder()
