@@ -38,6 +38,31 @@ jobs:
         run: |
           set -euo pipefail
           "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36"
+      - name: Bestehendes v19-Releasezertifikat fuer Android-API-Key ermitteln
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/fahrcockpit-v19-cert"
+          gh release download fahrcockpit-v19 \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'fahrcockpit-release.apk' \
+            --dir "$RUNNER_TEMP/fahrcockpit-v19-cert"
+          apksigner_path="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -n 1)"
+          test -s "$RUNNER_TEMP/fahrcockpit-v19-cert/fahrcockpit-release.apk"
+          test -n "$apksigner_path"
+          echo "FahrCockpit Signatur mit vorhandenem Android-Build-Tool pruefen"
+          "$apksigner_path" verify --print-certs \
+            "$RUNNER_TEMP/fahrcockpit-v19-cert/fahrcockpit-release.apk" \
+            > "$RUNNER_TEMP/fahrcockpit-v19-cert/certificate.txt"
+          sha1="$(awk -F': ' '/Signer #1 certificate SHA-1 digest:/ {print $2; exit}' \
+            "$RUNNER_TEMP/fahrcockpit-v19-cert/certificate.txt")"
+          [[ "$sha1" =~ ^[0-9a-fA-F]{40}$ ]]
+          colon_sha1="$(printf '%s' "$sha1" | tr '[:lower:]' '[:upper:]' | sed 's/../&:/g;s/:$//')"
+          echo "Android-Paketname: com.cobrachris.fahrcockpit"
+          echo "Original-v19-Zertifikat SHA-1 (Google Cloud Android-Einschraenkung): $colon_sha1"
+          echo "Nur oeffentlicher Zertifikat-Fingerabdruck; kein Signierschluessel ausgegeben."
       - name: Google Navigation SDK ohne Key/Cloud testen
         shell: bash
         env:
@@ -53,27 +78,3 @@ jobs:
           test -z "${FAHRCOCKPIT_NAV_SDK_KEY:-}"
           grep -q "orElse('false')" experiments/fahrcockpit/app/build.gradle
           grep -q "FAHRCOCKPIT_NAV_SDK_KEY" experiments/fahrcockpit/app/build.gradle
-
-      - name: Bestehendes v19-Releasezertifikat fuer Android-API-Key ermitteln
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/fahrcockpit-v19-cert"
-          gh release download fahrcockpit-v19 \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern 'fahrcockpit-release.apk' \
-            --dir "$RUNNER_TEMP/fahrcockpit-v19-cert"
-          apksigner_path="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
-          test -n "$apksigner_path"
-          "$apksigner_path" verify --print-certs \
-            "$RUNNER_TEMP/fahrcockpit-v19-cert/fahrcockpit-release.apk" \
-            > "$RUNNER_TEMP/fahrcockpit-v19-cert/certificate.txt"
-          sha1="$(awk -F': ' '/Signer #1 certificate SHA-1 digest:/ {print $2; exit}' \
-            "$RUNNER_TEMP/fahrcockpit-v19-cert/certificate.txt")"
-          [[ "$sha1" =~ ^[0-9a-fA-F]{40}$ ]]
-          colon_sha1="$(printf '%s' "$sha1" | tr '[:lower:]' '[:upper:]' | sed 's/../&:/g;s/:$//')"
-          echo "Android-Paketname: com.cobrachris.fahrcockpit"
-          echo "Original-v19-Zertifikat SHA-1 (Google Cloud Android-Einschraenkung): $colon_sha1"
-          echo "Nur oeffentlicher Zertifikat-Fingerabdruck; kein Signierschluessel ausgegeben."
