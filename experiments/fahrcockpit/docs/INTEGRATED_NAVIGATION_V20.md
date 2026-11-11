@@ -40,8 +40,8 @@ Die Android-Geocoder-Namensauflösung ist eine separate Android-Systemfunktion (
 ## Unverzichtbare Freigaben vor einem tatsächlichen SDK-Release
 
 - **Google Cloud Billing explizit zustimmen und selbst einrichten** – auch die ersten 1.000 kostenlosen Ziele/Monat erfordern aktives Billing.
-- Google Navigation SDK im dedizierten Projekt einschalten; Eingrenzung auf Navigation SDK und Paketname `com.cobrachris.fahrcockpit` plus SHA-256 des Original-FahrCockpit-Signierzertifikats.
-- **Tägliche API-Quota so niedrig wie möglich begrenzen**, Nutzung und Budgetalarme einstellen. Ein Budgetalarm allein ist keine harte Kostensperre. Auch innerhalb des Freikontingents kann es bei unkontrollierter Nutzung kostenpflichtig werden.
+- Google Navigation SDK im dedizierten Projekt einschalten; Eingrenzung auf Navigation SDK und Paketname `com.cobrachris.fahrcockpit` plus SHA-1 des Original-FahrCockpit-Signierzertifikats.
+- **Navigation Request-Quote anfangs auf 20 Ziele/Tag begrenzen**, sofern diese Tagesquote in Google Cloud angeboten wird. Damit maximal 620 Ziele in 31 Tagen (nur dieses Projekt). Nutzung und Budgetalarme einstellen. Ein Budgetalarm allein ist keine harte Kostensperre. Auch innerhalb des Freikontingents kann es bei unkontrollierter Nutzung kostenpflichtig werden.
 - Navigation SDK-Attributionen und Lizenzhinweise aus `NOTICE.txt` und `LICENSES.txt` im finalen App-UI rechtskonform bereitstellen (noch offen).
 - Geschützte Build-/Signierpipeline separat für den **autorisierten SDK-Release** ergänzen, ohne den Originalkeystore zu verändern. Freigabe dafür ausdrücklich einholen.
 - Android-Geräteabnahme: Google-Destinationsrouting, Spoken Guidance mit Spotify, Neustart/Drehung, Hoch/Quer 70/30, Start/Stopp, Abbiegekarte und Tastatur im Stand.
@@ -53,3 +53,17 @@ Die Android-Geocoder-Namensauflösung ist eine separate Android-Systemfunktion (
 - Google Navigation SDK – Einzelziel: https://developers.google.com/maps/documentation/navigation/android-sdk/route
 - Google Navigation SDK – Abrechnung: https://developers.google.com/maps/documentation/navigation/android-sdk/pricing
 - Google Navigation SDK – NavigationView Lifecycle: https://developers.google.com/maps/documentation/navigation/android-sdk/reference/com/google/android/libraries/navigation/NavigationView
+
+## Google-Cloud-Einrichtung nach Nutzerfreigabe vom 11.11.2026
+
+Der Nutzer hat die Nutzung eines Google-Cloud-Abrechnungskontos fuer die echte Integration grundsaetzlich genehmigt. **Das ist weder eine ausgefuehrte Kontoaktivierung noch eine Freigabe zum Signieren/Veröffentlichen.** Keine Guthaben-, Kontodaten- oder Schluesselwerte im Repository ablegen.
+
+- Eigenes Google-Cloud-Projekt `FahrCockpit Navigation` mit zugeordnetem Billing-Konto.
+- Ausschliesslich `Navigation SDK for Android` (`navigationsdk.googleapis.com`) aktivieren, nicht weitere Maps- oder Places-Dienste automatisch einschalten.
+- Separater API-Key: **API restrictions** nur Navigation SDK for Android; **Application restrictions** Android apps, Paket `com.cobrachris.fahrcockpit`, **SHA-1** des bisherigen signierten v19-Release-Zertifikats. Achtung: Der SHA-256-Hash der APK selbst ist weder der Android-Signatur-Fingerabdruck noch die benoetigte API-Key-Beschraenkung. Debug-Zertifikat ist nicht das Originalzertifikat.
+- Die optionale CI liest zur Orientierung den oeffentlichen SHA-1-Zertifikat-Fingerabdruck der original signierten v19 direkt aus dem GitHub Release (ohne Zugriff auf Keystore oder Signier-Secrets); Ergebnis nur im CI-Protokoll, nicht als API-Key.
+- Navigation-Request-Quote nach Moeglichkeit **20 Ziele/Tag** (620/31 Tage) einstellen und kostenloses Monatskontingent sowie Restquote ueberwachen. Eine tatsaechlich durchgesetzte Quote ist zu kontrollieren; bei fehlender oder ungeeigneter Tagesquote darf keine Kostenfreiheit versprochen werden. Cloud-Budgetalarm z.B. bei 1 EUR/Monat als Zusatz, **keine harte Kostensperre**.
+- API-Key niemals in Chat, PR, Issue oder git ablegen. Separaten geschuetzten GitHub-Actions-Secret-Kanal fuer einen spaeter ausdrücklich autorisierten Signed-Testbuild verwenden.
+- Erst nach verifizierter Cloud-Verbindung, Lizenz/Attribution, signiertem v20 Testbuild mit demselben Originalzertifikat und echtem Samsung-Test die geschuetzte v20 Releasefreigabe einholen. v19 bleibt unveraendert.
+
+Offizielle Quellen: https://developers.google.com/maps/documentation/navigation/android-sdk/get-api-key , https://developers.google.com/maps/documentation/navigation/android-sdk/pricing
