@@ -199,7 +199,9 @@ test('v19 split Google-Navigation uses Android window management with no overlay
  assert.match(embedded,/SplitCockpitActivity\.EXTRA_NAVIGATION_TARGET/);
  assert.match(split,/static final String EXTRA_NAVIGATION_TARGET/);
  assert.match(split,/RouteTargetRules\.clean\(savedInstanceState != null/);
- assert.match(split,/ui\.postDelayed\(\(\) -> launchMapsAdjacent\(routeTarget\), 450L\)/);
+  assert.match(split,/ui\.postDelayed\(\(\) -> \{/);
+  assert.match(split,/if \(isInMultiWindowMode\(\)\)/);
+  assert.match(split,/launchMapsAdjacent\(routeTarget\)/);
  assert.match(split,/GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
  assert.match(split,/showSplitHelp\(\)/);
  assert.match(split,/📍 Ziel für Google-Navigation wählen/);
