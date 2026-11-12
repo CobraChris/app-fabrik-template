@@ -330,7 +330,7 @@ test('v20 free-first navigation does not depend on 90-day Cloud trial',()=>{
  assert.ok(start>0 && end>start);
  const launcher=main.slice(start,end);
  assert.match(launcher,/restrictedGoogleSdkAvailable\(\)/);
- assert.match(launcher,/\? IntegratedNavigationActivity\.class/);
+ assert.match(launcher,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(launcher,/: SplitCockpitActivity\.class/);
  assert.doesNotMatch(launcher,/BuildConfig\.NAVSDK_API_KEY|EmbeddedMapActivity\.class/);
  assert.match(split,/GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
@@ -522,7 +522,7 @@ test('v21 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/NavigationSdkKeyStore\.read\(this\)/);
  assert.match(selection,/NavigationSdkKeyStore\.validKey\(key\)/);
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
- assert.match(main,/googleSdkReady\s*\?\s*IntegratedNavigationActivity\.class/);
+ assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
  assert.match(gradle,/versionCode 21/);
  assert.match(gradle,/versionName '0\.9\.19-beta'/);
@@ -537,5 +537,13 @@ test('v21 OSM turn guidance can be opened for safe manual field tests in a singl
  assert.match(screen,/getIntent\(\)\.getBooleanExtra\(EXTRA_FORCE_OSM_TEST,false\)/);
  assert.match(screen,/optionalEngine\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(screen,/OSM-Abbiegeführung \(nicht für Fahrten freigegeben\)/);
+});
+
+test('v21 SDK-capable launch stays on local key setup rather than opening unwanted Android split',()=>{
+ const main=java('MainActivity');
+ assert.match(main,/if \(sdkCompiled && !restrictedGoogleSdkAvailable\(\)\)/);
+ assert.match(main,/startActivity\(new Intent\(this, sdkCompiled/);
+ assert.match(main,/embedded\.setOnClickListener\(v -> startSplitAndMaps\(\)\)/);
+ assert.match(main,/Google Navigation SDK vorhanden/);
 });
 

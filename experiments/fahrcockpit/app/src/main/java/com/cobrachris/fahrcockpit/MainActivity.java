@@ -70,7 +70,7 @@ public final class MainActivity extends Activity {
             + "oder API-Schlüssel erforderlich. Samsung bestimmt das Fensterverhältnis.");
         Button embedded = Ui.button(this, "Google Maps + Spotify kostenlos starten");
         root.addView(embedded);
-        embedded.setOnClickListener(v -> startEmbeddedMap());
+        embedded.setOnClickListener(v -> startSplitAndMaps());
 
         Ui.section(this, root, "Optionale 70/30-Kartenansicht",
             "Die bisherige eingebettete Google-Kartenansicht ist keine "
@@ -444,8 +444,19 @@ public final class MainActivity extends Activity {
             // SDK exists and its restricted key has been installed on THIS phone.
             // No route is requested here. Without a local key, the original
             // free Google Maps App + Spotify path still starts as before.
-            boolean googleSdkReady = restrictedGoogleSdkAvailable();
-            startActivity(new Intent(this, googleSdkReady
+            boolean sdkCompiled = optionalGoogleSdkCompiled();
+            if (sdkCompiled && !restrictedGoogleSdkAvailable()) {
+                // Do NOT silently send an SDK-capable v21 user back into
+                // the unwanted Samsung splitscreen before key setup.
+                // Stay on the setup screen, with free Google Maps available
+                // through its separate button.
+                if (permissions != null) permissions.setText(
+                    "Google Navigation SDK vorhanden. Bitte den "
+                    + "eingeschränkten Schlüssel lokal speichern; "
+                    + "Google Maps bleibt über den kostenlosen Knopf verfügbar.");
+                return;
+            }
+            startActivity(new Intent(this, sdkCompiled
                 ? IntegratedNavigationActivity.class
                 : SplitCockpitActivity.class));
         } catch (RuntimeException e) {
@@ -455,10 +466,12 @@ public final class MainActivity extends Activity {
     }
 
     private boolean restrictedGoogleSdkAvailable() {
-        String key = NavigationSdkKeyStore.read(this);
-        if (!NavigationSdkKeyStore.validKey(key)) return false;
+        return optionalGoogleSdkCompiled()
+            && NavigationSdkKeyStore.validKey(NavigationSdkKeyStore.read(this));
+    }
+
+    private boolean optionalGoogleSdkCompiled() {
         try {
-            // No hard linkage when the optional Google library is omitted.
             Class.forName(IntegratedNavigationRules.ENGINE_CLASS);
             return true;
         } catch (ClassNotFoundException | LinkageError unavailable) {
