@@ -393,3 +393,22 @@ test('v21 interactive fixed 70/30 HTML preview is transparent, interactive and c
  assert.doesNotMatch(html,/<script[^>]+src=|api\.google|maps\.googleapis|tile\.openstreetmap|https:\/\/[^\s]*\.js/);
 });
 
+test('v21 embedded interactive design preview is local and clearly non-navigational',()=>{
+ const main=java('MainActivity');
+ const preview=java('NavigationPreviewActivity');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ const html=read('app/src/main/assets/fahrcockpit-v21-preview.html');
+ assert.match(main,/Feste 70\/30-Vorschau öffnen/);
+ assert.match(main,/new Intent\(this, NavigationPreviewActivity\.class\)/);
+ assert.match(manifest,/android:name="\.NavigationPreviewActivity"/);
+ assert.match(manifest,/android:exported="false"/);
+ assert.match(preview,/setAllowFileAccess\(false\)/);
+ assert.match(preview,/setAllowContentAccess\(false\)/);
+ assert.match(preview,/setDomStorageEnabled\(false\)/);
+ assert.match(preview,/setJavaScriptCanOpenWindowsAutomatically\(false\)/);
+ assert.match(preview,/loadDataWithBaseURL\("about:blank"/);
+ assert.doesNotMatch(preview,/GoogleNavigationEngine|setDestination|startGuidance/);
+ assert.match(html,/Keine echte Google- oder OSM-Navigation/);
+ assert.doesNotMatch(html,/<script[^>]+src=|maps\.googleapis|tile\.openstreetmap/);
+});
+

@@ -55,6 +55,15 @@ public final class MainActivity extends Activity {
             "Abtippen aus deiner Live-Karte übernommen werden.",
             15, Ui.MUTED, false));
 
+        Ui.section(this, root, "V21-Design ausprobieren (keine Navigation)",
+            "Interaktive, lokal gespeicherte 70/30-Vorschau: Google zuerst "
+            + "und simulierte OSM-Rückfallebene bei Quote oder Billing. "
+            + "Keine GPS-/Routenführung und keine Cloud-API.");
+        Button fixedDemo = Ui.button(this, "Feste 70/30-Vorschau öffnen");
+        root.addView(fixedDemo);
+        fixedDemo.setOnClickListener(v -> startActivity(
+            new Intent(this, NavigationPreviewActivity.class)));
+
         Ui.section(this, root, "Dauerhaft kostenlose Navigation",
             "Echte Abbiegenavigation in der offiziellen Google-Maps-App "
             + "mit Spotify im Android-Splitscreen. Kein FahrCockpit-Cloudkonto "
