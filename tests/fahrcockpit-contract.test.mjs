@@ -362,3 +362,16 @@ test('Samsung App Pair does not reopen Google Maps inside an existing split', ()
     launch.indexOf('launchMapsAdjacent(routeTarget)'));
   assert.doesNotMatch(launch,/startForegroundService|OverlayService/);
 });
+
+test('v21 Google navigation is the primary provider; OSM requires a real ready engine',()=>{
+ const policy=java('NavigationProviderPolicy');
+ const tests=read('app/src/test/java/com/cobrachris/fahrcockpit/NavigationProviderPolicyTest.java');
+ assert.match(policy,/if \(googleSdkConfigured\) return Provider\.GOOGLE_NAVIGATION_SDK/);
+ assert.match(policy,/osmNavigatorReady/);
+ assert.match(policy,/NAVIGATION_QUOTA_EXHAUSTED/);
+ assert.match(policy,/BILLING_OR_AUTHORIZATION_UNAVAILABLE/);
+ assert.match(policy,/routeRequiresExplicitApproval/);
+ assert.match(tests,/googleIsAlwaysFirstWhenConfigured/);
+ assert.match(tests,/osmIsOnlyChosenIfACompleteOsmNavigatorExists/);
+ assert.match(tests,/fallbackAfterQuotaOrBillingLossDoesNotReturnToGoogleSdk/);
+});
