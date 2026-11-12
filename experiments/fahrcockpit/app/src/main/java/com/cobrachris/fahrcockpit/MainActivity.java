@@ -105,6 +105,20 @@ public final class MainActivity extends Activity {
         root.addView(integrated);
         integrated.setOnClickListener(v -> startActivity(
             new Intent(this, IntegratedNavigationActivity.class)));
+        // BRouter is a genuinely separate fallback provider: test manually,
+        // never advertise it as proven road navigation before hardware trials.
+        try {
+            Class.forName("com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
+            Button osmExperiment = Ui.button(this,
+                "OSM-Abbiegeführung im festen 70/30 testen");
+            root.addView(osmExperiment);
+            osmExperiment.setOnClickListener(v -> startActivity(
+                new Intent(this, IntegratedNavigationActivity.class)
+                    .putExtra(IntegratedNavigationActivity.EXTRA_FORCE_OSM_TEST,true)));
+        } catch (ClassNotFoundException absent) {
+            // Keyless normal builds do not contain the OSM navigation engine.
+        }
+
         root.addView(Ui.text(this,
             "Der Google-SDK-Routenabruf wird erst nach Google-Cloud-Freigabe "
             + "und einer zusätzlichen Zielbestätigung aktiviert. "

@@ -28,6 +28,7 @@ import android.widget.TextView;
  */
 public final class IntegratedNavigationActivity extends Activity {
     static final String EXTRA_TARGET = "integrated_navigation_destination";
+    static final String EXTRA_FORCE_OSM_TEST = "integrated_force_osm_test";
     private static final int LOCATION_REQUEST = 420;
     private static final String STATE_TARGET = "target";
     private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
@@ -269,6 +270,11 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private NavigationEngine loadEngine() {
+        if (getIntent().getBooleanExtra(EXTRA_FORCE_OSM_TEST,false)) {
+            // Explicit TEST selection: no Google route/POI may be transferred.
+            return optionalEngine(
+                "com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
+        }
         // Google Navigation SDK is always preferred when installed/authorized.
         NavigationEngine google = optionalEngine(IntegratedNavigationRules.ENGINE_CLASS);
         if (google != null) return google;

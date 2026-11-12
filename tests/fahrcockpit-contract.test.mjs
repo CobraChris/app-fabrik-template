@@ -528,3 +528,14 @@ test('v21 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(gradle,/versionName '0\.9\.19-beta'/);
 });
 
+test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
+ const main=java('MainActivity');
+ const screen=java('IntegratedNavigationActivity');
+ assert.match(main,/OSM-Abbiegeführung im festen 70\/30 testen/);
+ assert.match(main,/IntegratedNavigationActivity\.EXTRA_FORCE_OSM_TEST,true/);
+ assert.match(main,/Class\.forName\("com\.cobrachris\.fahrcockpit\.OsmRoutingPreviewEngine"\)/);
+ assert.match(screen,/getIntent\(\)\.getBooleanExtra\(EXTRA_FORCE_OSM_TEST,false\)/);
+ assert.match(screen,/optionalEngine\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
+ assert.match(screen,/OSM-Abbiegeführung \(nicht für Fahrten freigegeben\)/);
+});
+
