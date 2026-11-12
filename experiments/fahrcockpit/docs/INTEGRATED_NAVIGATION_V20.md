@@ -85,3 +85,16 @@ Das feste, eingebettete 70/30-Navigation SDK ist ab jetzt ausschließlich manuel
 Kein Upgrade, keine Signierung, keine Veröffentlichung, keine Installation. Die Benutzerfreigabe des bestehenden v19-Updates bleibt unberührt.
 
 Quellen: https://developers.google.com/maps/faq ; https://docs.cloud.google.com/free/docs/free-cloud-features
+
+
+## Dauerhaft kostenloses 70/30 in der Samsung-Praxis (12.11.2026)
+
+Der kostenlose Google-Maps-Weg verwendet zwei separate, von Samsung verwaltete Multi-Window-Apps. Die Android-Flagkombination `LAUNCH_ADJACENT | NEW_TASK` fordert die Nachbaransicht nur an, erzwingt die Fensterteilung oder ihre Proportionen aber nicht. Daher gibt es jetzt direkt in `SplitCockpitActivity` die Aktion „70/30 einmalig als Samsung-App-Paar speichern“, mit geräteorientierten Schritten:
+
+1. Google Maps und FahrCockpit im Android-Splitscreen öffnen, bei fehlendem Split über „Letzte Apps“ bzw. das Samsung-Appsymbol.
+2. Systemtrennlinie auf ca. 70 % Karte / 30 % Spotify stellen.
+3. Über das Trennlinien-Menü ein Samsung-App-Paar anlegen und – falls angeboten – am Startbildschirm oder Seiten-Paneel speichern.
+
+Das gespeicherte App-Paar ermöglicht einen erneuten gemeinsamen Start. **Ob die Teilungsquote gespeichert und exakt wiederhergestellt wird, ist One-UI-/Geräteverhalten und muss auf dem realen Samsung getestet werden.** Keine root-, Accessibility- oder System-Hacks, keine Entwickleroptionen und keine neue Cloud-API. Das Hilfeangebot bleibt innerhalb der App abrufbar, ohne bei jedem Start einen Dialog aufzuzwingen.
+
+Technische Quellen: https://developer.android.com/develop/adaptive-apps/guides/support-multi-window-mode und https://www.samsung.com/us/support/answer/ANS10002022/

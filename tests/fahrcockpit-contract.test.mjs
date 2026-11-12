@@ -333,3 +333,16 @@ test('v20 free-first navigation does not depend on 90-day Cloud trial',()=>{
  assert.match(shell,/Google Maps dauerhaft kostenlos/);
  assert.match(shell,/panel\.addView\(fallback\)/);
 });
+
+test('v20 Samsung App Pair guidance is available without Cloud billing or overlays', () => {
+  const split = java('SplitCockpitActivity');
+  const rules = java('SplitPaneRules');
+  assert.match(split, /70\/30 einmalig als Samsung-App-Paar speichern/);
+  assert.match(split, /Trennlinie antippen/);
+  assert.match(split, /Startbildschirm oder/);
+  assert.match(split, /App-Paar zum gemeinsamen Start/);
+  assert.match(split, /showSplitHelp\(\)/);
+  assert.match(rules, /als App-Paar speichern/);
+  assert.match(split, /GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
+  assert.doesNotMatch(split, /pendingOverlayFallback|fallbackGraceElapsed/);
+});
