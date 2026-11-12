@@ -73,3 +73,15 @@ Offizielle Quellen: https://developers.google.com/maps/documentation/navigation/
 v20 reserviert vor jedem ausdrücklich bestätigten `Navigator.setDestination`-Aufruf einen lokalen Platz. Maximal 20 Plätze pro UTC-Tag werden im Android-App-Speicher gespeichert; ein nicht speicherbarer Zähler sperrt weitere Anfragen. Ein SDK-Fehler gibt den Platz konservativ nicht zurück. Die Prüfung verbietet auch das einfache Zurückstellen der Systemzeit auf einen früheren UTC-Tag. JUnit- und Node-Vertragstests decken das ab.
 
 **Keine harte Kostengarantie:** Neuinstallation, Löschen der App-Daten und andere Geräte können die lokale Sperre umgehen. Daher ist zusätzlich eine in Google Cloud durchgesetzte Navigation-Request-Tagesquote verpflichtend. Die Freigabe für Billing bestätigt noch nicht, dass Konto, Quote oder API-Schlüssel bereits eingerichtet wurden. Das signierte v19-Release wird nicht verändert.
+
+## Dauerbetrieb nach Ablauf des Cloud-Testzeitraums (10.02.2027)
+
+Google Cloud schließt Testkonten ohne Upgrade nach Ablauf. Trotz 1.000 monatlich kostenloser Navigation-Requests setzt das Navigation SDK weiterhin ein aktives Billing-Konto voraus.
+
+**Deshalb ist die kostenlose, cloudunabhängige Google-Maps-App im Android-Splitscreen jetzt der Standard beim Start über das FahrCockpit-Appsymbol.** Der Weg nutzt kein FahrCockpit-Cloud-Projekt und bleibt auch nach Ende der Google-Cloud-Testphase verfügbar, sofern Google Maps auf dem Handy verfügbar ist. Die Android-Systemfenstergröße bestimmt Samsung, daher sind **feste 70/30 mit Original-Google-Abbiegenavigation ohne SDK nicht garantiert**.
+
+Das feste, eingebettete 70/30-Navigation SDK ist ab jetzt ausschließlich manuell als optionale Funktion aufrufbar. Im 30-Prozent-Cockpit ist immer ein sichtbarer Button „Google Maps dauerhaft kostenlos“ vorhanden, auch bei fehlender SDK-Autorisierung und eingeklapptem Zielmenü. Die ältere 70/30-Google-Web-Kartenansicht ist separat erhalten, jedoch keine vollwertige Navigation und kann ebenfalls von einem Cloud-Schlüssel abhängen.
+
+Kein Upgrade, keine Signierung, keine Veröffentlichung, keine Installation. Die Benutzerfreigabe des bestehenden v19-Updates bleibt unberührt.
+
+Quellen: https://developers.google.com/maps/faq ; https://docs.cloud.google.com/free/docs/free-cloud-features

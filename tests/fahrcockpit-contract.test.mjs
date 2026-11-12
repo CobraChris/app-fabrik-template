@@ -98,7 +98,7 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
   const embedded = java('EmbeddedMapActivity');
   const rules = java('EmbeddedMapRules');
   const manifest = read('app/src/main/AndroidManifest.xml');
-  assert.match(main, /FahrCockpit mit Google-Karte starten/);
+  assert.match(main, /70\/30-Kartenansicht ohne Navigation öffnen/);
   assert.match(embedded, /new WebView\(this\)/);
   assert.match(embedded, /LinearLayout\.HORIZONTAL/);
   assert.match(embedded, /LinearLayout\.VERTICAL/);
@@ -115,9 +115,11 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
 test('embedded Google-only map keeps native Spotify controls separate', () => {
   const main=java('MainActivity'),embedded=java('EmbeddedMapActivity');
   assert.match(main, /scroll\.post\(this::startEmbeddedMap\)/);
-  // Default keyless app launch must keep the accepted v19 Google map.
-  assert.match(main, /: new Intent\(this, EmbeddedMapActivity\.class\)/);
-  assert.match(main, /navigationAuthorizedBuild/);
+  // Free real navigation is the permanent app-icon default.
+  assert.match(main, /startActivity\(new Intent\(this, SplitCockpitActivity\.class\)\)/);
+  assert.doesNotMatch(main, /navigationAuthorizedBuild/);
+  assert.match(main, /Google Maps \+ Spotify kostenlos starten/);
+  assert.match(main, /new Intent\(this, EmbeddedMapActivity\.class\)/);
   assert.match(embedded, /GoogleKeyTransfer\.isImportStart/);
   assert.match(embedded, /stopService\(new Intent\(this, OverlayService\.class\)\)/);
   assert.match(embedded, /Google-Kartenprototyp ohne OpenStreetMap/);
@@ -299,6 +301,9 @@ test('v20 keeps primary Spotify controls visible before optional route form in 3
  assert.ok(shell.indexOf('panel.addView(skip);') < shell.indexOf('panel.addView(routePanel);'));
  assert.match(shell,/scroll\.smoothScrollTo\(0,/);
  assert.match(shell,/SOFT_INPUT_ADJUST_RESIZE/);
+ assert.match(shell,/panel\.addView\(fallback\)/);
+ assert.doesNotMatch(shell,/routePanel\.addView\(fallback\)/);
+ assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(fallback);'));
 });
 
 
@@ -313,4 +318,18 @@ test('v20 local 20-per-UTC-day spending guard reserves before Google requests',(
  assert.match(engine,/if \(!NavigationRequestBudget\.reserve\(host\)\)/);
  assert.ok(engine.indexOf('NavigationRequestBudget.reserve(host)') <
     engine.indexOf('navigator.setDestination(waypoint, options)'));
+});
+
+test('v20 free-first navigation does not depend on 90-day Cloud trial',()=>{
+ const main=java('MainActivity'),split=java('SplitCockpitActivity');
+ const shell=java('IntegratedNavigationActivity');
+ const start=main.indexOf('private void startEmbeddedMap()');
+ const end=main.indexOf('private void startSplitAndMaps()',start);
+ assert.ok(start>0 && end>start);
+ const launcher=main.slice(start,end);
+ assert.match(launcher,/new Intent\(this, SplitCockpitActivity\.class\)/);
+ assert.doesNotMatch(launcher,/BuildConfig\.NAVSDK_API_KEY|IntegratedNavigationActivity\.class|EmbeddedMapActivity\.class/);
+ assert.match(split,/GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
+ assert.match(shell,/Google Maps dauerhaft kostenlos/);
+ assert.match(shell,/panel\.addView\(fallback\)/);
 });

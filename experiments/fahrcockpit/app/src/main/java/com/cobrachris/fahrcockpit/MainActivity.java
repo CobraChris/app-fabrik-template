@@ -55,20 +55,29 @@ public final class MainActivity extends Activity {
             "Abtippen aus deiner Live-Karte übernommen werden.",
             15, Ui.MUTED, false));
 
-        Ui.section(this, root, "Fahren – Karte und Spotify ohne Überdeckung",
-            "Google ist die einzige eingebettete Karte. Beim ersten Start " +
-            "Google aus Live-Karte übernehmen; kein neuer Cloud-Dienst.");
-        Button embedded = Ui.button(this, "FahrCockpit mit Google-Karte starten");
+        Ui.section(this, root, "Dauerhaft kostenlose Navigation",
+            "Echte Abbiegenavigation in der offiziellen Google-Maps-App "
+            + "mit Spotify im Android-Splitscreen. Kein FahrCockpit-Cloudkonto "
+            + "oder API-Schlüssel erforderlich. Samsung bestimmt das Fensterverhältnis.");
+        Button embedded = Ui.button(this, "Google Maps + Spotify kostenlos starten");
         root.addView(embedded);
         embedded.setOnClickListener(v -> startEmbeddedMap());
 
-        Ui.section(this, root, "Zielarchitektur – eine App mit fester 70/30-Aufteilung",
-            "Google Navigation SDK und Spotify innerhalb derselben App. "
-            + "Ohne separat freigegebenes Cloud-Billing bleibt dies "
-            + "eine Layoutvorschau; die funktionierende v19-Navigation "
-            + "steht weiterhin zur Verfügung.");
+        Ui.section(this, root, "Optionale 70/30-Kartenansicht",
+            "Die bisherige eingebettete Google-Kartenansicht ist keine "
+            + "Abbiegenavigation und kann von einer Google-API abhängen.");
+        Button embeddedPreview = Ui.button(this,
+            "70/30-Kartenansicht ohne Navigation öffnen");
+        root.addView(embeddedPreview);
+        embeddedPreview.setOnClickListener(v -> startActivity(
+            new Intent(this, EmbeddedMapActivity.class)));
+
+        Ui.section(this, root, "Optional – integrierte Google-Navigation 70/30",
+            "Google Navigation SDK benötigt auch nach Ablauf des Testzeitraums "
+            + "ein aktives Abrechnungskonto. Der kostenlose Standardmodus "
+            + "oben funktioniert davon unabhängig.");
         Button integrated = Ui.button(this,
-            "Integriertes Google-Cockpit (SDK-Vorbereitung)");
+            "Integriertes Google-Cockpit (optionales SDK)");
         root.addView(integrated);
         integrated.setOnClickListener(v -> startActivity(
             new Intent(this, IntegratedNavigationActivity.class)));
@@ -354,17 +363,12 @@ public final class MainActivity extends Activity {
         try {
             stopService(new Intent(this, DockedCockpitService.class));
             stopService(new Intent(this, OverlayService.class));
-            // After separately approved Google Cloud setup, the same app icon
-            // opens the truly embedded 70/30 navigator by default.
-            // Ordinary keyless builds retain the accepted v19 Google map.
-            boolean navigationAuthorizedBuild = BuildConfig.NAVSDK_API_KEY != null
-                && !BuildConfig.NAVSDK_API_KEY.isEmpty();
-            startActivity(navigationAuthorizedBuild
-                ? new Intent(this, IntegratedNavigationActivity.class)
-                : new Intent(this, EmbeddedMapActivity.class));
+            // The app icon must always work without our Google Cloud account.
+            // The cloud-dependent 70/30 SDK remains an explicit optional mode.
+            startActivity(new Intent(this, SplitCockpitActivity.class));
         } catch (RuntimeException e) {
             if (permissions != null) permissions.setText(
-                "Integrierte Kartenansicht konnte nicht gestartet werden.");
+                "Kostenlose Google-Navigation konnte nicht gestartet werden.");
         }
     }
 

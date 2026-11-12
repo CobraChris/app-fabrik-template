@@ -99,10 +99,10 @@ public final class IntegratedNavigationActivity extends Activity {
             mapPane.addView(navigation, new FrameLayout.LayoutParams(-1, -1));
         } else {
             TextView placeholder = Ui.text(this,
-                "Google Navigation SDK – 70/30-Layout bereit\n\n"
-                + "Noch keine eingebettete Navigation: "
-                + "Google-Cloud-Freigabe und SDK-Konfiguration fehlen.\n\n"
-                + "Die funktionierende v19-Navigation ist weiterhin verfügbar.",
+                "Google Navigation SDK nicht verfügbar\n\n"
+                + "Diese Fläche ist keine Abbiegenavigation. "
+                + "Die kostenlose Google-Maps-Navigation erreichst du "
+                + "über den Knopf im Cockpit.",
                 16, Ui.FG, true);
             placeholder.setGravity(Gravity.CENTER);
             placeholder.setPadding(Ui.dp(this, 24), 0, Ui.dp(this, 24), 0);
@@ -147,8 +147,8 @@ public final class IntegratedNavigationActivity extends Activity {
             showStatus("Navigation beendet · Route gelöscht.");
         });
 
-        Button fallback = Ui.button(this, "Kostenlose v19-Google-Navigation starten");
-        routePanel.addView(fallback);
+        // Keep the free navigation visible even when the route form is collapsed.
+        Button fallback = Ui.button(this, "Google Maps dauerhaft kostenlos");
         fallback.setOnClickListener(v -> {
             String text = RouteTargetRules.clean(destination.getText().toString());
             Intent intent = new Intent(this, SplitCockpitActivity.class);
@@ -217,6 +217,7 @@ public final class IntegratedNavigationActivity extends Activity {
         backward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_BACK));
         forward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_FORWARD));
 
+        panel.addView(fallback); // Outside collapsed routePanel.
         Button toggleRoutes = Ui.button(this, "📍 Ziel / Route");
         panel.addView(toggleRoutes);
         panel.addView(routePanel);
