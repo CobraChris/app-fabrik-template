@@ -22,9 +22,9 @@ public final class SplitPaneRulesTest {
     }
 
     @Test public void splitStateNeverClaimsAutomaticSizeControl() {
-        assertEquals("Split-Ansicht aktiv · Trennlinie auf 70/30 einstellen",
+        assertEquals("Split aktiv · 70/30 über Trennlinie einstellen; als App-Paar speichern",
             SplitPaneRules.statusText(true));
-        assertEquals("Split noch nicht bestätigt · Samsung Multi Window/App-Paar verwenden",
+        assertEquals("Split nicht bestätigt · App-Paar-Hilfe öffnen, kein Overlay-Autostart",
             SplitPaneRules.statusText(false));
     }
 }

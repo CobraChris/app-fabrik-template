@@ -55,12 +55,37 @@ public final class MainActivity extends Activity {
             "Abtippen aus deiner Live-Karte übernommen werden.",
             15, Ui.MUTED, false));
 
-        Ui.section(this, root, "Fahren – Karte und Spotify ohne Überdeckung",
-            "Google ist die einzige eingebettete Karte. Beim ersten Start " +
-            "Google aus Live-Karte übernehmen; kein neuer Cloud-Dienst.");
-        Button embedded = Ui.button(this, "FahrCockpit mit Google-Karte starten");
+        Ui.section(this, root, "Dauerhaft kostenlose Navigation",
+            "Echte Abbiegenavigation in der offiziellen Google-Maps-App "
+            + "mit Spotify im Android-Splitscreen. Kein FahrCockpit-Cloudkonto "
+            + "oder API-Schlüssel erforderlich. Samsung bestimmt das Fensterverhältnis.");
+        Button embedded = Ui.button(this, "Google Maps + Spotify kostenlos starten");
         root.addView(embedded);
         embedded.setOnClickListener(v -> startEmbeddedMap());
+
+        Ui.section(this, root, "Optionale 70/30-Kartenansicht",
+            "Die bisherige eingebettete Google-Kartenansicht ist keine "
+            + "Abbiegenavigation und kann von einer Google-API abhängen.");
+        Button embeddedPreview = Ui.button(this,
+            "70/30-Kartenansicht ohne Navigation öffnen");
+        root.addView(embeddedPreview);
+        embeddedPreview.setOnClickListener(v -> startActivity(
+            new Intent(this, EmbeddedMapActivity.class)));
+
+        Ui.section(this, root, "Optional – integrierte Google-Navigation 70/30",
+            "Google Navigation SDK benötigt auch nach Ablauf des Testzeitraums "
+            + "ein aktives Abrechnungskonto. Der kostenlose Standardmodus "
+            + "oben funktioniert davon unabhängig.");
+        Button integrated = Ui.button(this,
+            "Integriertes Google-Cockpit (optionales SDK)");
+        root.addView(integrated);
+        integrated.setOnClickListener(v -> startActivity(
+            new Intent(this, IntegratedNavigationActivity.class)));
+        root.addView(Ui.text(this,
+            "Der Google-SDK-Routenabruf wird erst nach Google-Cloud-Freigabe "
+            + "und einer zusätzlichen Zielbestätigung aktiviert. "
+            + "Keine Schlüssel oder Abrechnung werden automatisch eingerichtet.",
+            12, Ui.WARN, false));
 
         Ui.section(this, root, "Alternative – vollständige Google-Navigation",
             "Echter Android-Splitscreen mit der separaten Google-Maps-App. " +
@@ -338,10 +363,12 @@ public final class MainActivity extends Activity {
         try {
             stopService(new Intent(this, DockedCockpitService.class));
             stopService(new Intent(this, OverlayService.class));
-            startActivity(new Intent(this, EmbeddedMapActivity.class));
+            // The app icon must always work without our Google Cloud account.
+            // The cloud-dependent 70/30 SDK remains an explicit optional mode.
+            startActivity(new Intent(this, SplitCockpitActivity.class));
         } catch (RuntimeException e) {
             if (permissions != null) permissions.setText(
-                "Integrierte Kartenansicht konnte nicht gestartet werden.");
+                "Kostenlose Google-Navigation konnte nicht gestartet werden.");
         }
     }
 

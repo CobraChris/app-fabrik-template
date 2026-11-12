@@ -152,7 +152,7 @@ public final class SplitCockpitActivity extends Activity {
         Button maps = Ui.button(this, "Google Maps nebenan anzeigen");
         root.addView(maps);
         maps.setOnClickListener(v -> launchMapsAdjacent(routeTarget));
-        Button help = Ui.button(this, "Wenn Maps Vollbild öffnet: Split-Hilfe");
+        Button help = Ui.button(this, "70/30 einmalig als Samsung-App-Paar speichern");
         root.addView(help);
         help.setOnClickListener(v -> showSplitHelp());
 
@@ -181,10 +181,9 @@ public final class SplitCockpitActivity extends Activity {
         });
 
         TextView note = Ui.text(this,
-            "Echte Google-Abbiegenavigation in einem separaten Android-Fenster; "
-            + "FahrCockpit steuert Spotify im zweiten Fenster. Die Anordnung "
-            + "und Trennlinie bestimmt Samsung, nicht diese App. "
-            + "Nur im Stand bedienen.",
+            "Google Maps bietet echte Abbiegenavigation ohne FahrCockpit-Cloud-"
+            + "Abrechnung. Für wiederholtes 70/30 das Samsung-App-Paar "
+            + "einmalig im Stand speichern. Die Fenstergröße bestimmt Samsung.",
             12, Ui.MUTED, false);
         root.addView(note);
         Button settings = Ui.button(this, "FahrCockpit-Einstellungen");
@@ -193,7 +192,17 @@ public final class SplitCockpitActivity extends Activity {
 
         if (!requested) {
             requested = true;
-            ui.postDelayed(() -> launchMapsAdjacent(routeTarget), 450L);
+            ui.postDelayed(() -> {
+                // Samsung App Pairs open Maps and FahrCockpit together.
+                // Do not relaunch Maps when the pair is already split:
+                // it could replace the saved arrangement or duplicate routing.
+                if (isFinishing() || isDestroyed()) return;
+                if (isInMultiWindowMode()) {
+                    updateSplitStatus();
+                    return;
+                }
+                launchMapsAdjacent(routeTarget);
+            }, 450L);
         }
         // Early status refresh must not start a fallback during split animation.
         ui.postDelayed(this::updateSplitStatus, 1500L);
@@ -286,14 +295,25 @@ public final class SplitCockpitActivity extends Activity {
 
     private void showSplitHelp() {
         new AlertDialog.Builder(this)
-            .setTitle("Google Maps + FahrCockpit nebeneinander")
-            .setMessage("Android/Samsung entscheidet, ob der automatische "
-                + "Splitscreen-Start möglich ist. Wenn Google Maps nur im "
-                + "Vollbild erscheint: Öffne die Android-Übersicht der "
-                + "zuletzt verwendeten Apps, wähle dort die geteilte "
-                + "Bildschirmansicht für FahrCockpit und Google Maps. "
-                + "Die Trennlinie kannst du dann verschieben. FahrCockpit "
-                + "kann Google Maps nicht in sein eigenes Fenster zwingen.")
+            .setTitle("70/30 dauerhaft ohne Google Cloud")
+            .setMessage("Einmalig auf deinem Samsung im Stand einrichten:\n\n"
+                + "1. Google Maps und FahrCockpit in der geteilten "
+                + "Bildschirmansicht öffnen. Falls Maps Vollbild zeigt: "
+                + "Android-Übersicht 'Letzte Apps' öffnen, das FahrCockpit-"
+                + "Appsymbol antippen und 'In geteilter Bildschirmansicht "
+                + "öffnen' wählen; danach Google Maps als zweite App wählen.\n\n"
+                + "2. Die Trennlinie zwischen Google Maps und FahrCockpit "
+                + "so verschieben, dass Maps ungefähr 70 % einnimmt. "
+                + "Je nach Ausrichtung kann die Anordnung unterschiedlich sein.\n\n"
+                + "3. Die Trennlinie antippen und das Symbol zum Hinzufügen "
+                + "eines App-Paars (Plus/Stern, je nach One UI) wählen. "
+                + "Falls angeboten, das App-Paar zum Startbildschirm oder "
+                + "Seiten-Paneel hinzufügen.\n\n"
+                + "Danach das gespeicherte App-Paar zum gemeinsamen Start "
+                + "verwenden. Samsung verwaltet Position und Teilungsverhältnis; "
+                + "FahrCockpit kann 70/30 nicht erzwingen. Für diese Variante "
+                + "ist kein FahrCockpit-Google-Cloud-Konto nötig. "
+                + "Nur im Stand einrichten.")
             .setPositiveButton("Verstanden", (d, which) -> {})
             .show();
     }

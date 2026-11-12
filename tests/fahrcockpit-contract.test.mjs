@@ -98,7 +98,7 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
   const embedded = java('EmbeddedMapActivity');
   const rules = java('EmbeddedMapRules');
   const manifest = read('app/src/main/AndroidManifest.xml');
-  assert.match(main, /FahrCockpit mit Google-Karte starten/);
+  assert.match(main, /70\/30-Kartenansicht ohne Navigation öffnen/);
   assert.match(embedded, /new WebView\(this\)/);
   assert.match(embedded, /LinearLayout\.HORIZONTAL/);
   assert.match(embedded, /LinearLayout\.VERTICAL/);
@@ -115,7 +115,11 @@ test('embedded map PoC uses a separate WebView viewport with native Spotify cont
 test('embedded Google-only map keeps native Spotify controls separate', () => {
   const main=java('MainActivity'),embedded=java('EmbeddedMapActivity');
   assert.match(main, /scroll\.post\(this::startEmbeddedMap\)/);
-  assert.match(main, /startActivity\(new Intent\(this, EmbeddedMapActivity\.class\)\)/);
+  // Free real navigation is the permanent app-icon default.
+  assert.match(main, /startActivity\(new Intent\(this, SplitCockpitActivity\.class\)\)/);
+  assert.doesNotMatch(main, /navigationAuthorizedBuild/);
+  assert.match(main, /Google Maps \+ Spotify kostenlos starten/);
+  assert.match(main, /new Intent\(this, EmbeddedMapActivity\.class\)/);
   assert.match(embedded, /GoogleKeyTransfer\.isImportStart/);
   assert.match(embedded, /stopService\(new Intent\(this, OverlayService\.class\)\)/);
   assert.match(embedded, /Google-Kartenprototyp ohne OpenStreetMap/);
@@ -195,7 +199,9 @@ test('v19 split Google-Navigation uses Android window management with no overlay
  assert.match(embedded,/SplitCockpitActivity\.EXTRA_NAVIGATION_TARGET/);
  assert.match(split,/static final String EXTRA_NAVIGATION_TARGET/);
  assert.match(split,/RouteTargetRules\.clean\(savedInstanceState != null/);
- assert.match(split,/ui\.postDelayed\(\(\) -> launchMapsAdjacent\(routeTarget\), 450L\)/);
+  assert.match(split,/ui\.postDelayed\(\(\) -> \{/);
+  assert.match(split,/if \(isInMultiWindowMode\(\)\)/);
+  assert.match(split,/launchMapsAdjacent\(routeTarget\)/);
  assert.match(split,/GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
  assert.match(split,/showSplitHelp\(\)/);
  assert.match(split,/📍 Ziel für Google-Navigation wählen/);
@@ -218,4 +224,141 @@ test('v19 split Google-Navigation uses Android window management with no overlay
  assert.doesNotMatch(split,/TYPE_APPLICATION_OVERLAY|AccessibilityService|pendingOverlayFallback|fallbackGraceElapsed/);
  assert.doesNotMatch(maps,/NavigationSdk|API_KEY|AIza/);
  assert.match(rules,/google\.navigation:q=/);
+});
+
+
+test('v20 integrated native layout is a real fixed 70/30 shell with existing Spotify and fallback',()=>{
+ const shell=java('IntegratedNavigationActivity');
+ const engine=java('NavigationEngine');
+ const rules=java('IntegratedNavigationRules');
+ const app=java('MainActivity');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ assert.match(shell,/LinearLayout.HORIZONTAL : LinearLayout.VERTICAL/);
+ assert.match(shell,/IntegratedNavigationRules.MAP_WEIGHT/);
+ assert.match(shell,/IntegratedNavigationRules.CONTROLS_WEIGHT/);
+ assert.match(rules,/MAP_WEIGHT = 7/);
+ assert.match(rules,/CONTROLS_WEIGHT = 3/);
+ assert.match(shell,/FrameLayout mapPane/);
+ assert.match(shell,/root.addView\(mapPane, mapParams\)/);
+ assert.match(shell,/root.addView\(scroll, controlParams\)/);
+ assert.match(shell,/SpotifyMedia\.read\(this\)/);
+ assert.match(shell,/SpotifyMedia\.send\(this, action\)/);
+ assert.match(shell,/SpotifyMedia\.seekAbsolute/);
+ assert.match(shell,/FuelActivity.class/);
+ assert.match(shell,/my\.saphelink/);
+ assert.match(shell,/SplitCockpitActivity.class/);
+ assert.match(shell,/Route in dieser App berechnen/);
+ assert.match(shell,/Route berechnen/);
+ assert.match(shell,/NavigationDestinationResolver\.resolve/);
+ assert.match(shell,/engine\.startConfirmedRoute\(lat, lng, name\)/);
+ assert.match(shell,/engine != null && engine\.configured\(\)/);
+ assert.match(shell,/getSharedPreferences\(ROUTES_PREFS, MODE_PRIVATE\)/);
+ assert.match(shell,/stopGuidanceAndClearRoute\(\)/);
+ assert.match(shell,/window|WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE/);
+ assert.match(shell,/Keine|noch keine|nicht aktiviert/i);
+ assert.match(app,/IntegratedNavigationActivity.class/);
+ assert.match(manifest,/android:name="\.IntegratedNavigationActivity"/);
+ assert.match(engine,/boolean configured\(\)/);
+ assert.match(engine,/View createNavigationView/);
+ assert.doesNotMatch(shell,/FLAG_ACTIVITY_LAUNCH_ADJACENT|TYPE_APPLICATION_OVERLAY|NavigationApi\.getNavigator/);
+});
+
+test('v20 SDK is not in the default signed variant and cannot route without explicit Cloud approval',()=>{
+ const gradle=read('app/build.gradle');
+ const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+ const resolver=java('NavigationDestinationResolver');
+ // The protected release validator is on main, not on this source branch.
+ // Check the no-key Gradle gate here; the signed-release gate stays unchanged.
+ assert.match(gradle,/withGoogleNavSdk/);
+ assert.match(gradle,/orElse\('false'\)/);
+ assert.match(gradle,/if \(withGoogleNavSdk\) java\.srcDir 'src\/navsdk\/java'/);
+ assert.match(gradle,/if \(withGoogleNavSdk\) \{/);
+ assert.match(gradle,/System\.getenv\('FAHRCOCKPIT_NAV_SDK_KEY'\)/);
+ assert.match(gradle,/navigation:7\.6\.1/);
+ assert.match(gradle,/targetSdk withGoogleNavSdk \? 36 : 35/);
+ assert.match(nav,/NavigationApi\.setApiKey\(apiKey\)/);
+ assert.match(nav,/NavigationApi\.getNavigator\(host/);
+ assert.match(nav,/new NavigationView\(host\)/);
+ assert.match(nav,/Waypoint\.builder\(\)/);
+ assert.match(nav,/navigator\.setDestination\(waypoint, options\)/);
+ assert.match(nav,/navigator\.startGuidance\(\)/);
+ assert.match(nav,/navigator\.stopGuidance\(\)/);
+ assert.match(nav,/navigator\.clearDestinations\(\)/);
+ assert.match(nav,/map\.onCreate\(saved\)/);
+ assert.match(nav,/map\.onSaveInstanceState/);
+ assert.match(resolver,/Geocoder\.isPresent\(\)/);
+ assert.match(resolver,/Geocoder\.GeocodeListener/);
+ assert.match(gradle,/if \(!withGoogleNavSdk && googleNavKey\)/);
+ assert.match(gradle,/throw new GradleException\('Navigation SDK key must not be used in ordinary releases'\)/);
+ assert.doesNotMatch(java('MainActivity'),/new GoogleNavigationEngine/);
+ assert.doesNotMatch(nav,/AIza[A-Za-z0-9_-]{30}/);
+});
+
+test('v20 keeps primary Spotify controls visible before optional route form in 30 percent pane',()=>{
+ const shell=java('IntegratedNavigationActivity');
+ assert.match(shell,/routePanel\.setVisibility\(View\.GONE\)/);
+ assert.match(shell,/Button toggleRoutes = Ui\.button\(this, "📍 Ziel \/ Route"\)/);
+ assert.match(shell,/toggleRoutes\.setOnClickListener/);
+ assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(routePanel);'));
+ assert.ok(shell.indexOf('panel.addView(skip);') < shell.indexOf('panel.addView(routePanel);'));
+ assert.match(shell,/scroll\.smoothScrollTo\(0,/);
+ assert.match(shell,/SOFT_INPUT_ADJUST_RESIZE/);
+ assert.match(shell,/panel\.addView\(fallback\)/);
+ assert.doesNotMatch(shell,/routePanel\.addView\(fallback\)/);
+ assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(fallback);'));
+});
+
+
+test('v20 local 20-per-UTC-day spending guard reserves before Google requests',()=>{
+ const budget=java('NavigationRequestBudget');
+ const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+ assert.match(budget,/MAX_DAILY_REQUESTS = 20/);
+ assert.match(budget,/Math\.floorDiv\(System\.currentTimeMillis\(\), MILLIS_PER_DAY\)/);
+ assert.match(budget,/currentUtcDay < storedUtcDay/);
+ assert.match(budget,/\.putInt\(COUNT, nextCount\)\.commit\(\)/);
+ assert.match(budget,/catch \(RuntimeException cannotPersist\)/);
+ assert.match(engine,/if \(!NavigationRequestBudget\.reserve\(host\)\)/);
+ assert.ok(engine.indexOf('NavigationRequestBudget.reserve(host)') <
+    engine.indexOf('navigator.setDestination(waypoint, options)'));
+});
+
+test('v20 free-first navigation does not depend on 90-day Cloud trial',()=>{
+ const main=java('MainActivity'),split=java('SplitCockpitActivity');
+ const shell=java('IntegratedNavigationActivity');
+ const start=main.indexOf('private void startEmbeddedMap()');
+ const end=main.indexOf('private void startSplitAndMaps()',start);
+ assert.ok(start>0 && end>start);
+ const launcher=main.slice(start,end);
+ assert.match(launcher,/new Intent\(this, SplitCockpitActivity\.class\)/);
+ assert.doesNotMatch(launcher,/BuildConfig\.NAVSDK_API_KEY|IntegratedNavigationActivity\.class|EmbeddedMapActivity\.class/);
+ assert.match(split,/GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
+ assert.match(shell,/Google Maps dauerhaft kostenlos/);
+ assert.match(shell,/panel\.addView\(fallback\)/);
+});
+
+test('v20 Samsung App Pair guidance is available without Cloud billing or overlays', () => {
+  const split = java('SplitCockpitActivity');
+  const rules = java('SplitPaneRules');
+  assert.match(split, /70\/30 einmalig als Samsung-App-Paar speichern/);
+  assert.match(split, /Trennlinie antippen/);
+  assert.match(split, /Startbildschirm oder/);
+  assert.match(split, /App-Paar zum gemeinsamen Start/);
+  assert.match(split, /showSplitHelp\(\)/);
+  assert.match(rules, /als App-Paar speichern/);
+  assert.match(split, /GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
+  assert.doesNotMatch(split, /pendingOverlayFallback|fallbackGraceElapsed/);
+});
+
+test('Samsung App Pair does not reopen Google Maps inside an existing split', () => {
+  const split = java('SplitCockpitActivity');
+  const start = split.indexOf('if (!requested) {');
+  const end = split.indexOf('// Early status refresh', start);
+  assert.ok(start > 0 && end > start);
+  const launch = split.slice(start, end);
+  assert.match(launch,/if \(isInMultiWindowMode\(\)\)/);
+  assert.match(launch,/updateSplitStatus\(\)/);
+  assert.match(launch,/return;/);
+  assert.ok(launch.indexOf('if (isInMultiWindowMode())') <
+    launch.indexOf('launchMapsAdjacent(routeTarget)'));
+  assert.doesNotMatch(launch,/startForegroundService|OverlayService/);
 });
