@@ -41,3 +41,12 @@ jobs:
         run: |
           set -euo pipefail
           gradle --no-daemon -p experiments/fahrcockpit -PwithOsmFallback=true :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+
+      - name: Combined Google-first plus OSM fallback variant compile (no key, no billing)
+        env:
+          FAHRCOCKPIT_NAV_SDK_KEY: ''
+        run: |
+          set -euo pipefail
+          gradle --no-daemon -p experiments/fahrcockpit \
+            -PwithGoogleNavSdk=true -PwithOsmFallback=true \
+            :app:assembleDebug
