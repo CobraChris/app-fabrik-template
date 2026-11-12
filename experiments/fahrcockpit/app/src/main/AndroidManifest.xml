@@ -15,6 +15,10 @@
         <package android:name="com.spotify.music" />
         <!-- BRouter is installed and its offline data chosen by the user. -->
         <package android:name="btools.routingapp" />
+        <!-- Required for Android 11+ visibility of system Text-to-Speech engines. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
     <application
         android:allowBackup="false"
