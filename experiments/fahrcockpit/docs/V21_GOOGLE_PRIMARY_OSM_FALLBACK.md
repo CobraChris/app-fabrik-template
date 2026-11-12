@@ -27,3 +27,13 @@ Referenzen:
 
 ## Android-SDK-Fehlerpfad
 Die `NavigationEngine.Status`-Schnittstelle besitzt jetzt einen typisierten `onGoogleFailure(Failure)`-Callback (Default-Methode, bestehende Lambda-Verwendungen bleiben möglich). `GoogleNavigationEngine` gibt `QUOTA_CHECK_FAILED` als `NAVIGATION_QUOTA_EXHAUSTED`, fehlende SDK-Autorisierung als `BILLING_OR_AUTHORIZATION_UNAVAILABLE`, lokale 20-Anfragen-Sperre als `LOCAL_REQUEST_LIMIT` und Netzwerk-/Laufzeitfehler als `GOOGLE_SERVICE_UNAVAILABLE` weiter. Bei fehlendem OSM-Router zeigt `IntegratedNavigationActivity` ausdrücklich nur die vorhandene externe Google-Maps-Notoption. Keine zusätzliche kostenrelevante automatische Routenanfrage und kein simulierter OSM-Verkehr.
+
+## 12.11.2026 – OSM-Abbiege-/Sprachführung im Entwicklungstest
+
+Die optionale OSM-Variante fordert nun `turnInstructionFormat=osmand` bei BRouter an und wertet die **tatsächlich von BRouter berechneten** GeoJSON-`properties.voicehints` aus. Ohne Hinweise werden weder Lenkmanöver erfunden noch eine Sprachnavigation gestartet.
+
+`OsmTurnGuidance` projiziert verlässliche Android-GPS-Positionen auf die lokale BRouter-Routenlinie, verwendet höchstens 35 Meter gemeldete Genauigkeit, unterscheidet Voransage (bis 220 Meter) und Kreuzungsansage (bis 38 Meter) und verhindert die Wiederholung desselben Hinweises. Drei aufeinanderfolgende hinreichend genaue Messungen mehr als 65 Meter von der Route lösen eine lokale BRouter-Neuberechnung aus; ein 60-Sekunden-Cooldown verhindert Dauerschleifen. Bei abgebrochenen Routen verhindert ein Request-Epoch-Zähler verspätete Routenergebnisse.
+
+Android `TextToSpeech` gibt die von BRouter abgeleiteten deutschen Hinweise über den Navigations-Audiokanal aus. Ohne deutsche TTS-Stimme bleiben lediglich visuelle Hinweise erhalten; es gibt weder Google-TTS-Cloudkosten noch eine automatische Sprachpaketinstallation. Der Standort wird nur erfasst, solange die Ansicht im Vordergrund ist. Bei Hintergrundwechsel werden GPS-Abfragen und Ansagen unterbrochen.
+
+**Sicherheitsgate:** Das ist ein automatisiert testbares Entwicklungspaket, noch **kein** in realem Straßenverkehr geprüftes Navigationssystem. BRouter-Profile, Routen und Hinweise brauchen reale regionale Daten und einen Feldtest. OpenFreeMap-Kartenkacheln sind noch nicht offline verfügbar. Google Navigation bleibt erste Wahl; geschützte Release-/Signierungsschritte werden nicht ausgelöst.

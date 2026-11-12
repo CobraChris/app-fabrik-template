@@ -462,7 +462,7 @@ test('v21 native MapLibre OSM road map preserves Google priority and warns about
  assert.match(map,/tiles\.openfreemap\.org\/styles\/liberty/);
  assert.match(map,/BRouterOfflineRouteClient\.route\(host/);
  assert.match(map,/new GeoJsonSource\(SOURCE, route\.geoJson\)/);
- assert.match(map,/Noch KEINE Abbiege- oder Sprachnavigation/);
+ assert.match(map,/OSM-Abbiegeführung im Entwicklungstest aktiv/);
  assert.doesNotMatch(map,/GoogleNavigationEngine|NAVSDK_API_KEY|setDestination\(/);
 });
 
@@ -483,5 +483,30 @@ test('v21 restricted Google Navigation SDK key is stored on Android, not checked
  assert.match(google,/NavigationSdkKeyStore\.read\(host\)/);
  assert.doesNotMatch(store,/Log\.|System\.out|new Intent\(Intent\.ACTION_SEND/);
  assert.match(manifest,/android:allowBackup="false"/);
+});
+
+test('v21 BRouter guidance uses official voice hints, validated GPS and local German TTS',()=>{
+ const route=read('app/src/osm/java/com/cobrachris/fahrcockpit/BRouterRouteGeometry.java');
+ const backend=read('app/src/osm/java/com/cobrachris/fahrcockpit/BRouterOfflineRouteClient.java');
+ const guide=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmTurnGuidance.java');
+ const voice=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmSpeechGuide.java');
+ const engine=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmRoutingPreviewEngine.java');
+ assert.match(backend,/putString\("turnInstructionFormat", "osmand"\)/);
+ assert.match(route,/getAsJsonArray\("voicehints"\)/);
+ assert.match(route,/germanInstruction\(\)/);
+ assert.match(guide,/accuracyMeters > 35f/);
+ assert.match(guide,/offRouteCount>=3/);
+ assert.match(guide,/earlyAnnounced/);
+ assert.match(guide,/nearAnnounced/);
+ assert.match(voice,/new TextToSpeech\(activity,this\)/);
+ assert.match(voice,/Locale\.GERMANY/);
+ assert.match(voice,/USAGE_ASSISTANCE_NAVIGATION_GUIDANCE/);
+ assert.match(engine,/requestLocationUpdates\(LocationManager\.GPS_PROVIDER,1000L,3f/);
+ assert.match(engine,/onGpsLocation\(Location loc\)/);
+ assert.match(engine,/calculateFrom\(loc,epoch,true\)/);
+ assert.match(engine,/REROUTE_COOLDOWN_MS = 60000L/);
+ assert.match(engine,/stopGpsTracking\(\)/);
+ assert.match(engine,/voice\.close\(\)/);
+ assert.doesNotMatch(guide,/GoogleNavigationEngine|NAVSDK_API_KEY/);
 });
 
