@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-10-fahrcockpit-v19-split-google-navigation",
-  "source_sha": "4acbf7839c957574f961ea8d42b8cc7bbef52bee",
-  "expected_version_code": 19
+  "request_id": "2026-11-12-fahrcockpit-v20-free-app-pair",
+  "source_sha": "06aad47288228574881e1bd583e43f31399d9a69",
+  "expected_version_code": 20
 }
