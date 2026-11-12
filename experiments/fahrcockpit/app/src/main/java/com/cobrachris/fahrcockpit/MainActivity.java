@@ -426,12 +426,29 @@ public final class MainActivity extends Activity {
         try {
             stopService(new Intent(this, DockedCockpitService.class));
             stopService(new Intent(this, OverlayService.class));
-            // The app icon must always work without our Google Cloud account.
-            // The cloud-dependent 70/30 SDK remains an explicit optional mode.
-            startActivity(new Intent(this, SplitCockpitActivity.class));
+            // Google is the preferred integrated navigation when the optional
+            // SDK exists and its restricted key has been installed on THIS phone.
+            // No route is requested here. Without a local key, the original
+            // free Google Maps App + Spotify path still starts as before.
+            boolean googleSdkReady = restrictedGoogleSdkAvailable();
+            startActivity(new Intent(this, googleSdkReady
+                ? IntegratedNavigationActivity.class
+                : SplitCockpitActivity.class));
         } catch (RuntimeException e) {
             if (permissions != null) permissions.setText(
                 "Kostenlose Google-Navigation konnte nicht gestartet werden.");
+        }
+    }
+
+    private boolean restrictedGoogleSdkAvailable() {
+        String key = NavigationSdkKeyStore.read(this);
+        if (!NavigationSdkKeyStore.validKey(key)) return false;
+        try {
+            // No hard linkage when the optional Google library is omitted.
+            Class.forName(IntegratedNavigationRules.ENGINE_CLASS);
+            return true;
+        } catch (ClassNotFoundException | LinkageError unavailable) {
+            return false;
         }
     }
 

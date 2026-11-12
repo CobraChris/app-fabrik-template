@@ -329,8 +329,10 @@ test('v20 free-first navigation does not depend on 90-day Cloud trial',()=>{
  const end=main.indexOf('private void startSplitAndMaps()',start);
  assert.ok(start>0 && end>start);
  const launcher=main.slice(start,end);
- assert.match(launcher,/new Intent\(this, SplitCockpitActivity\.class\)/);
- assert.doesNotMatch(launcher,/BuildConfig\.NAVSDK_API_KEY|IntegratedNavigationActivity\.class|EmbeddedMapActivity\.class/);
+ assert.match(launcher,/restrictedGoogleSdkAvailable\(\)/);
+ assert.match(launcher,/\? IntegratedNavigationActivity\.class/);
+ assert.match(launcher,/: SplitCockpitActivity\.class/);
+ assert.doesNotMatch(launcher,/BuildConfig\.NAVSDK_API_KEY|EmbeddedMapActivity\.class/);
  assert.match(split,/GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
  assert.match(shell,/Google Maps dauerhaft kostenlos/);
  assert.match(shell,/panel\.addView\(fallback\)/);
@@ -508,5 +510,21 @@ test('v21 BRouter guidance uses official voice hints, validated GPS and local Ge
  assert.match(engine,/stopGpsTracking\(\)/);
  assert.match(engine,/voice\.close\(\)/);
  assert.doesNotMatch(guide,/GoogleNavigationEngine|NAVSDK_API_KEY/);
+});
+
+test('v21 original App icon selects fixed Google 70/30 only with locally restricted SDK key',()=>{
+ const main=java('MainActivity');
+ const gradle=read('app/build.gradle');
+ const start=main.indexOf('private boolean restrictedGoogleSdkAvailable()');
+ const end=main.indexOf('private void startSplitAndMaps()',start);
+ assert.ok(start>0&&end>start);
+ const selection=main.slice(start,end);
+ assert.match(selection,/NavigationSdkKeyStore\.read\(this\)/);
+ assert.match(selection,/NavigationSdkKeyStore\.validKey\(key\)/);
+ assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
+ assert.match(main,/googleSdkReady\s*\?\s*IntegratedNavigationActivity\.class/);
+ assert.match(main,/: SplitCockpitActivity\.class/);
+ assert.match(gradle,/versionCode 21/);
+ assert.match(gradle,/versionName '0\.9\.19-beta'/);
 });
 

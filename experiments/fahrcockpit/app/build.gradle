@@ -24,8 +24,8 @@ android {
         applicationId 'com.cobrachris.fahrcockpit'
         minSdk 30
         targetSdk withGoogleNavSdk ? 36 : 35
-        versionCode 20
-        versionName '0.9.18-beta'
+        versionCode 21
+        versionName '0.9.19-beta'
         buildConfigField 'String', 'NAVSDK_API_KEY', '"' + googleNavKey + '"'
         if (withGoogleNavSdk) multiDexEnabled true
     }
