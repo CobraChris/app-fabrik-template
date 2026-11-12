@@ -461,7 +461,7 @@ test('v21 native MapLibre OSM road map preserves Google priority and warns about
  assert.match(map,/new MapView\(host\)/);
  assert.match(map,/tiles\.openfreemap\.org\/styles\/liberty/);
  assert.match(map,/BRouterOfflineRouteClient\.route\(host/);
- assert.match(map,/new GeoJsonSource\(SOURCE, route\.geoJson\)/);
+ assert.match(map,/new GeoJsonSource\(SOURCE,\s*route\.geoJson\)/);
  assert.match(map,/OSM-Abbiegeführung im Entwicklungstest aktiv/);
  assert.doesNotMatch(map,/GoogleNavigationEngine|NAVSDK_API_KEY|setDestination\(/);
 });
