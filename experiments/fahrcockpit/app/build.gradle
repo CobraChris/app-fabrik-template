@@ -1,0 +1,49 @@
+plugins { id 'com.android.application' }
+
+// Intentionally OFF in the normal signed release. The optional Google
+// Navigation SDK is compiled only with -PwithGoogleNavSdk=true; Cloud Billing
+// and a restricted, user-approved key are required for live routing.
+def withGoogleNavSdk = providers.gradleProperty('withGoogleNavSdk')
+    .orElse('false').get().toBoolean()
+def googleNavKey = System.getenv('FAHRCOCKPIT_NAV_SDK_KEY') ?: ''
+if (googleNavKey && !(googleNavKey ==~ /AIza[A-Za-z0-9_-]{25,90}/)) {
+    throw new GradleException('FAHRCOCKPIT_NAV_SDK_KEY has an unexpected format')
+}
+if (!withGoogleNavSdk && googleNavKey) {
+    throw new GradleException('Navigation SDK key must not be used in ordinary releases')
+}
+
+android {
+    namespace 'com.cobrachris.fahrcockpit'
+    compileSdk withGoogleNavSdk ? 36 : 35
+    defaultConfig {
+        applicationId 'com.cobrachris.fahrcockpit'
+        minSdk 30
+        targetSdk withGoogleNavSdk ? 36 : 35
+        versionCode 20
+        versionName '0.9.18-beta'
+        buildConfigField 'String', 'NAVSDK_API_KEY', '"' + googleNavKey + '"'
+        if (withGoogleNavSdk) multiDexEnabled true
+    }
+    buildFeatures { buildConfig true }
+    sourceSets {
+        main {
+            if (withGoogleNavSdk) java.srcDir 'src/navsdk/java'
+        }
+    }
+    if (withGoogleNavSdk) {
+        dexOptions { javaMaxHeapSize "4g" }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled withGoogleNavSdk
+    }
+}
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    if (withGoogleNavSdk) {
+        implementation 'com.google.android.libraries.navigation:navigation:7.6.1'
+        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.3'
+    }
+}

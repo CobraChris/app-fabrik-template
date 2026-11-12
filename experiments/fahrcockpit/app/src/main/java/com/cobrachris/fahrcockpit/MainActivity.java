@@ -1,0 +1,558 @@
+package com.cobrachris.fahrcockpit;
+
+import android.Manifest;
+import android.app.Activity;
+import android.app.NotificationManager;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.Switch;
+import android.widget.TextView;
+
+public final class MainActivity extends Activity {
+    private static final String PREFS = "fahrcockpit_blitzer_v1";
+    private static final String KEY_HAS_REQUEST = "has_request";
+    private static final String KEY_LAST_START_REQUEST = "last_start_requested";
+    private SharedPreferences prefs;
+    private Switch blitzerSwitch;
+    private TextView blitzerStatus;
+    private TextView permissions;
+    private TextView warningStatus;
+    private boolean programmatic;
+
+    @Override public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        getWindow().setStatusBarColor(Ui.BG);
+        getWindow().setNavigationBarColor(Ui.BG);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(Ui.BG);
+        LinearLayout root = Ui.column(this);
+        root.setPadding(Ui.dp(this, 22), Ui.dp(this, 20),
+            Ui.dp(this, 22), Ui.dp(this, 40));
+        scroll.addView(root);
+        setContentView(scroll);
+        getWindow().getDecorView().setOnApplyWindowInsetsListener((view, insets) -> {
+            android.graphics.Insets bars =
+                insets.getInsets(android.view.WindowInsets.Type.systemBars());
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return insets;
+        });
+
+        root.addView(Ui.text(this, "FahrCockpit", 30, Ui.FG, true));
+        root.addView(Ui.text(this,
+            "Google-Karte und Spotify haben getrennte Bildschirmbereiche. " +
+            "Die bereits vorhandene Google-Demo-Einrichtung kann ohne " +
+            "Abtippen aus deiner Live-Karte übernommen werden.",
+            15, Ui.MUTED, false));
+
+        Ui.section(this, root, "Dauerhaft kostenlose Navigation",
+            "Echte Abbiegenavigation in der offiziellen Google-Maps-App "
+            + "mit Spotify im Android-Splitscreen. Kein FahrCockpit-Cloudkonto "
+            + "oder API-Schlüssel erforderlich. Samsung bestimmt das Fensterverhältnis.");
+        Button embedded = Ui.button(this, "Google Maps + Spotify kostenlos starten");
+        root.addView(embedded);
+        embedded.setOnClickListener(v -> startEmbeddedMap());
+
+        Ui.section(this, root, "Optionale 70/30-Kartenansicht",
+            "Die bisherige eingebettete Google-Kartenansicht ist keine "
+            + "Abbiegenavigation und kann von einer Google-API abhängen.");
+        Button embeddedPreview = Ui.button(this,
+            "70/30-Kartenansicht ohne Navigation öffnen");
+        root.addView(embeddedPreview);
+        embeddedPreview.setOnClickListener(v -> startActivity(
+            new Intent(this, EmbeddedMapActivity.class)));
+
+        Ui.section(this, root, "Optional – integrierte Google-Navigation 70/30",
+            "Google Navigation SDK benötigt auch nach Ablauf des Testzeitraums "
+            + "ein aktives Abrechnungskonto. Der kostenlose Standardmodus "
+            + "oben funktioniert davon unabhängig.");
+        Button integrated = Ui.button(this,
+            "Integriertes Google-Cockpit (optionales SDK)");
+        root.addView(integrated);
+        integrated.setOnClickListener(v -> startActivity(
+            new Intent(this, IntegratedNavigationActivity.class)));
+        root.addView(Ui.text(this,
+            "Der Google-SDK-Routenabruf wird erst nach Google-Cloud-Freigabe "
+            + "und einer zusätzlichen Zielbestätigung aktiviert. "
+            + "Keine Schlüssel oder Abrechnung werden automatisch eingerichtet.",
+            12, Ui.WARN, false));
+
+        Ui.section(this, root, "Alternative – vollständige Google-Navigation",
+            "Echter Android-Splitscreen mit der separaten Google-Maps-App. " +
+            "Samsung legt die Fenstergrößen fest.");
+        Button split = Ui.button(this, "Google Maps im System-Splitscreen starten");
+        root.addView(split);
+        split.setOnClickListener(v -> startSplitAndMaps());
+        root.addView(Ui.text(this,
+            "Die eingebettete Karte ist noch kein vollwertiger Navigator " +
+            "mit Abbiege- oder Sprachanweisungen. Für echte Fahrnavigation " +
+            "Google Maps als separate App verwenden.",
+            12, Ui.WARN, false));
+
+        Ui.section(this, root, "Alternative: schwebendes Mini-Cockpit",
+            "Nur auf Wunsch: Das Overlay kann Elemente der Karte verdecken.");
+        Button dock=Ui.button(this, "Mini-Cockpit über Google Maps starten");
+        root.addView(dock);
+        dock.setOnClickListener(v->startDockedAndMaps());
+
+        Switch startCompact=new Switch(this);
+        startCompact.setText("Fahrmodus immer kompakt starten (empfohlen)");
+        startCompact.setTextColor(Ui.FG);
+        startCompact.setTextSize(14);
+        startCompact.setChecked(getSharedPreferences(DockedLayoutRules.PREFS, MODE_PRIVATE)
+            .getBoolean(DockedLayoutRules.KEY_START_COMPACT,
+                DockedLayoutRules.DEFAULT_COMPACT));
+        startCompact.setOnCheckedChangeListener((button,checked) ->
+            getSharedPreferences(DockedLayoutRules.PREFS, MODE_PRIVATE).edit()
+                .putBoolean(DockedLayoutRules.KEY_START_COMPACT,checked).apply());
+        root.addView(startCompact);
+        root.addView(Ui.text(this,
+            "♫ öffnet die große Steuerung, ▶ steuert Spotify. Die kleine " +
+            "Leiste lässt sich am ♫-Knopf verschieben; die große schließt " +
+            "automatisch nach 18 Sekunden.",
+            12,Ui.MUTED,false));
+
+        Switch rightDock=new Switch(this);
+        rightDock.setText("Querformat: Spotify rechts (empfohlen)");
+        rightDock.setTextColor(Ui.FG);
+        rightDock.setTextSize(14);
+        rightDock.setChecked(getSharedPreferences(DockedLayoutRules.PREFS, MODE_PRIVATE)
+            .getBoolean(DockedLayoutRules.KEY_LANDSCAPE_RIGHT,true));
+        rightDock.setOnCheckedChangeListener((button,checked) ->
+            getSharedPreferences(DockedLayoutRules.PREFS, MODE_PRIVATE).edit()
+                .putBoolean(DockedLayoutRules.KEY_LANDSCAPE_RIGHT,checked).apply());
+        root.addView(rightDock);
+        root.addView(Ui.text(this,
+            "Rechts bleibt die Google-Maps-Menüleiste links sichtbar. " +
+            "Schalter AUS: Spotify links. Hochkant startet das kleine " +
+            "Cockpit am rechten Rand und kann frei verschoben werden.",
+            12,Ui.MUTED,false));
+        root.addView(Ui.text(this,
+            "Google Maps bleibt im Vollbild hinter FahrCockpit. Nur beim " +
+            "manuellen Ausklappen überdeckt die große Steuerung vorübergehend " +
+            "einen Teil der Karte. FahrCockpit kann Maps nicht neu zentrieren.",
+            12,Ui.MUTED,false));
+
+        Ui.section(this, root, "Schwebendes Cockpit",
+            "Spotify • Tankstellen • Warn-App (Saphe oder Blitzer.de)");
+        Button overlay = Ui.button(this, "Cockpit über Google Maps starten");
+        root.addView(overlay);
+        overlay.setOnClickListener(v -> startOverlay());
+        Switch openMapsAtStart = new Switch(this);
+        openMapsAtStart.setText("Google Maps beim Cockpit-Start öffnen");
+        openMapsAtStart.setTextColor(Ui.FG);
+        openMapsAtStart.setTextSize(14);
+        openMapsAtStart.setChecked(getSharedPreferences(CockpitViewRules.DISPLAY_PREFS,
+            MODE_PRIVATE).getBoolean(CockpitViewRules.KEY_OPEN_MAPS, true));
+        openMapsAtStart.setOnCheckedChangeListener((button, checked) ->
+            getSharedPreferences(CockpitViewRules.DISPLAY_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(CockpitViewRules.KEY_OPEN_MAPS, checked).apply());
+        root.addView(openMapsAtStart);
+        Switch autoLand = new Switch(this);
+        autoLand.setText("Querformat: automatisch kompakter Fahrmodus");
+        autoLand.setTextColor(Ui.FG);
+        autoLand.setTextSize(14);
+        autoLand.setChecked(getSharedPreferences(CockpitViewRules.DISPLAY_PREFS,
+            MODE_PRIVATE).getBoolean(CockpitViewRules.KEY_AUTO_DRIVING, true));
+        autoLand.setOnCheckedChangeListener((button, checked) ->
+            getSharedPreferences(CockpitViewRules.DISPLAY_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(CockpitViewRules.KEY_AUTO_DRIVING, checked).apply());
+        root.addView(autoLand);
+        root.addView(Ui.text(this,
+            "Kartenstart AUS verhindert nur das automatische Öffnen. Eine bereits " +
+            "geöffnete Google-Maps-App wird nicht geschlossen oder verkleinert. " +
+            "Im Querformat kannst du den Fahrmodus jederzeit manuell wechseln.",
+            12, Ui.MUTED, false));
+        Button stopOverlay = Ui.button(this, "Schwebendes Cockpit schließen");
+        root.addView(stopOverlay);
+        stopOverlay.setOnClickListener(v -> stopService(
+            new Intent(this, OverlayService.class)));
+
+        permissions = Ui.text(this, "", 14, Ui.MUTED, false);
+        root.addView(permissions);
+        Button overlayPermission = Ui.button(this, "Einblendung freigeben");
+        overlayPermission.setOnClickListener(v -> requestOverlayPermission());
+        root.addView(overlayPermission);
+        Button notificationPermission = Ui.button(this, "Spotify-Medienzugriff freigeben");
+        notificationPermission.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+            } catch (RuntimeException e) {
+                permissions.setText("Medienzugriff in Android-Einstellungen manuell freigeben.");
+            }
+        });
+        root.addView(notificationPermission);
+
+        Ui.section(this, root, "Warnsystem auswählen",
+            "Saphe ist voreingestellt. Die Auswahl startet oder stoppt keine Warn-App und " +
+            "ändert weder dein Gerät noch dessen Abonnement.");
+        android.widget.RadioGroup warningChoice = new android.widget.RadioGroup(this);
+        android.widget.RadioButton sapheChoice = new android.widget.RadioButton(this);
+        sapheChoice.setId(android.view.View.generateViewId());
+        sapheChoice.setText("Saphe Link (vorhandenes Gerät)");
+        sapheChoice.setTextColor(Ui.FG);
+        warningChoice.addView(sapheChoice);
+        android.widget.RadioButton blitzerChoice = new android.widget.RadioButton(this);
+        blitzerChoice.setId(android.view.View.generateViewId());
+        blitzerChoice.setText("Blitzer.de PRO (optional)");
+        blitzerChoice.setTextColor(Ui.FG);
+        warningChoice.addView(blitzerChoice);
+        android.widget.RadioButton noneChoice = new android.widget.RadioButton(this);
+        noneChoice.setId(android.view.View.generateViewId());
+        noneChoice.setText("Kein Warnsystem");
+        noneChoice.setTextColor(Ui.FG);
+        warningChoice.addView(noneChoice);
+        root.addView(warningChoice);
+        String selected = WarningSource.selected(this);
+        warningChoice.check(WarningSource.BLITZER.equals(selected) ? blitzerChoice.getId()
+            : WarningSource.NONE.equals(selected) ? noneChoice.getId() : sapheChoice.getId());
+        warningStatus = Ui.text(this, "", 14, Ui.MUTED, false);
+        root.addView(warningStatus);
+        Button sapheLaunch = Ui.button(this, "Saphe Link öffnen");
+        root.addView(sapheLaunch);
+        sapheLaunch.setOnClickListener(v -> warningStatus.setText(
+            WarningSource.openSaphe(this) ? "Saphe Link geöffnet – Warnstatus wird von Saphe verwaltet."
+                : "Saphe Link ist auf diesem Handy nicht installiert."));
+        warningChoice.setOnCheckedChangeListener((group, checkedId) -> {
+            WarningSource.setSelected(this, checkedId == blitzerChoice.getId()
+                ? WarningSource.BLITZER : checkedId == noneChoice.getId()
+                ? WarningSource.NONE : WarningSource.SAPHE);
+            updateWarningStatus(warningStatus);
+        });
+        updateWarningStatus(warningStatus);
+        root.addView(Ui.text(this,
+            "Saphe lässt sich aktuell nur öffnen. Das FahrCockpit kontrolliert " +
+            "weder dein Saphe-Gerät noch dessen Warnstatus. Das Gerätemodell " +
+            "prüfen wir nach deiner Rückkehr nach Deutschland.",
+            13, Ui.MUTED, false));
+
+        Ui.section(this, root, "Blitzer.de PRO (optional)",
+            "Diese Funktionen benötigen die separat installierte Blitzer.de PRO-App. " +
+            "Sie funktionieren nicht über Saphe.");
+        blitzerSwitch = new Switch(this);
+        blitzerSwitch.setText("Zuletzt angeforderter Zustand: EIN / AUS");
+        blitzerSwitch.setTextColor(Ui.FG);
+        blitzerSwitch.setTextSize(16);
+        blitzerSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
+        root.addView(blitzerSwitch);
+        blitzerStatus = Ui.text(this, "", 14, Ui.WARN, false);
+        root.addView(blitzerStatus);
+
+        Button stop = Ui.button(this, "Blitzer.de jetzt beenden");
+        root.addView(stop);
+        stop.setOnClickListener(v -> blitzer(false));
+        Button widget = Ui.button(this, "Blitzer.de Mini-App öffnen");
+        root.addView(widget);
+        widget.setOnClickListener(v -> blitzerMode(BlitzerContract.Command.WIDGET));
+        Button background = Ui.button(this, "Blitzer.de in den Hintergrund");
+        root.addView(background);
+        background.setOnClickListener(v -> blitzerMode(BlitzerContract.Command.BACKGROUND));
+        blitzerSwitch.setOnCheckedChangeListener((button, enabled) -> {
+            if (!programmatic) blitzer(enabled);
+        });
+        Button blitzerSettings = Ui.button(this, "Blitzer.de-Berechtigungen");
+        root.addView(blitzerSettings);
+        blitzerSettings.setOnClickListener(v -> {
+            if (!BlitzerBridge.installed(this)) {
+                blitzerStatus.setText("Blitzer.de PRO ist nicht installiert.");
+                return;
+            }
+            try {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.parse("package:" + BlitzerContract.PACKAGE)));
+            } catch (RuntimeException e) {
+                blitzerStatus.setText("Einstellungen konnten nicht geöffnet werden.");
+            }
+        });
+        root.addView(Ui.text(this,
+            "Wichtig: Ein gesendeter Befehl bestätigt keinen aktiven Blitzer.de-Zustand. " +
+            "EIN wird beim Öffnen dieser App nicht automatisch erneut gesendet.",
+            13, Ui.MUTED, false));
+
+        Ui.section(this, root, "Tankstellen und aktuelle Preise",
+            "Für Deutschland: E5, E10 und Diesel von Tankerkönig. " +
+            "Ein kostenfreier persönlicher API-Key ist erforderlich.");
+        Button fuel = Ui.button(this, "Tankstellen & Preise öffnen");
+        root.addView(fuel);
+        fuel.setOnClickListener(v -> startActivity(new Intent(this, FuelActivity.class)));
+
+        Ui.section(this, root, "Navigation und Musik",
+            "Google Maps wird nicht ersetzt. Spotify läuft über die Android-Mediensteuerung.");
+        Button maps = Ui.button(this, "Google Maps öffnen");
+        root.addView(maps);
+        maps.setOnClickListener(v -> openMapContent());
+        Button spotify = Ui.button(this, "Spotify öffnen");
+        root.addView(spotify);
+        spotify.setOnClickListener(v -> openPackage("com.spotify.music", "Spotify"));
+
+        Ui.section(this, root, "App aktualisieren",
+            "Direkte, dauerhaft signierte APK über GitHub Releases – ohne ZIP.");
+        Button updateButton = Ui.button(this, "Auf Updates prüfen");
+        root.addView(updateButton);
+        updateButton.setOnClickListener(v ->
+            startActivity(new Intent(this, UpdateActivity.class)));
+
+        Ui.section(this, root, "Hinweise", "");
+        root.addView(Ui.text(this,
+            "FahrCockpit startet keine Dienste beim Booten. Schließe das Cockpit über " +
+            "die App, die Schwebefläche oder die Android-Benachrichtigung. " +
+            "Android-Einstellungen und Berechtigungen bleiben bei regulären Updates erhalten.",
+            13, Ui.MUTED, false));
+        root.addView(Ui.text(this,
+            "Deutschland: Aktive Blitzerwarnungen dürfen durch Fahrzeugführende " +
+            "während der Fahrt nicht verwendet werden (§ 23 Abs. 1c StVO). " +
+            "Nur im Stand bedienen. Andere Länder haben eigene Regeln.",
+            13, Ui.WARN, false));
+
+        // Do not automatically launch from notification/settings or rotation.
+        if(savedInstanceState==null && fromAppIcon(getIntent())) {
+            scroll.post(this::startEmbeddedMap);
+        }
+
+        handleGoogleTransfer(getIntent());
+        blitzerStatus.setText(prefs.getBoolean(KEY_HAS_REQUEST, false)
+            ? "Zuletzt " + (blitzerSwitch.isChecked() ? "EIN" : "AUS") +
+              " angefordert – tatsächlicher Zustand unbekannt."
+            : "Standard: AUS. Noch kein Befehl gesendet.");
+    }
+
+    /** App icon is the single explicit user action; settings open separately. */
+    private static boolean fromAppIcon(Intent i) {
+        return i!=null && Intent.ACTION_MAIN.equals(i.getAction())
+            && i.hasCategory(Intent.CATEGORY_LAUNCHER);
+    }
+
+    @Override protected void onNewIntent(Intent i) {
+        super.onNewIntent(i);
+        setIntent(i);
+        if (GoogleKeyTransfer.isTransfer(i)) {
+            handleGoogleTransfer(i);
+            return;
+        }
+        if(fromAppIcon(i)) new android.os.Handler(android.os.Looper.getMainLooper())
+            .post(this::startEmbeddedMap);
+    }
+
+    private void handleGoogleTransfer(Intent intent) {
+        if (!GoogleKeyTransfer.isTransfer(intent)) return;
+        String imported = GoogleKeyTransfer.consume(this, intent);
+        // A one-time encrypted session is consumed even for malformed input.
+        setIntent(new Intent(this, MainActivity.class));
+        if (imported == null) {
+            if (permissions != null)
+                permissions.setText("Google-Übernahme nicht bestätigt. Bitte erneut aus der Karte starten.");
+            return;
+        }
+        Intent map = new Intent(this, EmbeddedMapActivity.class)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        map.putExtra(GoogleKeyTransfer.EXTRA_KEY, imported);
+        startActivity(map);
+    }
+
+    private void startEmbeddedMap() {
+        try {
+            stopService(new Intent(this, DockedCockpitService.class));
+            stopService(new Intent(this, OverlayService.class));
+            // The app icon must always work without our Google Cloud account.
+            // The cloud-dependent 70/30 SDK remains an explicit optional mode.
+            startActivity(new Intent(this, SplitCockpitActivity.class));
+        } catch (RuntimeException e) {
+            if (permissions != null) permissions.setText(
+                "Kostenlose Google-Navigation konnte nicht gestartet werden.");
+        }
+    }
+
+    private void startSplitAndMaps() {
+        try {
+            // Never leave a previous full-screen overlay covering Maps.
+            stopService(new Intent(this, DockedCockpitService.class));
+            stopService(new Intent(this, OverlayService.class));
+            startActivity(new Intent(this, SplitCockpitActivity.class));
+        } catch (RuntimeException e) {
+            if (permissions != null) permissions.setText(
+                "Split-Fahransicht konnte nicht starten. Samsung Multi Window prüfen.");
+        }
+    }
+
+    private void startDockedAndMaps() {
+        if(!Settings.canDrawOverlays(this)) {
+            if(permissions!=null) permissions.setText(
+                "Einblendung freigeben; anschließend erneut FahrCockpit öffnen.");
+            requestOverlayPermission();
+            return;
+        }
+        try {
+            stopService(new Intent(this,OverlayService.class));
+            startForegroundService(new Intent(this,DockedCockpitService.class)
+                .setAction(DockedCockpitService.SHOW));
+            if(GoogleMapsLaunch.installed(this)) {
+                Intent maps=GoogleMapsLaunch.mapIntent();
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(()->{
+                    try{startActivity(maps);}
+                    catch(RuntimeException e){
+                        if(permissions!=null) permissions.setText(
+                            "Google Maps konnte nicht geöffnet werden.");
+                    }
+                },450L);
+            } else if(permissions!=null) {
+                permissions.setText("Google Maps nicht installiert.");
+            }
+        } catch(RuntimeException e) {
+            if(permissions!=null) permissions.setText(
+                "Fahrmodus konnte nicht starten. Android-Rechte prüfen.");
+        }
+    }
+
+    @Override public void onResume() {
+        super.onResume();
+        if (warningStatus != null) updateWarningStatus(warningStatus);
+        if (blitzerSwitch != null) {
+            programmatic = true;
+            blitzerSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
+            programmatic = false;
+            if (blitzerStatus != null && prefs.getBoolean(KEY_HAS_REQUEST, false)) {
+                blitzerStatus.setText("Zuletzt " + (blitzerSwitch.isChecked() ? "EIN" : "AUS") +
+                    " angefordert – tatsächlicher Zustand unbekannt.");
+            }
+        }
+        if (permissions != null) {
+            boolean draw = Settings.canDrawOverlays(this);
+            boolean listener = Permissions.isMediaListenerEnabled(this);
+            permissions.setText("Einblendung: " + (draw ? "freigegeben" : "fehlt") +
+                "  •  Spotify-Medienzugriff: " + (listener ? "freigegeben" : "fehlt"));
+        }
+    }
+
+    private void updateWarningStatus(TextView label) {
+        String chosen = WarningSource.selected(this);
+        if (WarningSource.SAPHE.equals(chosen)) {
+            label.setText(WarningSource.isSapheInstalled(this)
+                ? "Saphe ausgewählt · App installiert · Gerätestatus unbekannt."
+                : "Saphe ausgewählt · Saphe Link noch nicht installiert.");
+        } else if (WarningSource.BLITZER.equals(chosen)) {
+            label.setText(BlitzerBridge.installed(this)
+                ? "Blitzer.de PRO ausgewählt · App installiert · Warnstatus unbekannt."
+                : "Blitzer.de PRO ausgewählt · App fehlt.");
+        } else {
+            label.setText("Kein Cockpit-Warnsystem gewählt. Bereits laufende externe Apps werden dadurch nicht beendet.");
+        }
+    }
+
+    private void requestOverlayPermission() {
+        try {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + getPackageName())));
+        } catch (RuntimeException e) {
+            permissions.setText("Overlay-Berechtigung bitte unter Android > Apps freigeben.");
+        }
+    }
+
+    private void startOverlay() {
+        if (!Settings.canDrawOverlays(this)) {
+            requestOverlayPermission();
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] { Manifest.permission.POST_NOTIFICATIONS }, 101);
+            return; // Do not cover the Android permission dialog with Google Maps.
+        }
+        showCockpitAndMaps();
+    }
+
+    @Override public void onRequestPermissionsResult(
+        int requestCode, String[] names, int[] grants) {
+        super.onRequestPermissionsResult(requestCode, names, grants);
+        if (requestCode == 101) {
+            // Notifications may be denied. Android still permits an explicitly
+            // user-started foreground service, but the app cannot post alerts.
+            showCockpitAndMaps();
+        }
+    }
+
+    private void showCockpitAndMaps() {
+        try {
+            stopService(new Intent(this, DockedCockpitService.class));
+            startForegroundService(new Intent(this, OverlayService.class)
+                .setAction(OverlayService.ACTION_SHOW));
+            if (getSharedPreferences(CockpitViewRules.DISPLAY_PREFS, MODE_PRIVATE)
+                .getBoolean(CockpitViewRules.KEY_OPEN_MAPS, true)) {
+                new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                    this::openMapContent, 450);
+            }
+        } catch (RuntimeException e) {
+            permissions.setText("Cockpit konnte nicht gestartet werden: " +
+                "Android-Berechtigungen und Akku-Einstellungen prüfen.");
+        }
+    }
+
+    private void blitzer(boolean enabled) {
+        BlitzerBridge.SendResult result = BlitzerBridge.send(this,
+            enabled ? BlitzerContract.Command.START : BlitzerContract.Command.STOP);
+        if (result == BlitzerBridge.SendResult.SENT_UNCONFIRMED) {
+            prefs.edit().putBoolean(KEY_HAS_REQUEST, true)
+                .putBoolean(KEY_LAST_START_REQUEST, enabled).apply();
+            programmatic = true;
+            blitzerSwitch.setChecked(enabled);
+            programmatic = false;
+            blitzerStatus.setText(enabled
+                ? "Startbefehl gesendet – Blitzer.de-Status nicht bestätigt."
+                : "Beenden-Befehl gesendet – Blitzer.de-Status nicht bestätigt.");
+        } else {
+            programmatic = true;
+            blitzerSwitch.setChecked(prefs.getBoolean(KEY_LAST_START_REQUEST, false));
+            programmatic = false;
+            blitzerStatus.setText(result == BlitzerBridge.SendResult.NOT_INSTALLED
+                ? "Blitzer.de PRO fehlt oder ist nicht sichtbar."
+                : "Befehl konnte nicht gesendet werden.");
+        }
+    }
+
+    private void blitzerMode(BlitzerContract.Command mode) {
+        BlitzerBridge.SendResult result = BlitzerBridge.send(this, mode);
+        if (result == BlitzerBridge.SendResult.SENT_UNCONFIRMED) {
+            programmatic = true;
+            blitzerSwitch.setChecked(true);
+            programmatic = false;
+        }
+        blitzerStatus.setText(result == BlitzerBridge.SendResult.SENT_UNCONFIRMED
+            ? "Modus-Befehl gesendet – keine Empfangsbestätigung."
+            : "Blitzer.de PRO fehlt oder Befehl wurde blockiert.");
+    }
+
+    private void openMapContent() {
+        if (!GoogleMapsLaunch.installed(this)) {
+            permissions.setText("Google Maps ist nicht installiert.");
+            return;
+        }
+        try {
+            startActivity(GoogleMapsLaunch.mapIntent());
+        } catch (RuntimeException error) {
+            permissions.setText("Google Maps konnte die Kartenansicht nicht öffnen.");
+        }
+    }
+
+    private void openPackage(String packageName, String label) {
+        Intent launch = getPackageManager().getLaunchIntentForPackage(packageName);
+        if (launch == null) {
+            permissions.setText(label + " nicht installiert oder nicht sichtbar.");
+            return;
+        }
+        try {
+            startActivity(launch);
+        } catch (RuntimeException e) {
+            permissions.setText(label + " konnte nicht geöffnet werden.");
+        }
+    }
+}
