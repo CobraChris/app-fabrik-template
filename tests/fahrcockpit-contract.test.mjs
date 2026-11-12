@@ -375,3 +375,21 @@ test('v21 Google navigation is the primary provider; OSM requires a real ready e
  assert.match(tests,/osmIsOnlyChosenIfACompleteOsmNavigatorExists/);
  assert.match(tests,/fallbackAfterQuotaOrBillingLossDoesNotReturnToGoogleSdk/);
 });
+
+test('v21 interactive fixed 70/30 HTML preview is transparent, interactive and cloud-free',()=>{
+ const html=read('demo/fahrcockpit-v21-preview.html');
+ assert.match(html,/\.map-pane\{[^}]*flex:7 1 0/);
+ assert.match(html,/\.cockpit\{[^}]*flex:3 1 0/);
+ assert.match(html,/GOOGLE · STANDARD/);
+ assert.match(html,/OPENSTREETMAP · NOTFALL/);
+ assert.match(html,/INTERAKTIVE KONZEPTDEMO/);
+ assert.match(html,/Keine echte Google- oder OSM-Navigation/);
+ assert.match(html,/id="quota"/);
+ assert.match(html,/id="billing"/);
+ assert.match(html,/id="reset"/);
+ assert.match(html,/state\.provider='osm'/);
+ assert.match(html,/state\.provider='google'/);
+ assert.match(html,/routeLine/);
+ assert.doesNotMatch(html,/<script[^>]+src=|api\.google|maps\.googleapis|tile\.openstreetmap|https:\/\/[^\s]*\.js/);
+});
+
