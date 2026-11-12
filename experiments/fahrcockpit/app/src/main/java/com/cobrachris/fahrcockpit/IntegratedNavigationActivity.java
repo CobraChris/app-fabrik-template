@@ -118,9 +118,11 @@ public final class IntegratedNavigationActivity extends Activity {
         }
 
         panel.addView(Ui.text(this, "FahrCockpit · Integriert", 17, Ui.FG, true));
-        status = Ui.text(this, engine != null && engine.configured()
-            ? "Google Navigation SDK wird vorbereitet …"
-            : "Vorschau · Navigation SDK nicht aktiviert · keine Gebühren",
+        status = Ui.text(this, isOsmPreview()
+            ? "OpenStreetMap-Karte mit BRouter (keine Sprachführung)"
+            : (engine != null && engine.configured()
+                ? "Google Navigation SDK wird vorbereitet …"
+                : "Vorschau · Navigation SDK nicht aktiviert · keine Gebühren"),
             12, Ui.WARN, false);
         status.setMaxLines(3);
         panel.addView(status);
@@ -142,7 +144,9 @@ public final class IntegratedNavigationActivity extends Activity {
         routePanel.addView(remembered);
         remembered.setOnClickListener(v -> showSavedTargets());
 
-        Button route = Ui.button(this, "Route in dieser App berechnen");
+        Button route = Ui.button(this, isOsmPreview()
+            ? "OSM-Straßenroute planen (noch keine Sprachführung)"
+            : "Route in dieser App berechnen");
         routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
         route.setOnClickListener(v -> resolveAndConfirmRoute());
@@ -251,10 +255,12 @@ public final class IntegratedNavigationActivity extends Activity {
                 startActivity(launch);
             }
         });
-        panel.addView(Ui.text(this,
-            "Die feste Aufteilung gehört zu FahrCockpit. "
-            + "Die SDK-Navigation wird nur nach ausdrücklicher "
-            + "Routenbestätigung aufgerufen; sie benötigt Google Cloud Billing.",
+        panel.addView(Ui.text(this, isOsmPreview()
+            ? "OSM: Die Karte lädt OpenFreeMap. BRouter kann offline eine "
+                + "Straßenroute berechnen, wenn die regionalen Daten vorhanden sind. "
+                + "Abbiege-/Sprachführung fehlt noch: nicht als Fahrnavigation verwenden."
+            : "Google: Das SDK benötigt aktives Cloud Billing. "
+                + "Eine kostenrelevante Route wird nur nach Bestätigung gestartet.",
             11, Ui.MUTED, false));
         setContentView(root);
 
@@ -262,14 +268,27 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private NavigationEngine loadEngine() {
+        // Google Navigation SDK is always preferred when installed/authorized.
+        NavigationEngine google = optionalEngine(IntegratedNavigationRules.ENGINE_CLASS);
+        if (google != null) return google;
+        // The independent OSM map/route is currently a preview, not turn guidance.
+        return optionalEngine("com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
+    }
+
+    private NavigationEngine optionalEngine(String className) {
         try {
-            Class<?> type = Class.forName(IntegratedNavigationRules.ENGINE_CLASS);
+            Class<?> type = Class.forName(className);
             NavigationEngine result = (NavigationEngine)
                 type.getConstructor(Activity.class).newInstance(this);
             return result.configured() ? result : null;
         } catch (ReflectiveOperationException | LinkageError unavailable) {
-            return null; // Default signed build: never loads or calls the paid SDK.
+            return null; // No optional provider in ordinary protected signed builds.
         }
+    }
+
+    private boolean isOsmPreview() {
+        return engine != null && engine.getClass().getName().equals(
+            "com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
     }
 
     private void askLocationThenInitialize() {
@@ -317,8 +336,10 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private void resolveAndConfirmRoute() {
         if (engine == null || !engine.ready()) {
-            showStatus("Navigation SDK noch nicht bereit. "
-                + "Die kostenlose v19-Navigation bleibt verfügbar.");
+            showStatus(isOsmPreview()
+                ? "BRouter noch nicht bereit: Offline-Daten, App und MapLibre prüfen."
+                : "Google Navigation SDK noch nicht bereit. "
+                    + "Die kostenlose Google-Maps-App bleibt verfügbar.");
             return;
         }
         String target = RouteTargetRules.clean(destination.getText().toString());
@@ -327,7 +348,9 @@ public final class IntegratedNavigationActivity extends Activity {
             return;
         }
         chosenTarget = target;
-        showStatus("Ziel wird einmalig aufgelöst – noch keine SDK-Routenanfrage.");
+        showStatus(isOsmPreview()
+            ? "Ziel wird ermittelt – noch keine Offline-Routenberechnung."
+            : "Ziel wird ermittelt – noch keine Google-SDK-Routenanfrage.");
         NavigationDestinationResolver.resolve(this, target,
             new NavigationDestinationResolver.Callback() {
             @Override public void resolved(double lat, double lng, String name) {
@@ -337,15 +360,24 @@ public final class IntegratedNavigationActivity extends Activity {
                     showStatus("Ortssuche hat ungültige Koordinaten geliefert.");
                     return;
                 }
+                boolean osm = isOsmPreview();
                 new AlertDialog.Builder(IntegratedNavigationActivity.this)
-                    .setTitle("Kostenpflichtige Route bestätigen")
-                    .setMessage("Google Navigation SDK: " + name
-                        + "\n\nZielkoordinaten: " + coords
-                        + "\n\nDer Routenabruf zählt gegen die Google-"
-                        + "Navigation-SDK-Nutzungsquote. "
-                        + "Nur fortfahren, wenn die Abrechnung zuvor freigegeben wurde.")
+                    .setTitle(osm ? "OSM-Straßenroute (keine Sprachführung)"
+                        : "Google Navigation: Route bestätigen")
+                    .setMessage(osm
+                        ? ("OpenStreetMap / BRouter: " + name
+                            + "\n\nZielkoordinaten: " + coords
+                            + "\n\nEchte Offline-Straßenroute ohne Google-Cloud-Kosten. "
+                            + "Noch KEINE Abbiege-/Sprachnavigation. "
+                            + "Nicht als Fahrnavigator verwenden.")
+                        : ("Google Navigation SDK: " + name
+                            + "\n\nZielkoordinaten: " + coords
+                            + "\n\nDer Routenabruf zählt gegen die Google-"
+                            + "Navigation-SDK-Quote. "
+                            + "Nur nach Freigabe der Abrechnung fortfahren."))
                     .setNegativeButton("Abbrechen", (d,which) -> {})
-                    .setPositiveButton("Route berechnen", (d,which) -> {
+                    .setPositiveButton(osm ? "Straßenroute planen"
+                        : "Route berechnen", (d,which) -> {
                         if (engine != null && engine.ready()) {
                             engine.startConfirmedRoute(lat, lng, name);
                         }

@@ -450,3 +450,19 @@ test('v21 independent BRouter offline routing bridge validates GeoJSON and never
  assert.doesNotMatch(src,/GoogleNavigationEngine|NAVSDK_API_KEY|maps\.googleapis/);
 });
 
+test('v21 native MapLibre OSM road map preserves Google priority and warns about missing guidance',()=>{
+ const screen=java('IntegratedNavigationActivity');
+ const map=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmRoutingPreviewEngine.java');
+ assert.match(screen,/optionalEngine\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
+ assert.match(screen,/OsmRoutingPreviewEngine/);
+ assert.match(screen,/isOsmPreview\(\)/);
+ assert.match(screen,/Noch KEINE Abbiege-\/Sprachnavigation/);
+ assert.match(map,/MapLibre\.getInstance\(host\)/);
+ assert.match(map,/new MapView\(host\)/);
+ assert.match(map,/tiles\.openfreemap\.org\/styles\/liberty/);
+ assert.match(map,/BRouterOfflineRouteClient\.route\(host/);
+ assert.match(map,/new GeoJsonSource\(SOURCE, route\.geoJson\)/);
+ assert.match(map,/Noch KEINE Abbiege- oder Sprachnavigation/);
+ assert.doesNotMatch(map,/GoogleNavigationEngine|NAVSDK_API_KEY|setDestination\(/);
+});
+
