@@ -520,7 +520,7 @@ test('v21 original App icon selects fixed Google 70/30 only with locally restric
  assert.ok(start>0&&end>start);
  const selection=main.slice(start,end);
  assert.match(selection,/NavigationSdkKeyStore\.read\(this\)/);
- assert.match(selection,/NavigationSdkKeyStore\.validKey\(key\)/);
+ assert.match(selection,/NavigationSdkKeyStore\.validKey\(NavigationSdkKeyStore\.read\(this\)\)/);
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
