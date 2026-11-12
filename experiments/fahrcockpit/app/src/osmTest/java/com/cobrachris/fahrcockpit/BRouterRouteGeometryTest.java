@@ -41,4 +41,30 @@ public final class BRouterRouteGeometryTest {
             assertNotNull(expected);
         }
     }
+    @Test public void parsesAuthoritativeBRouterVoiceHints() {
+        String withHints = VALID.replace("\"properties\":{}",
+            "\"properties\":{\"voicehints\":[[1,2,0,100,90],[2,13,3,120,0]]}");
+        BRouterRouteGeometry.Route route = BRouterRouteGeometry.parse(withHints);
+        assertEquals(2, route.turns.size());
+        assertEquals(1, route.turns.get(0).pointIndex);
+        assertEquals("Links abbiegen", route.turns.get(0).germanInstruction());
+        assertEquals("Im Kreisverkehr die 3. Ausfahrt nehmen",
+            route.turns.get(1).germanInstruction());
+    }
+
+    @Test public void routeWithoutHintsIsNotFakeGuidance() {
+        assertTrue(BRouterRouteGeometry.parse(VALID).turns.isEmpty());
+    }
+
+    @Test public void rejectsInvalidVoiceHintIndexOrSequence() {
+        String withHints = VALID.replace("\"properties\":{}",
+            "\"properties\":{\"voicehints\":[[2,2,0,100,90],[1,5,0,100,90]]}");
+        try {
+            BRouterRouteGeometry.parse(withHints);
+            fail("Turns must be ordered according to route points");
+        } catch (IllegalArgumentException expected) {
+            assertNotNull(expected);
+        }
+    }
+
 }

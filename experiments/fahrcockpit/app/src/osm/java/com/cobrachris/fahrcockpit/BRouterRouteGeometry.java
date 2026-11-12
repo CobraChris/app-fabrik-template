@@ -17,12 +17,48 @@ final class BRouterRouteGeometry {
     private static final int MAX_CHARS = 6_000_000;
     private static final int MAX_POINTS = 150_000;
 
+    static final class Turn {
+        final int pointIndex;
+        final int code;
+        final int exit;
+        Turn(int pointIndex, int code, int exit) {
+            this.pointIndex = pointIndex;
+            this.code = code;
+            this.exit = exit;
+        }
+
+        /** BRouter FormatJson / Formatter numeric maneuver codes. */
+        String germanInstruction() {
+            switch (code) {
+                case 1: return "Geradeaus weiterfahren";
+                case 2: return "Links abbiegen";
+                case 3: return "Leicht links abbiegen";
+                case 4: return "Scharf links abbiegen";
+                case 5: return "Rechts abbiegen";
+                case 6: return "Leicht rechts abbiegen";
+                case 7: return "Scharf rechts abbiegen";
+                case 8: return "Links halten";
+                case 9: return "Rechts halten";
+                case 10: case 15: return "Bitte wenden";
+                case 11: return "Rechts wenden";
+                case 13: case 14:
+                    return exit > 0 ? "Im Kreisverkehr die " + exit
+                        + ". Ausfahrt nehmen" : "In den Kreisverkehr einfahren";
+                case 17: return "Links abfahren";
+                case 18: return "Rechts abfahren";
+                default: return null; // Never invent an unknown maneuver.
+            }
+        }
+    }
+
     static final class Route {
         final String geoJson;
-        final List<double[]> points; // lat, lon for native location checks
-        Route(String json, List<double[]> points) {
+        final List<double[]> points; // independent BRouter lat, lon geometry
+        final List<Turn> turns;
+        Route(String json, List<double[]> points, List<Turn> turns) {
             this.geoJson = json;
             this.points = Collections.unmodifiableList(points);
+            this.turns = Collections.unmodifiableList(turns);
         }
     }
     private BRouterRouteGeometry() {}
@@ -54,9 +90,33 @@ final class BRouterRouteGeometry {
                     throw new IllegalArgumentException("Bad coordinates");
                 points.add(new double[] {lat, lon});
             }
-            // Return the exact validated route. MapLibre's LineLayer renders
-            // only the LineString; other BRouter POI features are ignored.
-            return new Route(raw, points);
+            // FormatJson puts voicehints into properties of the first feature.
+            // [indexInTrack, commandIndex, exitNumber, distanceToNext, angle].
+            // Missing hints are a non-guidable route, never guessed turns.
+            List<Turn> turns = new ArrayList<>();
+            JsonObject props = first.getAsJsonObject("properties");
+            JsonArray hints = props == null ? null : props.getAsJsonArray("voicehints");
+            if (hints != null) {
+                if (hints.size() > 10000)
+                    throw new IllegalArgumentException("Too many voice hints");
+                int previous = -1;
+                for (JsonElement element : hints) {
+                    JsonArray hint = element.getAsJsonArray();
+                    if (hint.size() < 5) throw new IllegalArgumentException("Incomplete voice hint");
+                    int index = hint.get(0).getAsInt();
+                    int code = hint.get(1).getAsInt();
+                    int exit = hint.get(2).getAsInt();
+                    if (index < 0 || index >= points.size() || index <= previous
+                            || code < 1 || code > 18 || exit < 0 || exit > 30)
+                        throw new IllegalArgumentException("Invalid voice hint");
+                    previous = index;
+                    Turn turn = new Turn(index, code, exit);
+                    if (turn.germanInstruction() != null) turns.add(turn);
+                }
+            }
+            // MapLibre renders only the independent BRouter LineString; other
+            // features are ignored. Turn hints come from BRouter, not geometry.
+            return new Route(raw, points, turns);
         } catch (RuntimeException malformed) {
             throw new IllegalArgumentException("BRouter returned invalid route geometry", malformed);
         }

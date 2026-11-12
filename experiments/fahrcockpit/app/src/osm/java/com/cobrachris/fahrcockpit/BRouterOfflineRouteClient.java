@@ -70,6 +70,7 @@ final class BRouterOfflineRouteClient {
                         params.putString("v", "motorcar");
                         params.putString("fast", "1");
                         params.putString("trackFormat", "json");
+                        params.putString("turnInstructionFormat", "osmand");
                         params.putString("maxRunningTime", "60");
                         // IPC result is computed locally by BRouter; no paid API.
                         String result = service.getTrackFromParams(params);
