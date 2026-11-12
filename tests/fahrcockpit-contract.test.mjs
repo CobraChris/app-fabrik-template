@@ -456,7 +456,7 @@ test('v21 native MapLibre OSM road map preserves Google priority and warns about
  assert.match(screen,/optionalEngine\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(screen,/OsmRoutingPreviewEngine/);
  assert.match(screen,/isOsmPreview\(\)/);
- assert.match(screen,/Noch KEINE Abbiege-\/Sprachnavigation/);
+ assert.match(screen,/OSM-Abbiegeführung \(nicht für Fahrten freigegeben\)/);
  assert.match(map,/MapLibre\.getInstance\(host\)/);
  assert.match(map,/new MapView\(host\)/);
  assert.match(map,/tiles\.openfreemap\.org\/styles\/liberty/);

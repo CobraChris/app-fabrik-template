@@ -119,7 +119,7 @@ public final class IntegratedNavigationActivity extends Activity {
 
         panel.addView(Ui.text(this, "FahrCockpit · Integriert", 17, Ui.FG, true));
         status = Ui.text(this, isOsmPreview()
-            ? "OpenStreetMap-Karte mit BRouter (keine Sprachführung)"
+            ? "OSM-Abbiegeführung (Entwicklungstest, nicht für reale Fahrten)"
             : (engine != null && engine.configured()
                 ? "Google Navigation SDK wird vorbereitet …"
                 : "Vorschau · Navigation SDK nicht aktiviert · keine Gebühren"),
@@ -145,7 +145,7 @@ public final class IntegratedNavigationActivity extends Activity {
         remembered.setOnClickListener(v -> showSavedTargets());
 
         Button route = Ui.button(this, isOsmPreview()
-            ? "OSM-Straßenroute planen (noch keine Sprachführung)"
+            ? "OSM-Abbiegeführung zum Testen planen"
             : "Route in dieser App berechnen");
         routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
@@ -258,7 +258,8 @@ public final class IntegratedNavigationActivity extends Activity {
         panel.addView(Ui.text(this, isOsmPreview()
             ? "OSM: Die Karte lädt OpenFreeMap. BRouter kann offline eine "
                 + "Straßenroute berechnen, wenn die regionalen Daten vorhanden sind. "
-                + "Abbiege-/Sprachführung fehlt noch: nicht als Fahrnavigation verwenden."
+                + "GPS-Abbiegehinweise und Android-Sprachausgabe im Entwicklungstest. "
+                + "Nicht als Fahrnavigation verwenden, bis reale Tests bestanden sind."
             : "Google: Das SDK benötigt aktives Cloud Billing. "
                 + "Eine kostenrelevante Route wird nur nach Bestätigung gestartet.",
             11, Ui.MUTED, false));
@@ -362,14 +363,15 @@ public final class IntegratedNavigationActivity extends Activity {
                 }
                 boolean osm = isOsmPreview();
                 new AlertDialog.Builder(IntegratedNavigationActivity.this)
-                    .setTitle(osm ? "OSM-Straßenroute (keine Sprachführung)"
+                    .setTitle(osm ? "OSM-Abbiegeführung (nicht für Fahrten freigegeben)"
                         : "Google Navigation: Route bestätigen")
                     .setMessage(osm
                         ? ("OpenStreetMap / BRouter: " + name
                             + "\n\nZielkoordinaten: " + coords
                             + "\n\nEchte Offline-Straßenroute ohne Google-Cloud-Kosten. "
-                            + "Noch KEINE Abbiege-/Sprachnavigation. "
-                            + "Nicht als Fahrnavigator verwenden.")
+                            + "BRouter-Hinweise, GPS und deutsche Sprachausgabe werden "
+                            + "im Entwicklungstest verwendet, falls verfügbar. "
+                            + "Noch NICHT im Straßenverkehr geprüft.")
                         : ("Google Navigation SDK: " + name
                             + "\n\nZielkoordinaten: " + coords
                             + "\n\nDer Routenabruf zählt gegen die Google-"
