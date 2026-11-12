@@ -428,3 +428,25 @@ test('v21 Google SDK quota/auth failures are typed and shown without fake OSM na
  assert.match(screen,/OSM-Ersatznavigation ist noch nicht installiert/);
 });
 
+test('v21 independent BRouter offline routing bridge validates GeoJSON and never uses Google SDK data',()=>{
+ const src=read('app/src/osm/java/com/cobrachris/fahrcockpit/BRouterOfflineRouteClient.java');
+ const parser=read('app/src/osm/java/com/cobrachris/fahrcockpit/BRouterRouteGeometry.java');
+ const aidl=read('app/src/osm/aidl/btools/routingapp/IBRouterService.aidl');
+ const gradle=read('app/build.gradle');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ assert.match(src,/getTrackFromParams\(params\)/);
+ assert.match(src,/params\.putString\("v", "motorcar"\)/);
+ assert.match(src,/params\.putString\("trackFormat", "json"\)/);
+ assert.match(src,/btools\.routingapp\.BRouterService/);
+ assert.match(src,/new Thread\(\(\) ->/);
+ assert.match(src,/Offline-Route nicht verfügbar/);
+ assert.match(parser,/FeatureCollection/);
+ assert.match(parser,/LineString/);
+ assert.match(parser,/Double\.isFinite/);
+ assert.match(aidl,/String getTrackFromParams/);
+ assert.match(gradle,/withOsmFallback/);
+ assert.match(gradle,/org\.maplibre\.gl:android-sdk:/);
+ assert.match(manifest,/android:name="btools\.routingapp"/);
+ assert.doesNotMatch(src,/GoogleNavigationEngine|NAVSDK_API_KEY|maps\.googleapis/);
+});
+

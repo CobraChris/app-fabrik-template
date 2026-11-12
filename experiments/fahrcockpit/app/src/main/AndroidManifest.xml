@@ -13,6 +13,8 @@
         <package android:name="my.saphelink" />
         <package android:name="com.google.android.apps.maps" />
         <package android:name="com.spotify.music" />
+        <!-- BRouter is installed and its offline data chosen by the user. -->
+        <package android:name="btools.routingapp" />
     </queries>
     <application
         android:allowBackup="false"
