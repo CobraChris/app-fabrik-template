@@ -8,6 +8,7 @@ import android.webkit.WebViewClient;
 import android.widget.TextView;
 import android.view.Gravity;
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -23,7 +24,14 @@ public final class NavigationPreviewActivity extends Activity {
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
         try (InputStream in = getAssets().open("fahrcockpit-v21-preview.html")) {
-            byte[] bytes = in.readAllBytes();
+            // InputStream.readAllBytes() is not available on every minSdk=30 device.
+            ByteArrayOutputStream out = new ByteArrayOutputStream(16384);
+            byte[] buffer = new byte[4096];
+            int length;
+            while ((length = in.read(buffer)) != -1) {
+                out.write(buffer, 0, length);
+            }
+            byte[] bytes = out.toByteArray();
             String html = new String(bytes, StandardCharsets.UTF_8);
             preview = new WebView(this);
             preview.setBackgroundColor(Ui.BG);
