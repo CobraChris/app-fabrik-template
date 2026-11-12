@@ -46,6 +46,7 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
     private boolean closed;
     private boolean styleReady;
     private final AtomicBoolean pending = new AtomicBoolean();
+    private int requestEpoch; // Ignore route results after cancel or activity close.
 
     public OsmRoutingPreviewEngine(Activity activity) {host = activity;}
 
@@ -122,6 +123,7 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
             status.onStatus("BRouter-Routenberechnung läuft bereits.");
             return;
         }
+        final int epoch = ++requestEpoch;
         LocationManager lm=(LocationManager)host.getSystemService(Activity.LOCATION_SERVICE);
         String provider;
         if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER))
@@ -136,7 +138,7 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
         try {
             lm.getCurrentLocation(provider,(CancellationSignal)null,
                 host.getMainExecutor(), location -> {
-                if (closed){pending.set(false);return;}
+                if (closed || epoch != requestEpoch) return;
                 if(location==null ||
                     Math.abs(System.currentTimeMillis()-location.getTime())>120000L ||
                     (location.hasAccuracy() && location.getAccuracy()>200f)) {
@@ -148,12 +150,14 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
                     location.getLongitude(),targetLat,targetLon,
                     new BRouterOfflineRouteClient.Callback(){
                     @Override public void success(BRouterRouteGeometry.Route route){
-                        if(closed){pending.set(false);return;}
-                        renderRoute(route);
+                        if (closed || epoch != requestEpoch) return;
+                        renderRoute(route, epoch);
                         done("OSM-Straßenroute angezeigt (" + route.points.size()
                             + " Punkte). Noch KEINE Abbiege- oder Sprachnavigation!");
                     }
-                    @Override public void failure(String error){done(error);}
+                    @Override public void failure(String error) {
+                        if (!closed && epoch == requestEpoch) done(error);
+                    }
                 });
             });
         } catch (SecurityException | IllegalArgumentException failure) {
@@ -161,10 +165,10 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
         }
     }
 
-    private void renderRoute(BRouterRouteGeometry.Route route) {
-        if(map==null || closed)return;
+    private void renderRoute(BRouterRouteGeometry.Route route, int epoch) {
+        if(map==null || closed || epoch != requestEpoch)return;
         map.getStyle(style -> {
-            if(closed)return;
+            if(closed || epoch != requestEpoch)return;
             GeoJsonSource source=(GeoJsonSource)style.getSource(SOURCE);
             if(source==null){
                 source=new GeoJsonSource(SOURCE, route.geoJson);
@@ -185,6 +189,7 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
     }
 
     @Override public void stopGuidanceAndClearRoute(){
+        requestEpoch++;
         pending.set(false);
         if(map!=null && styleReady){
             map.getStyle(style -> {
@@ -201,6 +206,7 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
     @Override public void onStop(){if(view!=null)view.onStop();}
     @Override public void onDestroy(boolean finishing){
         closed=true;
+        requestEpoch++;
         pending.set(false);
         if(view!=null){view.onDestroy();view=null;}
     }
