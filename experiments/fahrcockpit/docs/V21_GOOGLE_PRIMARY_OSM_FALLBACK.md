@@ -24,3 +24,6 @@ Referenzen:
 - https://cloud.google.com/maps-platform/terms/maps-service-terms
 - https://operations.osmfoundation.org/policies/tiles/
 - https://valhalla.github.io/valhalla/
+
+## Android-SDK-Fehlerpfad
+Die `NavigationEngine.Status`-Schnittstelle besitzt jetzt einen typisierten `onGoogleFailure(Failure)`-Callback (Default-Methode, bestehende Lambda-Verwendungen bleiben möglich). `GoogleNavigationEngine` gibt `QUOTA_CHECK_FAILED` als `NAVIGATION_QUOTA_EXHAUSTED`, fehlende SDK-Autorisierung als `BILLING_OR_AUTHORIZATION_UNAVAILABLE`, lokale 20-Anfragen-Sperre als `LOCAL_REQUEST_LIMIT` und Netzwerk-/Laufzeitfehler als `GOOGLE_SERVICE_UNAVAILABLE` weiter. Bei fehlendem OSM-Router zeigt `IntegratedNavigationActivity` ausdrücklich nur die vorhandene externe Google-Maps-Notoption. Keine zusätzliche kostenrelevante automatische Routenanfrage und kein simulierter OSM-Verkehr.

@@ -80,14 +80,18 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             @Override public void onError(@NavigationApi.ErrorCode int code) {
                 if (closed || host.isFinishing() || host.isDestroyed()) return;
                 if (code == NavigationApi.ErrorCode.NOT_AUTHORIZED) {
-                    status.onStatus("Google Navigation SDK nicht autorisiert. "
-                        + "Cloud-Konfiguration prüfen.");
+                    status.onGoogleFailure(
+                        NavigationProviderPolicy.Failure.BILLING_OR_AUTHORIZATION_UNAVAILABLE);
                 } else if (code == NavigationApi.ErrorCode.TERMS_NOT_ACCEPTED) {
                     status.onStatus("Google-Navigationsbedingungen wurden nicht akzeptiert.");
                 } else if (code == NavigationApi.ErrorCode.LOCATION_PERMISSION_MISSING) {
                     status.onStatus("Standortberechtigung fehlt.");
+                } else if (code == NavigationApi.ErrorCode.NETWORK_ERROR) {
+                    status.onGoogleFailure(
+                        NavigationProviderPolicy.Failure.GOOGLE_SERVICE_UNAVAILABLE);
                 } else {
-                    status.onStatus("Google Navigation konnte nicht starten (Code " + code + ").");
+                    status.onGoogleFailure(
+                        NavigationProviderPolicy.Failure.GOOGLE_SERVICE_UNAVAILABLE);
                 }
             }
         });
@@ -115,8 +119,8 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         // setDestination() call. Deny routing if storage cannot commit.
         // This is defense in depth, NOT a substitute for Google's Cloud quota.
         if (!NavigationRequestBudget.reserve(host)) {
-            status.onStatus("Lokale Routensperre: maximal 20 Anfragen pro UTC-Tag "
-                + "oder Kontingentspeicherung fehlgeschlagen. Cloud-Quote gilt zusätzlich.");
+            status.onGoogleFailure(
+                NavigationProviderPolicy.Failure.LOCAL_REQUEST_LIMIT);
             return;
         }
         // This call can consume billable Navigation Request quota. The native
@@ -150,12 +154,23 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                 status.onStatus("Echte Google-Abbiegenavigation in FahrCockpit aktiv.");
             } else {
                 startedRoute = false;
-                status.onStatus("Google-Route nicht verfügbar: " + result);
+                if (result == Navigator.RouteStatus.QUOTA_CHECK_FAILED) {
+                    status.onGoogleFailure(
+                        NavigationProviderPolicy.Failure.NAVIGATION_QUOTA_EXHAUSTED);
+                } else if (result == Navigator.RouteStatus.NETWORK_ERROR) {
+                    status.onGoogleFailure(
+                        NavigationProviderPolicy.Failure.GOOGLE_SERVICE_UNAVAILABLE);
+                } else {
+                    // NO_ROUTE_FOUND is not a provider outage; do not silently
+                    // retry billable routes or switch to unrelated data.
+                    status.onStatus("Google-Route nicht verfügbar: " + result);
+                }
             }
             });
         } catch (RuntimeException routeFailure) {
             calculating = false;
-            status.onStatus("Google-Routenanforderung fehlgeschlagen.");
+            status.onGoogleFailure(
+                NavigationProviderPolicy.Failure.GOOGLE_SERVICE_UNAVAILABLE);
         }
     }
 

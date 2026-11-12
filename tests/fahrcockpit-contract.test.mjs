@@ -412,3 +412,19 @@ test('v21 embedded interactive design preview is local and clearly non-navigatio
  assert.doesNotMatch(html,/<script[^>]+src=|maps\.googleapis|tile\.openstreetmap/);
 });
 
+test('v21 Google SDK quota/auth failures are typed and shown without fake OSM navigation',()=>{
+ const contract=java('NavigationEngine');
+ const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+ const screen=java('IntegratedNavigationActivity');
+ assert.match(contract,/default void onGoogleFailure\(NavigationProviderPolicy\.Failure reason\)/);
+ assert.match(google,/NavigationApi\.ErrorCode\.NOT_AUTHORIZED/);
+ assert.match(google,/Navigator\.RouteStatus\.QUOTA_CHECK_FAILED/);
+ assert.match(google,/NavigationProviderPolicy\.Failure\.NAVIGATION_QUOTA_EXHAUSTED/);
+ assert.match(google,/NavigationProviderPolicy\.Failure\.BILLING_OR_AUTHORIZATION_UNAVAILABLE/);
+ assert.match(google,/NavigationProviderPolicy\.Failure\.LOCAL_REQUEST_LIMIT/);
+ assert.match(screen,/new NavigationEngine\.Status\(\)/);
+ assert.match(screen,/showProviderFailure\(reason\)/);
+ assert.match(screen,/NavigationProviderPolicy\.fallback\(reason, false\)/);
+ assert.match(screen,/OSM-Ersatznavigation ist noch nicht installiert/);
+});
+

@@ -95,7 +95,15 @@ public final class IntegratedNavigationActivity extends Activity {
 
         if (engine != null && engine.configured()) {
             View navigation = engine.createNavigationView(savedInstanceState,
-                message -> runOnUiThread(() -> showStatus(message)));
+                new NavigationEngine.Status() {
+                    @Override public void onStatus(String message) {
+                        runOnUiThread(() -> showStatus(message));
+                    }
+                    @Override public void onGoogleFailure(
+                            NavigationProviderPolicy.Failure reason) {
+                        runOnUiThread(() -> showProviderFailure(reason));
+                    }
+                });
             mapPane.addView(navigation, new FrameLayout.LayoutParams(-1, -1));
         } else {
             TextView placeholder = Ui.text(this,
@@ -406,6 +414,19 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private void showStatus(String message) {
         if (status != null) status.setText(message);
+    }
+
+    private void showProviderFailure(NavigationProviderPolicy.Failure reason) {
+        NavigationProviderPolicy.Provider next =
+            NavigationProviderPolicy.fallback(reason, false);
+        // No functional OSM routing engine exists yet. Never show an empty OSM
+        // map as though it could provide road guidance. The fallback button
+        // to the separate original Google Maps app remains always visible.
+        if (next == NavigationProviderPolicy.Provider.GOOGLE_MAPS_EXTERNAL) {
+            showStatus("Google-Navigation derzeit nicht nutzbar (" + reason
+                + "). OSM-Ersatznavigation ist noch nicht installiert. "
+                + "Google Maps als separate App über die sichtbare Taste öffnen.");
+        }
     }
 
     @Override protected void onStart() {
