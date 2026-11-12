@@ -192,7 +192,17 @@ public final class SplitCockpitActivity extends Activity {
 
         if (!requested) {
             requested = true;
-            ui.postDelayed(() -> launchMapsAdjacent(routeTarget), 450L);
+            ui.postDelayed(() -> {
+                // Samsung App Pairs open Maps and FahrCockpit together.
+                // Do not relaunch Maps when the pair is already split:
+                // it could replace the saved arrangement or duplicate routing.
+                if (isFinishing() || isDestroyed()) return;
+                if (isInMultiWindowMode()) {
+                    updateSplitStatus();
+                    return;
+                }
+                launchMapsAdjacent(routeTarget);
+            }, 450L);
         }
         // Early status refresh must not start a fallback during split animation.
         ui.postDelayed(this::updateSplitStatus, 1500L);

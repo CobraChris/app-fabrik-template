@@ -346,3 +346,17 @@ test('v20 Samsung App Pair guidance is available without Cloud billing or overla
   assert.match(split, /GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
   assert.doesNotMatch(split, /pendingOverlayFallback|fallbackGraceElapsed/);
 });
+
+test('Samsung App Pair does not reopen Google Maps inside an existing split', () => {
+  const split = java('SplitCockpitActivity');
+  const start = split.indexOf('if (!requested) {');
+  const end = split.indexOf('// Early status refresh', start);
+  assert.ok(start > 0 && end > start);
+  const launch = split.slice(start, end);
+  assert.match(launch,/if \(isInMultiWindowMode\(\)\)/);
+  assert.match(launch,/updateSplitStatus\(\)/);
+  assert.match(launch,/return;/);
+  assert.ok(launch.indexOf('if (isInMultiWindowMode())') <
+    launch.indexOf('launchMapsAdjacent(routeTarget)'));
+  assert.doesNotMatch(launch,/startForegroundService|OverlayService/);
+});

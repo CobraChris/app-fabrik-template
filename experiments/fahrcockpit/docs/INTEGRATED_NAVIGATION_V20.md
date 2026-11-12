@@ -98,3 +98,5 @@ Der kostenlose Google-Maps-Weg verwendet zwei separate, von Samsung verwaltete M
 Das gespeicherte App-Paar ermöglicht einen erneuten gemeinsamen Start. **Ob die Teilungsquote gespeichert und exakt wiederhergestellt wird, ist One-UI-/Geräteverhalten und muss auf dem realen Samsung getestet werden.** Keine root-, Accessibility- oder System-Hacks, keine Entwickleroptionen und keine neue Cloud-API. Das Hilfeangebot bleibt innerhalb der App abrufbar, ohne bei jedem Start einen Dialog aufzuzwingen.
 
 Technische Quellen: https://developer.android.com/develop/adaptive-apps/guides/support-multi-window-mode und https://www.samsung.com/us/support/answer/ANS10002022/
+
+Zusätzlich darf beim Start eines bereits aktiven Samsung-App-Paars kein zweiter Google-Maps-Start aus FahrCockpit erfolgen. Der verzögerte Start prüft vor dem bestehenden `LAUNCH_ADJACENT`-Aufruf den tatsächlichen `isInMultiWindowMode()`-Zustand und lässt die zweite Aktivierung aus, wenn die Paaransicht schon steht. Das gilt auch bei Rückkehr aus der Android-App-Übersicht. Ein Samsung-Gerätetest steht weiterhin aus.
