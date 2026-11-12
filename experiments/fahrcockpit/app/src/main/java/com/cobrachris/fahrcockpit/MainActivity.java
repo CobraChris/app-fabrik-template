@@ -81,6 +81,21 @@ public final class MainActivity extends Activity {
         embeddedPreview.setOnClickListener(v -> startActivity(
             new Intent(this, EmbeddedMapActivity.class)));
 
+        // The SDK library is absent in ordinary keyless v20 builds.
+        // Allow Android-restricted key entry only when optional SDK is bundled.
+        try {
+            Class.forName(IntegratedNavigationRules.ENGINE_CLASS);
+            Ui.section(this, root, "Google Navigation SDK – Schlüssel auf diesem Handy",
+                "Dein bereits auf Paketname und Originalsignatur begrenzter "
+                + "Google-API-Schlüssel wird ausschließlich verschlüsselt im "
+                + "Android-Keystore gespeichert. Niemals in GitHub oder Chat.");
+            Button storeNavKey = Ui.button(this, "Google-SDK-Schlüssel lokal hinterlegen");
+            root.addView(storeNavKey);
+            storeNavKey.setOnClickListener(v -> showNavigationKeyDialog());
+        } catch (ClassNotFoundException absent) {
+            // Normal signed FahrCockpit build has no Google Navigation SDK.
+        }
+
         Ui.section(this, root, "Optional – integrierte Google-Navigation 70/30",
             "Google Navigation SDK benötigt auch nach Ablauf des Testzeitraums "
             + "ein aktives Abrechnungskonto. Der kostenlose Standardmodus "
@@ -366,6 +381,45 @@ public final class MainActivity extends Activity {
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         map.putExtra(GoogleKeyTransfer.EXTRA_KEY, imported);
         startActivity(map);
+    }
+
+    private void showNavigationKeyDialog() {
+        android.widget.EditText input = new android.widget.EditText(this);
+        input.setSingleLine(true);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+            | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        input.setHint("Eingeschränkten Google-Navigation-SDK-Key einfügen");
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Google Navigation SDK – lokaler Android-Schlüssel")
+            .setMessage("Den API-Schlüssel nur hier auf deinem eigenen Handy "
+                + "einfügen, nicht im Chat. Er bleibt per Android Keystore "
+                + "verschlüsselt. Das Hinterlegen erzeugt keine Route und "
+                + "aktiviert keine zusätzliche Cloud-Abrechnung.")
+            .setView(input)
+            .setNegativeButton("Abbrechen", (d,w) -> input.getText().clear())
+            .setNeutralButton("Lokal löschen", (d,w) -> {
+                NavigationSdkKeyStore.clear(this);
+                input.getText().clear();
+                new android.app.AlertDialog.Builder(this)
+                    .setMessage("Gespeicherter SDK-Schlüssel entfernt.")
+                    .setPositiveButton("OK",(d2,w2)->{}).show();
+            })
+            .setPositiveButton("Verschlüsselt speichern", (d,w) -> {
+                String key = input.getText().toString().trim();
+                boolean saved = NavigationSdkKeyStore.save(this,key);
+                input.getText().clear();
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle(saved ? "SDK-Schlüssel gespeichert" : "Nicht gespeichert")
+                    .setMessage(saved
+                        ? "Schlüssel nur auf diesem Handy gespeichert. "
+                            + "FahrCockpit vollständig schließen und neu öffnen, "
+                            + "damit die integrierte Google-Navigation ihn übernimmt. "
+                            + "Kostenpflichtige Routen bleiben bestätigungspflichtig."
+                        : "Ungültiges Format oder Android-Keystore nicht verfügbar. "
+                            + "Es wurde kein Schlüssel gespeichert.")
+                    .setPositiveButton("OK",(d2,w2)->{}).show();
+            })
+            .show();
     }
 
     private void startEmbeddedMap() {

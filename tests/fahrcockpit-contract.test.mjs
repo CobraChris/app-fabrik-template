@@ -466,3 +466,22 @@ test('v21 native MapLibre OSM road map preserves Google priority and warns about
  assert.doesNotMatch(map,/GoogleNavigationEngine|NAVSDK_API_KEY|setDestination\(/);
 });
 
+test('v21 restricted Google Navigation SDK key is stored on Android, not checked in',()=>{
+ const store=java('NavigationSdkKeyStore');
+ const main=java('MainActivity');
+ const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ assert.match(store,/AndroidKeyStore/);
+ assert.match(store,/AES\/GCM\/NoPadding/);
+ assert.match(store,/setRandomizedEncryptionRequired\(true\)/);
+ assert.match(store,/validKey\(String value\)/);
+ assert.match(store,/Arrays\.fill\(plain/);
+ assert.match(main,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
+ assert.match(main,/Google-SDK-Schlüssel lokal hinterlegen/);
+ assert.match(main,/NavigationSdkKeyStore\.save\(this,key\)/);
+ assert.match(main,/NavigationSdkKeyStore\.clear\(this\)/);
+ assert.match(google,/NavigationSdkKeyStore\.read\(host\)/);
+ assert.doesNotMatch(store,/Log\.|System\.out|new Intent\(Intent\.ACTION_SEND/);
+ assert.match(manifest,/android:allowBackup="false"/);
+});
+

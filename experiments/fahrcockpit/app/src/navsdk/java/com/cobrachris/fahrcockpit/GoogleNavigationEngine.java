@@ -31,7 +31,10 @@ public final class GoogleNavigationEngine implements NavigationEngine {
 
     public GoogleNavigationEngine(Activity host) {
         this.host = host;
-        this.apiKey = BuildConfig.NAVSDK_API_KEY;
+        String deviceKey = NavigationSdkKeyStore.read(host);
+        // Local Android Keystore is preferred. Optional developer-only build
+        // configuration remains keyless in all regular/release CI builds.
+        this.apiKey = deviceKey.isEmpty() ? BuildConfig.NAVSDK_API_KEY : deviceKey;
     }
 
     @Override public boolean configured() {
