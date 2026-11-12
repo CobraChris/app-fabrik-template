@@ -19,7 +19,7 @@ if (!withGoogleNavSdk && googleNavKey) {
 
 android {
     namespace 'com.cobrachris.fahrcockpit'
-    compileSdk (withGoogleNavSdk || withOsmFallback) ? 36 : 35
+    compileSdk = (withGoogleNavSdk || withOsmFallback) ? 36 : 35
     defaultConfig {
         applicationId 'com.cobrachris.fahrcockpit'
         minSdk 30
