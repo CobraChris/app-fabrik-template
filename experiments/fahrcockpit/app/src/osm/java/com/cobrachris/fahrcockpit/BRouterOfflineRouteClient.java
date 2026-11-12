@@ -21,7 +21,6 @@ import btools.routingapp.IBRouterService;
 final class BRouterOfflineRouteClient {
     private static final String PACKAGE = "btools.routingapp";
     private static final String SERVICE = "btools.routingapp.BRouterService";
-    private final Handler ui = new Handler(Looper.getMainLooper());
 
     interface Callback {
         void success(BRouterRouteGeometry.Route route);
@@ -76,27 +75,29 @@ final class BRouterOfflineRouteClient {
                         String result = service.getTrackFromParams(params);
                         BRouterRouteGeometry.Route route = BRouterRouteGeometry.parse(result);
                         ui().post(() -> {
-                            finish(context, this);
-                            if (!host.isFinishing() && !host.isDestroyed()) callback.success(route);
+                            if (finish(context, this)
+                                    && !host.isFinishing() && !host.isDestroyed())
+                                callback.success(route);
                         });
                     } catch (RemoteException | RuntimeException error) {
                         ui().post(() -> {
-                            finish(context, this);
-                            if (!host.isFinishing() && !host.isDestroyed())
+                            if (finish(context, this)
+                                    && !host.isFinishing() && !host.isDestroyed())
                                 callback.failure("Offline-Route nicht verfügbar. BRouter-Profile und Routingdaten prüfen.");
                         });
                     }
                 }, "fahrcockpit-brouter-route").start();
             }
             @Override public void onServiceDisconnected(ComponentName name) {
-                finish(context, this);
-                if (!host.isFinishing() && !host.isDestroyed())
+                if (finish(context, this)
+                        && !host.isFinishing() && !host.isDestroyed())
                     callback.failure("BRouter-Verbindung beendet.");
             }
-            private synchronized void finish(Context ctx, ServiceConnection conn) {
-                if (complete) return;
+            private synchronized boolean finish(Context ctx, ServiceConnection conn) {
+                if (complete) return false;
                 complete = true;
                 try { ctx.unbindService(conn); } catch (IllegalArgumentException ignored) {}
+                return true;
             }
         };
         try {
