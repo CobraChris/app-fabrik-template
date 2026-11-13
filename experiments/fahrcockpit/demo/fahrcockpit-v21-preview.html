@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<meta name="theme-color" content="#0d151c"/>
+<title>FahrCockpit v21 – feste 70/30-Demo</title>
+<style>
+:root{color-scheme:dark;--bg:#0b151d;--surface:#111e29;--surface2:#192936;--line:#31414d;--text:#f5f8fb;--muted:#a4b2bd;--blue:#59c7f5;--green:#6ee7aa;--orange:#ffbd78;--shadow:0 12px 50px #0007}
+*{box-sizing:border-box}html,body{margin:0;height:100%;min-width:300px;background:#0a151c;color:var(--text);font:500 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}button,select,input{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.38}.app{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.map-pane{position:relative;flex:7 1 0;min-height:0;overflow:hidden;background:#17323a}.cockpit{position:relative;flex:3 1 0;min-height:0;overflow:auto;background:var(--bg);border-top:1px solid #405463}.illustration{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.mapwash{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#06191d58,transparent 24%,transparent 75%,#06161a72)}
+header{position:absolute;left:12px;right:12px;top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none}.logo{background:#07161ee9;border:1px solid #415863;padding:9px 12px;border-radius:14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;white-space:nowrap}.logo-mark{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:var(--blue);color:#003047;font-size:22px;font-weight:900}.brand{font-weight:820;letter-spacing:.1px;font-size:14px}.sub{font-size:10px;color:#abc2cf;letter-spacing:.4px}.pill{background:#0a1b23e9;border:1px solid #557080;border-radius:18px;padding:7px 10px;font-size:11px;box-shadow:var(--shadow)}.pill b{color:var(--green)}
+.demo-stamp{position:absolute;left:12px;bottom:12px;max-width:73%;background:#07161eea;padding:9px 11px;border:1px solid #45616f;border-radius:13px;color:#e6f5fa;font-size:11px;pointer-events:none}.demo-stamp strong{color:var(--orange)}.zoom{position:absolute;right:12px;bottom:16px;display:grid;gap:6px}.zoom button{border:1px solid #64818b;color:#eaf8ff;background:#0a1b23e9;border-radius:12px;width:37px;height:37px;font-size:20px}
+.route-line{fill:none;stroke:#9dffff;stroke-width:9;stroke-linejoin:round;stroke-linecap:round;filter:url(#glow)}.route-center{fill:none;stroke:#1178dc;stroke-width:5;stroke-linejoin:round;stroke-linecap:round}.route-dash{fill:none;stroke:#a3edff;stroke-width:1.7;stroke-dasharray:1 9;stroke-linecap:round}.position{fill:#65c9fc;stroke:#fff;stroke-width:3}.route-off{opacity:0;transition:opacity .3s}.route-on{opacity:1;transition:opacity .3s}.pos-ring{fill:#36aaf747;stroke:#8fe3ff77;stroke-width:3;animation:pulse 2.5s infinite}@keyframes pulse{0%,100%{r:13;opacity:1}50%{r:24;opacity:.35}}
+.osm .route-line{stroke:#7bfbc9}.osm .route-center{stroke:#188c6c}.osm .route-dash{stroke:#c7ffe7}.osm .logo-mark{background:#6ce6ae;color:#0a3322}.osm .pill b{color:var(--green)}
+.panel{padding:12px 14px 18px;max-width:680px;margin:0 auto}.toprow{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:7px}.title{font-size:19px;font-weight:800;letter-spacing:-.5px}.smalltag{font-size:10px;border:1px solid #50616d;border-radius:99px;padding:4px 8px;color:#c2d1da;white-space:nowrap}.status{font-size:12px;color:#cdd7dc;margin:2px 0 8px;min-height:17px}.status strong{color:#91e8ff}.status.error strong{color:var(--orange)}.sectionline{border-top:1px solid #30414b;margin:10px 0}.controls{display:flex;align-items:center;justify-content:space-between;gap:8px}.music{min-width:0}.music strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}.music span{display:block;color:#9cabb6;font-size:11px}.song-buttons{display:flex;gap:5px}.song-buttons button{border:1px solid #3d505e;background:#213544;color:#f3f8fc;border-radius:10px;width:34px;height:34px;display:grid;place-items:center;font-size:16px}.song-buttons button.play{background:#2b5465;border-color:#5e9baf;color:white}.single-row{display:flex;gap:7px;margin-top:8px}.input-label{flex:1;min-width:0}.input-label select{width:100%;min-height:36px;background:#182b37;color:#f5f8fa;border:1px solid #415c6a;padding:7px 9px;border-radius:10px;font-size:12px}.btn{border:0;border-radius:10px;padding:8px 12px;font-weight:760;white-space:nowrap}.primary{color:#073040;background:var(--blue)}.secondary{background:#233b47;color:#e6f4f8;border:1px solid #3d5d6e}.accent{color:#063e2a;background:var(--green)}.btn:active{transform:translateY(1px)}.modehint{color:#a5b7c1;font-size:10px;margin:6px 0 0}.scenario{display:flex;gap:6px;overflow:auto;scrollbar-width:thin;margin-top:7px}.scenario button{flex:0 0 auto;font-size:10px;padding:7px 9px;color:#cce3ed;border:1px solid #375364;background:#172a36;border-radius:20px}.scenario button.active{border-color:#a6d9f8;color:white;background:#284a60}.scenario button:disabled{opacity:.65}.side-switch{border:1px solid #4a6978;background:#1b3342;color:#d4f6ff;border-radius:9px;padding:5px 8px;font-size:11px;font-weight:750;white-space:nowrap}.side-switch:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.fullnotice{font-size:10px;color:#8fa6b2;margin:9px 0 0}
+@media(min-width:760px) and (orientation:landscape){.app{flex-direction:row}.app.spotify-left{flex-direction:row-reverse}.app.spotify-left .cockpit{border-left:0;border-right:2px solid #31454d}.map-pane{flex:7 1 0}.cockpit{flex:3 1 0;border-top:0;border-left:2px solid #31454d}.panel{padding:18px 16px}.logo{padding:11px 14px}.brand{font-size:17px}.status{margin:8px 0 14px}.controls{flex-wrap:wrap}.song-buttons{flex:1;justify-content:flex-end}.single-row{flex-wrap:wrap}.input-label{flex-basis:100%}.btn{flex:1}.scenario{flex-wrap:wrap}.title{font-size:21px}.demo-stamp{max-width:55%}}@media(max-height:480px) and (orientation:landscape){.panel{padding-top:10px}.toprow{margin-bottom:4px}.sectionline{margin:6px 0}.single-row{margin-top:6px}}
+@media(prefers-reduced-motion:reduce){.pos-ring{animation:none}}
+</style>
+</head>
+<body>
+<main class="app" id="app" aria-label="FahrCockpit 70/30-Demonstrator">
+<section class="map-pane" aria-label="Schematische Karte, keine echten Navigationsdaten">
+<svg class="illustration" id="map" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustrative Straßenkarte mit einer simulierten Route">
+<defs>
+ <pattern id="grid" width="115" height="112" patternUnits="userSpaceOnUse"><rect width="115" height="112" fill="#1a3c44"/><path d="M0 0H115M0 0V112" fill="none" stroke="#64818b" stroke-width="4" opacity=".22"/></pattern>
+ <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1000" height="700" fill="url(#grid)"/>
+<path fill="#1b5860" d="M0 490C146 454 204 541 302 506S490 399 590 433S751 513 1000 440V700H0Z" opacity=".38"/>
+<path fill="#204c46" d="M42 45h212v155H42zM680 60h255v158H680zM80 533h198v125H80zM672 492h261v160H672z" opacity=".9"/>
+<path fill="#27513b" d="M735 103h139v100H735zM112 566h130v58H112z"/><path fill="#33664c" d="M775 105l15 95M830 103l-20 98" stroke="#679377" stroke-width="5"/>
+<g fill="none" stroke="#7f9da7" stroke-linecap="round" opacity=".9"><path stroke-width="37" d="M-60 202H1050M-40 390H1080M-30 585H1070M218 -100V810M501 -90V800M808 -50V780"/><path stroke-width="26" d="M-50 85L1020 675M-20 645L1010 -20"/></g>
+<g fill="none" stroke="#2d5661" stroke-linecap="round"><path stroke-width="26" d="M-60 202H1050M-40 390H1080M-30 585H1070M218 -100V810M501 -90V800M808 -50V780"/><path stroke-width="17" d="M-50 85L1020 675M-20 645L1010 -20"/></g>
+<g fill="none" stroke="#a9bdbf" stroke-width="1.6" opacity=".7" stroke-linecap="round"><path d="M-60 202H1050M-40 390H1080M-30 585H1070M218 -100V810M501 -90V800M808 -50V780"/><path d="M-50 85L1020 675M-20 645L1010 -20"/></g>
+<g font-family="system-ui,sans-serif" fill="#e1f0f1"><text x="58" y="154" font-size="30" opacity=".85">錦糸町</text><text x="60" y="182" font-size="15" opacity=".7">Kinshichō</text><text x="740" y="290" font-size="29" opacity=".85">浅草</text><text x="742" y="319" font-size="16" opacity=".7">Asakusa</text><text x="76" y="545" font-size="19" opacity=".76">Sumida Park</text><text x="628" y="619" font-size="19" opacity=".7">Tokyo Skytree</text><text x="271" y="365" font-size="20" opacity=".65">蔵前橋通り</text></g>
+<g id="routeGroup" class="route-off"><path id="routeLine" class="route-line" d="M198 576L220 390L501 390L501 202L808 202L808 104"/><path id="routeCenter" class="route-center" d="M198 576L220 390L501 390L501 202L808 202L808 104"/><path id="routeDash" class="route-dash" d="M198 576L220 390L501 390L501 202L808 202L808 104"/></g>
+<circle cx="198" cy="576" r="18" class="pos-ring"/><circle cx="198" cy="576" r="10" class="position"/><circle cx="808" cy="104" r="19" fill="#07324b" stroke="#afeaff" stroke-width="3"/><path d="M808 91v27M794 104h28" stroke="#d3f7ff" stroke-width="3"/>
+</svg>
+<div class="mapwash"></div>
+<header><div class="logo"><span class="logo-mark">⌁</span><div><div class="brand">FahrCockpit <span style="font-weight:500;color:#b5c4cf">v21</span></div><div class="sub" id="mapprovider">GOOGLE · STANDARD</div></div></div><div class="pill"><b id="mapstate">● Bereit</b></div></header>
+<div class="demo-stamp"><strong>INTERAKTIVE KONZEPTDEMO</strong><br/>Routen, Standort und Anbieterwechsel sind simuliert. Keine echte Google- oder OSM-Navigation.</div>
+<div class="zoom"><button type="button" id="zoomPlus" aria-label="Karte vergrößern">+</button><button type="button" id="zoomMinus" aria-label="Karte verkleinern">−</button></div>
+</section>
+<aside class="cockpit"><div class="panel">
+<div class="toprow"><span class="title">Fahren</span><button id="sideSwitch" class="side-switch" type="button" aria-label="Spotify-Steuerung nach links verschieben" aria-pressed="false">⇄ Spotify links</button><span class="smalltag">Festes 70/30</span></div>
+<div class="status" id="status" role="status" aria-live="polite"><strong>Google Navigation</strong> · Standard ausgewählt</div>
+<div class="controls"><div class="music"><strong id="track">Musiksteuerung</strong><span id="artist">Spotify · Demo</span></div><div class="song-buttons"><button id="previous" aria-label="Vorheriger Titel">⏮</button><button id="play" class="play" aria-label="Wiedergabe">▶</button><button id="next" aria-label="Nächster Titel">⏭</button></div></div>
+<div class="single-row"><label class="input-label"><select id="destination" aria-label="Demoziel"><option value="asakusa">Asakusa · Tokyo</option><option value="skytree">Tokyo Skytree</option><option value="ginza">Ginza · Tokyo</option></select></label><button class="btn primary" type="button" id="start">Route starten</button></div>
+<p class="modehint" id="routeinfo">Kein Ziel aktiv · simulierter Kartenverlauf</p>
+<div class="sectionline"></div>
+<div style="font-size:12px;font-weight:700">Anbieterwechsel testen</div>
+<div class="scenario"><button id="reset" type="button" class="active">✓ Google aktiv</button><button id="quota" type="button">Quote erschöpft</button><button id="billing" type="button">Testzeitraum endet</button></div>
+<p class="fullnotice" id="fallbackNotice">OSM wird nur bei Ausfall angeboten. Diese Demo verwendet weder Cloud-API noch Echtgeld.</p>
+</div></aside>
+</main>
+<script>
+(()=>{'use strict';
+ const $=s=>document.getElementById(s);
+ const SIDE_KEY='fahrcockpit-demo-spotify-left-v1';
+ let storedLeft=false;
+ try{storedLeft=localStorage.getItem(SIDE_KEY)==='1'}catch(_ignored){}
+ const state={provider:'google',failure:null,running:false,paused:false,track:0,zoom:1,spotifyLeft:storedLeft};
+ const tracks=[['Musiksteuerung','Spotify · Demo'],['Playlist · Roadtrip','Musiksteuerung simuliert'],['Favoriten','Musiksteuerung simuliert']];
+ const paths={asakusa:'M198 576L220 390L501 390L501 202L808 202L808 104',skytree:'M198 576L220 390L501 390L501 490L730 490',ginza:'M198 576L218 390L501 390L501 202L378 202L378 80'};
+ const routeName=()=>$('destination').selectedOptions[0].textContent;
+ function render(){
+  const osm=state.provider==='osm';$('app').classList.toggle('osm',osm);
+  $('app').classList.toggle('spotify-left',state.spotifyLeft);
+  $('sideSwitch').textContent=state.spotifyLeft?'⇄ Spotify rechts':'⇄ Spotify links';
+  $('sideSwitch').setAttribute('aria-label',state.spotifyLeft?'Spotify-Steuerung nach rechts verschieben':'Spotify-Steuerung nach links verschieben');
+  $('sideSwitch').setAttribute('aria-pressed',String(state.spotifyLeft));
+  $('mapprovider').textContent=osm?'OPENSTREETMAP · NOTFALL':'GOOGLE · STANDARD';
+  $('mapstate').textContent=state.running?(state.paused?'Ⅱ Pausiert':'● Route simuliert'):'● Demo bereit';
+  $('status').classList.toggle('error',!!state.failure);
+  $('status').innerHTML=state.failure?(osm?'<strong>Google nicht verfügbar → OSM-Demo aktiv</strong>':'<strong>Google nicht verfügbar</strong>'):(state.running?'<strong>Google Navigation</strong> · Demo-Route aktiv':'<strong>Google Navigation</strong> · Standard ausgewählt');
+  $('routeGroup').setAttribute('class',state.running?'route-on':'route-off');
+  $('start').textContent=state.running?'Route beenden':'Route starten';
+  $('start').className='btn '+(state.running?'secondary':osm?'accent':'primary');
+  $('routeinfo').textContent=state.running?'Demo-Route nach '+routeName()+' · keine echte GPS- oder Sprachführung':'Kein Ziel aktiv · simulierter Kartenverlauf';
+  $('fallbackNotice').textContent=state.failure?(state.failure==='quota'?'Google-Quote simuliert erschöpft. OSM ersetzt nur in dieser Vorschau die Karte und Routendarstellung.':'Google-Billing simuliert abgelaufen. OSM übernimmt in dieser Vorschau – ohne Cloud-Kosten.'):'OSM wird nur bei Ausfall angeboten. Diese Demo verwendet weder Cloud-API noch Echtgeld.';
+  ['reset','quota','billing'].forEach(k=>$(k).classList.toggle('active',k===(state.failure||'reset')));
+  $('play').textContent=state.paused?'▶':'❚❚';
+  $('track').textContent=tracks[state.track][0];$('artist').textContent=tracks[state.track][1];
+  ['routeLine','routeCenter','routeDash'].forEach(id=>$(id).setAttribute('d',paths[$('destination').value]));
+  $('map').style.transform='scale('+state.zoom+')';
+ }
+ function fail(reason){state.failure=reason;state.provider='osm';state.running=false;state.paused=false;render()}
+ $('reset').onclick=()=>{state.failure=null;state.provider='google';state.running=false;render()};
+ $('quota').onclick=()=>fail('quota');$('billing').onclick=()=>fail('billing');
+ $('start').onclick=()=>{state.running=!state.running;state.paused=false;render()};
+ $('destination').onchange=()=>{if(state.running){state.running=false;}render()};
+ $('play').onclick=()=>{state.paused=!state.paused;render()};
+ $('previous').onclick=()=>{state.track=(state.track+tracks.length-1)%tracks.length;render()};
+ $('next').onclick=()=>{state.track=(state.track+1)%tracks.length;render()};
+ $('sideSwitch').onclick=()=>{state.spotifyLeft=!state.spotifyLeft;try{localStorage.setItem(SIDE_KEY,state.spotifyLeft?'1':'0')}catch(_ignored){}render()};
+ $('zoomPlus').onclick=()=>{state.zoom=Math.min(1.6,Math.round((state.zoom+.1)*10)/10);render()};
+ $('zoomMinus').onclick=()=>{state.zoom=Math.max(1,Math.round((state.zoom-.1)*10)/10);render()};
+ render();
+})();
+</script>
+</body></html>

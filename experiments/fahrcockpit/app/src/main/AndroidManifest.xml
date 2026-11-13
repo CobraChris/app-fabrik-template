@@ -13,12 +13,18 @@
         <package android:name="my.saphelink" />
         <package android:name="com.google.android.apps.maps" />
         <package android:name="com.spotify.music" />
+        <!-- BRouter is installed and its offline data chosen by the user. -->
+        <package android:name="btools.routingapp" />
+        <!-- Required for Android 11+ visibility of system Text-to-Speech engines. -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
     <application
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:icon="@android:drawable/ic_menu_compass"
-        android:label="FahrCockpit (Test)"
+        android:label="${appDisplayName}"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
         <activity android:name=".MainActivity" android:exported="true"
@@ -40,7 +46,13 @@
         <activity android:name=".SplitCockpitActivity"
             android:exported="false"
             android:resizeableActivity="true" />
+        <activity android:name=".GoogleSetupActivity"
+            android:exported="false"
+            android:resizeableActivity="true" />
         <activity android:name=".IntegratedNavigationActivity"
+            android:exported="false"
+            android:resizeableActivity="true" />
+        <activity android:name=".NavigationPreviewActivity"
             android:exported="false"
             android:resizeableActivity="true" />
         <activity android:name=".FuelActivity" android:exported="false" />

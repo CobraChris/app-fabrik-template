@@ -5,6 +5,24 @@ plugins { id 'com.android.application' }
 // and a restricted, user-approved key are required for live routing.
 def withGoogleNavSdk = providers.gradleProperty('withGoogleNavSdk')
     .orElse('false').get().toBoolean()
+// Official v21 release: EXACTLY Google Navigation SDK, no OSM module and
+// no alternative debug preview package. The release gate must pass this flag.
+def googleOnly = providers.gradleProperty('googleOnly')
+    .orElse('false').get().toBoolean()
+if (googleOnly && !withGoogleNavSdk)
+    throw new GradleException('Google-only release requires withGoogleNavSdk=true')
+// OSM fallback is a separately compiled, free development-only feature.
+// Never included silently in the normal protected signed release.
+def withOsmFallback = providers.gradleProperty('withOsmFallback')
+    .orElse('false').get().toBoolean()
+// Temporary side-by-side visual preview: never uses the signed release package.
+def visualPreview = providers.gradleProperty('visualPreview')
+    .orElse('false').get().toBoolean()
+if (googleOnly && (withOsmFallback || visualPreview))
+    throw new GradleException('Google-only release strictly forbids OSM and debug preview')
+if (visualPreview && (!withOsmFallback || withGoogleNavSdk)) {
+    throw new GradleException('Standalone visual preview is OSM-only and requires -PwithOsmFallback=true')
+}
 def googleNavKey = System.getenv('FAHRCOCKPIT_NAV_SDK_KEY') ?: ''
 if (googleNavKey && !(googleNavKey ==~ /AIza[A-Za-z0-9_-]{25,90}/)) {
     throw new GradleException('FAHRCOCKPIT_NAV_SDK_KEY has an unexpected format')
@@ -15,21 +33,37 @@ if (!withGoogleNavSdk && googleNavKey) {
 
 android {
     namespace 'com.cobrachris.fahrcockpit'
-    compileSdk withGoogleNavSdk ? 36 : 35
+    compileSdk = (withGoogleNavSdk || withOsmFallback) ? 36 : 35
     defaultConfig {
         applicationId 'com.cobrachris.fahrcockpit'
+        if (visualPreview) applicationIdSuffix '.preview'
+        manifestPlaceholders = [appDisplayName: visualPreview
+            ? 'FahrCockpit v21 Vorschau' : (googleOnly
+                ? 'FahrCockpit' : 'FahrCockpit (Test)')]
         minSdk 30
         targetSdk withGoogleNavSdk ? 36 : 35
-        versionCode 20
-        versionName '0.9.18-beta'
+        versionCode 21
+        versionName '0.9.19-beta'
         buildConfigField 'String', 'NAVSDK_API_KEY', '"' + googleNavKey + '"'
+        buildConfigField 'boolean', 'VISUAL_PREVIEW', visualPreview.toString()
+        buildConfigField 'boolean', 'GOOGLE_ONLY', googleOnly.toString()
         if (withGoogleNavSdk) multiDexEnabled true
     }
-    buildFeatures { buildConfig true }
+    buildFeatures {
+        buildConfig true
+        aidl true
+    }
     sourceSets {
         main {
             if (withGoogleNavSdk) java.srcDir 'src/navsdk/java'
+            if (withOsmFallback) {
+                java.srcDir 'src/osm/java'
+                aidl.srcDir 'src/osm/aidl'
+            }
         }
+    }
+    if (withOsmFallback) {
+        sourceSets.test.java.srcDir 'src/osmTest/java'
     }
     if (withGoogleNavSdk) {
         dexOptions { javaMaxHeapSize "4g" }
@@ -45,5 +79,9 @@ dependencies {
     if (withGoogleNavSdk) {
         implementation 'com.google.android.libraries.navigation:navigation:7.6.1'
         coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.3'
+    }
+    if (withOsmFallback) {
+        implementation 'org.maplibre.gl:android-sdk:13.6.1'
+        implementation 'com.google.code.gson:gson:2.13.1'
     }
 }

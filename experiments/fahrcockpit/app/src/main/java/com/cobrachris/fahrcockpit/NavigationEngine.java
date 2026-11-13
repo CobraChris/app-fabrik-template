@@ -11,6 +11,8 @@ import android.view.View;
 interface NavigationEngine {
     interface Status {
         void onStatus(String message);
+        /** Typed failure path, without changing the existing functional interface. */
+        default void onGoogleFailure(NavigationProviderPolicy.Failure reason) {}
     }
 
     boolean configured();

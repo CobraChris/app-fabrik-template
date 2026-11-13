@@ -30,6 +30,18 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        if (BuildConfig.GOOGLE_ONLY) {
+            // The signed v21 Google edition must not display the old
+            // Samsung system split or any OSM/debug-preview screen.
+            // The original v20 behavior below remains unchanged for legacy builds.
+            boolean hasKey = NavigationSdkKeyStore.validKey(
+                NavigationSdkKeyStore.read(this));
+            startActivity(new Intent(this, hasKey
+                ? IntegratedNavigationActivity.class
+                : GoogleSetupActivity.class));
+            finish();
+            return;
+        }
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
 
@@ -41,6 +53,14 @@ public final class MainActivity extends Activity {
             Ui.dp(this, 22), Ui.dp(this, 40));
         scroll.addView(root);
         setContentView(scroll);
+        if (BuildConfig.VISUAL_PREVIEW) {
+            // Launch the native 70/30 screen immediately for a design test.
+            // Force the real OSM map, never attempt Google billing or a
+            // restricted-key request from the separate .preview package.
+            scroll.post(() -> startActivity(new Intent(this,
+                IntegratedNavigationActivity.class).putExtra(
+                IntegratedNavigationActivity.EXTRA_FORCE_OSM_TEST, true)));
+        }
         getWindow().getDecorView().setOnApplyWindowInsetsListener((view, insets) -> {
             android.graphics.Insets bars =
                 insets.getInsets(android.view.WindowInsets.Type.systemBars());
@@ -48,6 +68,33 @@ public final class MainActivity extends Activity {
             return insets;
         });
 
+        if (BuildConfig.VISUAL_PREVIEW) {
+            root.addView(Ui.text(this, "FahrCockpit v21 – Sichttest", 30, Ui.FG, true));
+            Ui.section(this, root, "Festes 70/30-Cockpit · kein Samsung-Splitscreen",
+                "Echte OSM-Karte mit Spotify-Steuerung und dauerhaft "
+                + "gespeichertem Links-rechts-Umschalter. "
+                + "Die eigentliche Google-Navigation ist in diesem "
+                + "separaten Sichttest bewusst nicht aktiviert.");
+            Button showNative = Ui.button(this,
+                "Festes 70/30-Cockpit öffnen");
+            root.addView(showNative);
+            showNative.setOnClickListener(v -> startActivity(new Intent(this,
+                IntegratedNavigationActivity.class).putExtra(
+                IntegratedNavigationActivity.EXTRA_FORCE_OSM_TEST,true)));
+            Button showDesign = Ui.button(this,
+                "Interaktive 70/30-Designvorschau öffnen");
+            root.addView(showDesign);
+            showDesign.setOnClickListener(v -> startActivity(new Intent(this,
+                NavigationPreviewActivity.class)));
+            root.addView(Ui.text(this,
+                "Nur Vorschau, keine Freigabe für reale Fahrten. "
+                + "Dein bisheriges FahrCockpit v20 ist eine separate App "
+                + "und bleibt unverändert.",
+                13, Ui.MUTED, false));
+            // Do not display ANY original v20/Samsung multiwindow controls
+            // in the separate visual-preview package.
+            return;
+        }
         root.addView(Ui.text(this, "FahrCockpit", 30, Ui.FG, true));
         root.addView(Ui.text(this,
             "Google-Karte und Spotify haben getrennte Bildschirmbereiche. " +
@@ -55,13 +102,22 @@ public final class MainActivity extends Activity {
             "Abtippen aus deiner Live-Karte übernommen werden.",
             15, Ui.MUTED, false));
 
+        Ui.section(this, root, "V21-Design ausprobieren (keine Navigation)",
+            "Interaktive, lokal gespeicherte 70/30-Vorschau: Google zuerst "
+            + "und simulierte OSM-Rückfallebene bei Quote oder Billing. "
+            + "Keine GPS-/Routenführung und keine Cloud-API.");
+        Button fixedDemo = Ui.button(this, "Feste 70/30-Vorschau öffnen");
+        root.addView(fixedDemo);
+        fixedDemo.setOnClickListener(v -> startActivity(
+            new Intent(this, NavigationPreviewActivity.class)));
+
         Ui.section(this, root, "Dauerhaft kostenlose Navigation",
             "Echte Abbiegenavigation in der offiziellen Google-Maps-App "
             + "mit Spotify im Android-Splitscreen. Kein FahrCockpit-Cloudkonto "
             + "oder API-Schlüssel erforderlich. Samsung bestimmt das Fensterverhältnis.");
         Button embedded = Ui.button(this, "Google Maps + Spotify kostenlos starten");
         root.addView(embedded);
-        embedded.setOnClickListener(v -> startEmbeddedMap());
+        embedded.setOnClickListener(v -> startSplitAndMaps());
 
         Ui.section(this, root, "Optionale 70/30-Kartenansicht",
             "Die bisherige eingebettete Google-Kartenansicht ist keine "
@@ -72,6 +128,21 @@ public final class MainActivity extends Activity {
         embeddedPreview.setOnClickListener(v -> startActivity(
             new Intent(this, EmbeddedMapActivity.class)));
 
+        // The SDK library is absent in ordinary keyless v20 builds.
+        // Allow Android-restricted key entry only when optional SDK is bundled.
+        try {
+            Class.forName(IntegratedNavigationRules.ENGINE_CLASS);
+            Ui.section(this, root, "Google Navigation SDK – Schlüssel auf diesem Handy",
+                "Dein bereits auf Paketname und Originalsignatur begrenzter "
+                + "Google-API-Schlüssel wird ausschließlich verschlüsselt im "
+                + "Android-Keystore gespeichert. Niemals in GitHub oder Chat.");
+            Button storeNavKey = Ui.button(this, "Google-SDK-Schlüssel lokal hinterlegen");
+            root.addView(storeNavKey);
+            storeNavKey.setOnClickListener(v -> showNavigationKeyDialog());
+        } catch (ClassNotFoundException absent) {
+            // Normal signed FahrCockpit build has no Google Navigation SDK.
+        }
+
         Ui.section(this, root, "Optional – integrierte Google-Navigation 70/30",
             "Google Navigation SDK benötigt auch nach Ablauf des Testzeitraums "
             + "ein aktives Abrechnungskonto. Der kostenlose Standardmodus "
@@ -81,6 +152,20 @@ public final class MainActivity extends Activity {
         root.addView(integrated);
         integrated.setOnClickListener(v -> startActivity(
             new Intent(this, IntegratedNavigationActivity.class)));
+        // BRouter is a genuinely separate fallback provider: test manually,
+        // never advertise it as proven road navigation before hardware trials.
+        try {
+            Class.forName("com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
+            Button osmExperiment = Ui.button(this,
+                "OSM-Abbiegeführung im festen 70/30 testen");
+            root.addView(osmExperiment);
+            osmExperiment.setOnClickListener(v -> startActivity(
+                new Intent(this, IntegratedNavigationActivity.class)
+                    .putExtra(IntegratedNavigationActivity.EXTRA_FORCE_OSM_TEST,true)));
+        } catch (ClassNotFoundException absent) {
+            // Keyless normal builds do not contain the OSM navigation engine.
+        }
+
         root.addView(Ui.text(this,
             "Der Google-SDK-Routenabruf wird erst nach Google-Cloud-Freigabe "
             + "und einer zusätzlichen Zielbestätigung aktiviert. "
@@ -359,16 +444,85 @@ public final class MainActivity extends Activity {
         startActivity(map);
     }
 
+    private void showNavigationKeyDialog() {
+        android.widget.EditText input = new android.widget.EditText(this);
+        input.setSingleLine(true);
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+            | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        input.setHint("Eingeschränkten Google-Navigation-SDK-Key einfügen");
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Google Navigation SDK – lokaler Android-Schlüssel")
+            .setMessage("Den API-Schlüssel nur hier auf deinem eigenen Handy "
+                + "einfügen, nicht im Chat. Er bleibt per Android Keystore "
+                + "verschlüsselt. Das Hinterlegen erzeugt keine Route und "
+                + "aktiviert keine zusätzliche Cloud-Abrechnung.")
+            .setView(input)
+            .setNegativeButton("Abbrechen", (d,w) -> input.getText().clear())
+            .setNeutralButton("Lokal löschen", (d,w) -> {
+                NavigationSdkKeyStore.clear(this);
+                input.getText().clear();
+                new android.app.AlertDialog.Builder(this)
+                    .setMessage("Gespeicherter SDK-Schlüssel entfernt.")
+                    .setPositiveButton("OK",(d2,w2)->{}).show();
+            })
+            .setPositiveButton("Verschlüsselt speichern", (d,w) -> {
+                String key = input.getText().toString().trim();
+                boolean saved = NavigationSdkKeyStore.save(this,key);
+                input.getText().clear();
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle(saved ? "SDK-Schlüssel gespeichert" : "Nicht gespeichert")
+                    .setMessage(saved
+                        ? "Schlüssel nur auf diesem Handy gespeichert. "
+                            + "FahrCockpit vollständig schließen und neu öffnen, "
+                            + "damit die integrierte Google-Navigation ihn übernimmt. "
+                            + "Kostenpflichtige Routen bleiben bestätigungspflichtig."
+                        : "Ungültiges Format oder Android-Keystore nicht verfügbar. "
+                            + "Es wurde kein Schlüssel gespeichert.")
+                    .setPositiveButton("OK",(d2,w2)->{}).show();
+            })
+            .show();
+    }
+
     private void startEmbeddedMap() {
         try {
             stopService(new Intent(this, DockedCockpitService.class));
             stopService(new Intent(this, OverlayService.class));
-            // The app icon must always work without our Google Cloud account.
-            // The cloud-dependent 70/30 SDK remains an explicit optional mode.
-            startActivity(new Intent(this, SplitCockpitActivity.class));
+            // Google is the preferred integrated navigation when the optional
+            // SDK exists and its restricted key has been installed on THIS phone.
+            // No route is requested here. Without a local key, the original
+            // free Google Maps App + Spotify path still starts as before.
+            boolean sdkCompiled = optionalGoogleSdkCompiled();
+            if (sdkCompiled && !restrictedGoogleSdkAvailable()) {
+                // Do NOT silently send an SDK-capable v21 user back into
+                // the unwanted Samsung splitscreen before key setup.
+                // Stay on the setup screen, with free Google Maps available
+                // through its separate button.
+                if (permissions != null) permissions.setText(
+                    "Google Navigation SDK vorhanden. Bitte den "
+                    + "eingeschränkten Schlüssel lokal speichern; "
+                    + "Google Maps bleibt über den kostenlosen Knopf verfügbar.");
+                return;
+            }
+            startActivity(new Intent(this, sdkCompiled
+                ? IntegratedNavigationActivity.class
+                : SplitCockpitActivity.class));
         } catch (RuntimeException e) {
             if (permissions != null) permissions.setText(
                 "Kostenlose Google-Navigation konnte nicht gestartet werden.");
+        }
+    }
+
+    private boolean restrictedGoogleSdkAvailable() {
+        return optionalGoogleSdkCompiled()
+            && NavigationSdkKeyStore.validKey(NavigationSdkKeyStore.read(this));
+    }
+
+    private boolean optionalGoogleSdkCompiled() {
+        try {
+            Class.forName(IntegratedNavigationRules.ENGINE_CLASS);
+            return true;
+        } catch (ClassNotFoundException | LinkageError unavailable) {
+            return false;
         }
     }
 

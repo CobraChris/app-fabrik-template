@@ -28,6 +28,7 @@ import android.widget.TextView;
  */
 public final class IntegratedNavigationActivity extends Activity {
     static final String EXTRA_TARGET = "integrated_navigation_destination";
+    static final String EXTRA_FORCE_OSM_TEST = "integrated_force_osm_test";
     private static final int LOCATION_REQUEST = 420;
     private static final String STATE_TARGET = "target";
     private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
@@ -71,13 +72,13 @@ public final class IntegratedNavigationActivity extends Activity {
 
         FrameLayout mapPane = new FrameLayout(this);
         mapPane.setBackgroundColor(0xff173139);
+        boolean spotifyLeft = CockpitPanePreferences.spotifyLeft(this);
         LinearLayout.LayoutParams mapParams = landscape
             ? new LinearLayout.LayoutParams(0, -1,
                 IntegratedNavigationRules.MAP_WEIGHT)
             : new LinearLayout.LayoutParams(-1, 0,
-                IntegratedNavigationRules.MAP_WEIGHT);
-        root.addView(mapPane, mapParams);
-
+                CockpitLayoutRules.mapWeight(false));
+        // Add the map and Spotify panes in the chosen order below.
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(false);
         scroll.setBackgroundColor(Ui.PANEL);
@@ -85,8 +86,14 @@ public final class IntegratedNavigationActivity extends Activity {
             ? new LinearLayout.LayoutParams(0, -1,
                 IntegratedNavigationRules.CONTROLS_WEIGHT)
             : new LinearLayout.LayoutParams(-1, 0,
-                IntegratedNavigationRules.CONTROLS_WEIGHT);
-        root.addView(scroll, controlParams);
+                CockpitLayoutRules.controlsWeight(false));
+        if (landscape && spotifyLeft) {
+            root.addView(scroll, controlParams);
+            root.addView(mapPane, mapParams);
+        } else {
+            root.addView(mapPane, mapParams);
+            root.addView(scroll, controlParams);
+        }
 
         LinearLayout panel = Ui.column(this);
         panel.setPadding(Ui.dp(this, 12), Ui.dp(this, 6),
@@ -95,24 +102,78 @@ public final class IntegratedNavigationActivity extends Activity {
 
         if (engine != null && engine.configured()) {
             View navigation = engine.createNavigationView(savedInstanceState,
-                message -> runOnUiThread(() -> showStatus(message)));
+                new NavigationEngine.Status() {
+                    @Override public void onStatus(String message) {
+                        runOnUiThread(() -> showStatus(message));
+                    }
+                    @Override public void onGoogleFailure(
+                            NavigationProviderPolicy.Failure reason) {
+                        runOnUiThread(() -> showProviderFailure(reason));
+                    }
+                });
             mapPane.addView(navigation, new FrameLayout.LayoutParams(-1, -1));
         } else {
-            TextView placeholder = Ui.text(this,
-                "Google Navigation SDK nicht verfügbar\n\n"
-                + "Diese Fläche ist keine Abbiegenavigation. "
-                + "Die kostenlose Google-Maps-Navigation erreichst du "
-                + "über den Knopf im Cockpit.",
+            TextView placeholder = Ui.text(this, BuildConfig.GOOGLE_ONLY
+                ? "Google Navigation SDK noch nicht eingerichtet. "
+                    + "Bitte den lokalen Schlüssel verwalten."
+                : "Google Navigation SDK nicht verfügbar\n\n"
+                    + "Diese Fläche ist keine Abbiegenavigation. "
+                    + "Die kostenlose Google-Maps-App kann separat "
+                    + "über das alte Cockpit geöffnet werden.",
                 16, Ui.FG, true);
             placeholder.setGravity(Gravity.CENTER);
             placeholder.setPadding(Ui.dp(this, 24), 0, Ui.dp(this, 24), 0);
             mapPane.addView(placeholder, new FrameLayout.LayoutParams(-1, -1));
         }
 
-        panel.addView(Ui.text(this, "FahrCockpit · Integriert", 17, Ui.FG, true));
-        status = Ui.text(this, engine != null && engine.configured()
-            ? "Google Navigation SDK wird vorbereitet …"
-            : "Vorschau · Navigation SDK nicht aktiviert · keine Gebühren",
+        // State the actual provider prominently: preview packages NEVER
+        // contain Google SDK. Google remains the shipping product target.
+        panel.addView(Ui.text(this, BuildConfig.GOOGLE_ONLY
+            ? "FahrCockpit · Google Navigation"
+            : (BuildConfig.VISUAL_PREVIEW
+                ? "FahrCockpit v21 · OSM-Sichttest"
+                : "FahrCockpit · Google-Navigation"), 17, Ui.FG, true));
+        if (BuildConfig.VISUAL_PREVIEW) {
+            panel.addView(Ui.text(this,
+                "Dies ist NUR die separat installierte OSM-Kartenvorschau. "
+                + "Die fest integrierte Google-Navigation bleibt das Hauptziel "
+                + "und ist ausschließlich für die noch nicht veröffentlichte "
+                + "Original-App mit Google Navigation SDK vorgesehen. "
+                + "Hier ist kein Google-SDK enthalten.",
+                13, Ui.WARN, true));
+        }
+        Button sideToggle = Ui.button(this,
+            CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
+        sideToggle.setEnabled(landscape);
+        // The greyed-out horizontal control wasted portrait screen height.
+        sideToggle.setVisibility(landscape ? View.VISIBLE : View.GONE);
+        panel.addView(sideToggle);
+        sideToggle.setOnClickListener(v -> {
+            // Layout reparenting, not Activity recreation: preserve the active
+            // navigation engine, the route state and Spotify playback.
+            boolean newLeft = !CockpitPanePreferences.spotifyLeft(this);
+            if (!CockpitPanePreferences.saveSpotifyLeft(this, newLeft)) {
+                showStatus("Spotify-Seite konnte nicht gespeichert werden.");
+                return;
+            }
+            if (landscape) {
+                root.removeView(mapPane);
+                root.removeView(scroll);
+                if (newLeft) {
+                    root.addView(scroll, controlParams);
+                    root.addView(mapPane, mapParams);
+                } else {
+                    root.addView(mapPane, mapParams);
+                    root.addView(scroll, controlParams);
+                }
+            }
+            sideToggle.setText(CockpitPanePreferences.toggleLabel(newLeft, landscape));
+        });
+        status = Ui.text(this, isOsmPreview()
+            ? "OSM-Abbiegeführung (Entwicklungstest, nicht für reale Fahrten)"
+            : (engine != null && engine.configured()
+                ? "Google Navigation SDK wird vorbereitet …"
+                : "Vorschau · Navigation SDK nicht aktiviert · keine Gebühren"),
             12, Ui.WARN, false);
         status.setMaxLines(3);
         panel.addView(status);
@@ -134,7 +195,9 @@ public final class IntegratedNavigationActivity extends Activity {
         routePanel.addView(remembered);
         remembered.setOnClickListener(v -> showSavedTargets());
 
-        Button route = Ui.button(this, "Route in dieser App berechnen");
+        Button route = Ui.button(this, isOsmPreview()
+            ? "OSM-Abbiegeführung zum Testen planen"
+            : "Route in dieser App berechnen");
         routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
         route.setOnClickListener(v -> resolveAndConfirmRoute());
@@ -148,7 +211,8 @@ public final class IntegratedNavigationActivity extends Activity {
         });
 
         // Keep the free navigation visible even when the route form is collapsed.
-        Button fallback = Ui.button(this, "Google Maps dauerhaft kostenlos");
+        Button fallback = Ui.button(this,
+            "Google Maps separat öffnen (Samsung-Splitscreen)");
         fallback.setOnClickListener(v -> {
             String text = RouteTargetRules.clean(destination.getText().toString());
             Intent intent = new Intent(this, SplitCockpitActivity.class);
@@ -217,7 +281,9 @@ public final class IntegratedNavigationActivity extends Activity {
         backward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_BACK));
         forward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_FORWARD));
 
-        panel.addView(fallback); // Outside collapsed routePanel.
+        if (!BuildConfig.GOOGLE_ONLY) {
+            panel.addView(fallback); // Legacy external Samsung split only.
+        }
         Button toggleRoutes = Ui.button(this, "📍 Ziel / Route");
         panel.addView(toggleRoutes);
         panel.addView(routePanel);
@@ -243,25 +309,57 @@ public final class IntegratedNavigationActivity extends Activity {
                 startActivity(launch);
             }
         });
-        panel.addView(Ui.text(this,
-            "Die feste Aufteilung gehört zu FahrCockpit. "
-            + "Die SDK-Navigation wird nur nach ausdrücklicher "
-            + "Routenbestätigung aufgerufen; sie benötigt Google Cloud Billing.",
+        panel.addView(Ui.text(this, isOsmPreview()
+            ? "OSM: Die Karte lädt OpenFreeMap. BRouter kann offline eine "
+                + "Straßenroute berechnen, wenn die regionalen Daten vorhanden sind. "
+                + "GPS-Abbiegehinweise und Android-Sprachausgabe im Entwicklungstest. "
+                + "Nicht als Fahrnavigation verwenden, bis reale Tests bestanden sind."
+            : "Google: Das SDK benötigt aktives Cloud Billing. "
+                + "Eine kostenrelevante Route wird nur nach Bestätigung gestartet.",
             11, Ui.MUTED, false));
         setContentView(root);
 
+        if (BuildConfig.GOOGLE_ONLY && (engine == null || !engine.configured())) {
+            // Fail closed: never silently reveal a MapLibre or external
+            // Samsung split screen when the Google key is missing.
+            startActivity(new Intent(this, GoogleSetupActivity.class));
+            finish();
+            return;
+        }
         if (engine != null && engine.configured()) askLocationThenInitialize();
     }
 
     private NavigationEngine loadEngine() {
+        if (BuildConfig.GOOGLE_ONLY) {
+            // Google or no navigation at all, irrespective of Intent extras.
+            return optionalEngine(IntegratedNavigationRules.ENGINE_CLASS);
+        }
+        if (getIntent().getBooleanExtra(EXTRA_FORCE_OSM_TEST,false)) {
+            // Explicit TEST selection: no Google route/POI may be transferred.
+            return optionalEngine(
+                "com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
+        }
+        // Google Navigation SDK is always preferred when installed/authorized.
+        NavigationEngine google = optionalEngine(IntegratedNavigationRules.ENGINE_CLASS);
+        if (google != null) return google;
+        // The independent OSM map/route is currently a preview, not turn guidance.
+        return optionalEngine("com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
+    }
+
+    private NavigationEngine optionalEngine(String className) {
         try {
-            Class<?> type = Class.forName(IntegratedNavigationRules.ENGINE_CLASS);
+            Class<?> type = Class.forName(className);
             NavigationEngine result = (NavigationEngine)
                 type.getConstructor(Activity.class).newInstance(this);
             return result.configured() ? result : null;
         } catch (ReflectiveOperationException | LinkageError unavailable) {
-            return null; // Default signed build: never loads or calls the paid SDK.
+            return null; // No optional provider in ordinary protected signed builds.
         }
+    }
+
+    private boolean isOsmPreview() {
+        return engine != null && engine.getClass().getName().equals(
+            "com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
     }
 
     private void askLocationThenInitialize() {
@@ -309,8 +407,10 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private void resolveAndConfirmRoute() {
         if (engine == null || !engine.ready()) {
-            showStatus("Navigation SDK noch nicht bereit. "
-                + "Die kostenlose v19-Navigation bleibt verfügbar.");
+            showStatus(isOsmPreview()
+                ? "BRouter noch nicht bereit: Offline-Daten, App und MapLibre prüfen."
+                : "Google Navigation SDK noch nicht bereit. "
+                    + "Die kostenlose Google-Maps-App bleibt verfügbar.");
             return;
         }
         String target = RouteTargetRules.clean(destination.getText().toString());
@@ -319,7 +419,9 @@ public final class IntegratedNavigationActivity extends Activity {
             return;
         }
         chosenTarget = target;
-        showStatus("Ziel wird einmalig aufgelöst – noch keine SDK-Routenanfrage.");
+        showStatus(isOsmPreview()
+            ? "Ziel wird ermittelt – noch keine Offline-Routenberechnung."
+            : "Ziel wird ermittelt – noch keine Google-SDK-Routenanfrage.");
         NavigationDestinationResolver.resolve(this, target,
             new NavigationDestinationResolver.Callback() {
             @Override public void resolved(double lat, double lng, String name) {
@@ -329,15 +431,25 @@ public final class IntegratedNavigationActivity extends Activity {
                     showStatus("Ortssuche hat ungültige Koordinaten geliefert.");
                     return;
                 }
+                boolean osm = isOsmPreview();
                 new AlertDialog.Builder(IntegratedNavigationActivity.this)
-                    .setTitle("Kostenpflichtige Route bestätigen")
-                    .setMessage("Google Navigation SDK: " + name
-                        + "\n\nZielkoordinaten: " + coords
-                        + "\n\nDer Routenabruf zählt gegen die Google-"
-                        + "Navigation-SDK-Nutzungsquote. "
-                        + "Nur fortfahren, wenn die Abrechnung zuvor freigegeben wurde.")
+                    .setTitle(osm ? "OSM-Abbiegeführung (nicht für Fahrten freigegeben)"
+                        : "Google Navigation: Route bestätigen")
+                    .setMessage(osm
+                        ? ("OpenStreetMap / BRouter: " + name
+                            + "\n\nZielkoordinaten: " + coords
+                            + "\n\nEchte Offline-Straßenroute ohne Google-Cloud-Kosten. "
+                            + "BRouter-Hinweise, GPS und deutsche Sprachausgabe werden "
+                            + "im Entwicklungstest verwendet, falls verfügbar. "
+                            + "Noch NICHT im Straßenverkehr geprüft.")
+                        : ("Google Navigation SDK: " + name
+                            + "\n\nZielkoordinaten: " + coords
+                            + "\n\nDer Routenabruf zählt gegen die Google-"
+                            + "Navigation-SDK-Quote. "
+                            + "Nur nach Freigabe der Abrechnung fortfahren."))
                     .setNegativeButton("Abbrechen", (d,which) -> {})
-                    .setPositiveButton("Route berechnen", (d,which) -> {
+                    .setPositiveButton(osm ? "Straßenroute planen"
+                        : "Route berechnen", (d,which) -> {
                         if (engine != null && engine.ready()) {
                             engine.startConfirmedRoute(lat, lng, name);
                         }
@@ -406,6 +518,24 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private void showStatus(String message) {
         if (status != null) status.setText(message);
+    }
+
+    private void showProviderFailure(NavigationProviderPolicy.Failure reason) {
+        if (BuildConfig.GOOGLE_ONLY) {
+            // Never fall back to an unrelated map in the signed v21 app.
+            showStatus("Google Navigation SDK nicht nutzbar ("+reason+"). "
+                +"Google-Cloud-Berechtigung, Kontingent und Netzwerk prüfen. "
+                +"Es wird keine Ersatzkarte oder neue kostenpflichtige "
+                +"Routenanfrage gestartet.");
+            return;
+        }
+        // Older unsigned prototypes preserve their original behavior.
+        NavigationProviderPolicy.Provider next =
+            NavigationProviderPolicy.fallback(reason,false);
+        if (next == NavigationProviderPolicy.Provider.GOOGLE_MAPS_EXTERNAL) {
+            showStatus("Google Navigation SDK derzeit nicht verfügbar ("+reason
+                +"). Kostenlose externe Maps-App nur über den manuellen Knopf.");
+        }
     }
 
     @Override protected void onStart() {

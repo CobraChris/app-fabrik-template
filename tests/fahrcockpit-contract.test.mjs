@@ -329,10 +329,12 @@ test('v20 free-first navigation does not depend on 90-day Cloud trial',()=>{
  const end=main.indexOf('private void startSplitAndMaps()',start);
  assert.ok(start>0 && end>start);
  const launcher=main.slice(start,end);
- assert.match(launcher,/new Intent\(this, SplitCockpitActivity\.class\)/);
- assert.doesNotMatch(launcher,/BuildConfig\.NAVSDK_API_KEY|IntegratedNavigationActivity\.class|EmbeddedMapActivity\.class/);
+ assert.match(launcher,/restrictedGoogleSdkAvailable\(\)/);
+ assert.match(launcher,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
+ assert.match(launcher,/: SplitCockpitActivity\.class/);
+ assert.doesNotMatch(launcher,/BuildConfig\.NAVSDK_API_KEY|EmbeddedMapActivity\.class/);
  assert.match(split,/GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
- assert.match(shell,/Google Maps dauerhaft kostenlos/);
+ assert.match(shell,/Google Maps separat öffnen \(Samsung-Splitscreen\)/);
  assert.match(shell,/panel\.addView\(fallback\)/);
 });
 
@@ -362,3 +364,313 @@ test('Samsung App Pair does not reopen Google Maps inside an existing split', ()
     launch.indexOf('launchMapsAdjacent(routeTarget)'));
   assert.doesNotMatch(launch,/startForegroundService|OverlayService/);
 });
+
+test('v21 Google navigation is the primary provider; OSM requires a real ready engine',()=>{
+ const policy=java('NavigationProviderPolicy');
+ const tests=read('app/src/test/java/com/cobrachris/fahrcockpit/NavigationProviderPolicyTest.java');
+ assert.match(policy,/if \(googleSdkConfigured\) return Provider\.GOOGLE_NAVIGATION_SDK/);
+ assert.match(policy,/osmNavigatorReady/);
+ assert.match(policy,/NAVIGATION_QUOTA_EXHAUSTED/);
+ assert.match(policy,/BILLING_OR_AUTHORIZATION_UNAVAILABLE/);
+ assert.match(policy,/routeRequiresExplicitApproval/);
+ assert.match(tests,/googleIsAlwaysFirstWhenConfigured/);
+ assert.match(tests,/osmIsOnlyChosenIfACompleteOsmNavigatorExists/);
+ assert.match(tests,/fallbackAfterQuotaOrBillingLossDoesNotReturnToGoogleSdk/);
+});
+
+test('v21 interactive fixed 70/30 HTML preview is transparent, interactive and cloud-free',()=>{
+ const html=read('demo/fahrcockpit-v21-preview.html');
+ assert.match(html,/\.map-pane\{[^}]*flex:7 1 0/);
+ assert.match(html,/\.cockpit\{[^}]*flex:3 1 0/);
+ assert.match(html,/GOOGLE · STANDARD/);
+ assert.match(html,/OPENSTREETMAP · NOTFALL/);
+ assert.match(html,/INTERAKTIVE KONZEPTDEMO/);
+ assert.match(html,/Keine echte Google- oder OSM-Navigation/);
+ assert.match(html,/id="quota"/);
+ assert.match(html,/id="billing"/);
+ assert.match(html,/id="reset"/);
+ assert.match(html,/state\.provider='osm'/);
+ assert.match(html,/state\.provider='google'/);
+ assert.match(html,/routeLine/);
+ assert.doesNotMatch(html,/<script[^>]+src=|api\.google|maps\.googleapis|tile\.openstreetmap|https:\/\/[^\s]*\.js/);
+});
+
+test('v21 embedded interactive design preview is local and clearly non-navigational',()=>{
+ const main=java('MainActivity');
+ const preview=java('NavigationPreviewActivity');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ const html=read('app/src/main/assets/fahrcockpit-v21-preview.html');
+ assert.match(main,/Feste 70\/30-Vorschau öffnen/);
+ assert.match(main,/new Intent\(this, NavigationPreviewActivity\.class\)/);
+ assert.match(manifest,/android:name="\.NavigationPreviewActivity"/);
+ assert.match(manifest,/android:exported="false"/);
+ assert.match(preview,/setAllowFileAccess\(false\)/);
+ assert.match(preview,/setAllowContentAccess\(false\)/);
+ assert.match(preview,/setDomStorageEnabled\(false\)/);
+ assert.match(preview,/setJavaScriptCanOpenWindowsAutomatically\(false\)/);
+ assert.match(preview,/loadDataWithBaseURL\("about:blank"/);
+ assert.doesNotMatch(preview,/GoogleNavigationEngine|setDestination|startGuidance/);
+ assert.match(html,/Keine echte Google- oder OSM-Navigation/);
+ assert.doesNotMatch(html,/<script[^>]+src=|maps\.googleapis|tile\.openstreetmap/);
+});
+
+test('v21 Google SDK quota/auth failures are typed and shown without fake OSM navigation',()=>{
+ const contract=java('NavigationEngine');
+ const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+ const screen=java('IntegratedNavigationActivity');
+ assert.match(contract,/default void onGoogleFailure\(NavigationProviderPolicy\.Failure reason\)/);
+ assert.match(google,/NavigationApi\.ErrorCode\.NOT_AUTHORIZED/);
+ assert.match(google,/Navigator\.RouteStatus\.QUOTA_CHECK_FAILED/);
+ assert.match(google,/NavigationProviderPolicy\.Failure\.NAVIGATION_QUOTA_EXHAUSTED/);
+ assert.match(google,/NavigationProviderPolicy\.Failure\.BILLING_OR_AUTHORIZATION_UNAVAILABLE/);
+ assert.match(google,/NavigationProviderPolicy\.Failure\.LOCAL_REQUEST_LIMIT/);
+ assert.match(screen,/new NavigationEngine\.Status\(\)/);
+ assert.match(screen,/showProviderFailure\(reason\)/);
+  assert.match(screen,/if \(BuildConfig\.GOOGLE_ONLY\) \{/);
+  assert.match(screen,/Es wird keine Ersatzkarte oder neue kostenpflichtige/);
+});
+
+test('v21 independent BRouter offline routing bridge validates GeoJSON and never uses Google SDK data',()=>{
+ const src=read('app/src/osm/java/com/cobrachris/fahrcockpit/BRouterOfflineRouteClient.java');
+ const parser=read('app/src/osm/java/com/cobrachris/fahrcockpit/BRouterRouteGeometry.java');
+ const aidl=read('app/src/osm/aidl/btools/routingapp/IBRouterService.aidl');
+ const gradle=read('app/build.gradle');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ assert.match(src,/getTrackFromParams\(params\)/);
+ assert.match(src,/params\.putString\("v", "motorcar"\)/);
+ assert.match(src,/params\.putString\("trackFormat", "json"\)/);
+ assert.match(src,/btools\.routingapp\.BRouterService/);
+ assert.match(src,/new Thread\(\(\) ->/);
+ assert.match(src,/Offline-Route nicht verfügbar/);
+ assert.match(parser,/FeatureCollection/);
+ assert.match(parser,/LineString/);
+ assert.match(parser,/Double\.isFinite/);
+ assert.match(aidl,/String getTrackFromParams/);
+ assert.match(gradle,/withOsmFallback/);
+ assert.match(gradle,/org\.maplibre\.gl:android-sdk:/);
+ assert.match(manifest,/android:name="btools\.routingapp"/);
+ assert.doesNotMatch(src,/GoogleNavigationEngine|NAVSDK_API_KEY|maps\.googleapis/);
+});
+
+test('v21 native MapLibre OSM road map preserves Google priority and warns about missing guidance',()=>{
+ const screen=java('IntegratedNavigationActivity');
+ const map=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmRoutingPreviewEngine.java');
+ assert.match(screen,/optionalEngine\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
+ assert.match(screen,/OsmRoutingPreviewEngine/);
+ assert.match(screen,/isOsmPreview\(\)/);
+ assert.match(screen,/OSM-Abbiegeführung \(nicht für Fahrten freigegeben\)/);
+ assert.match(map,/MapLibre\.getInstance\(host\)/);
+ assert.match(map,/new MapView\(host\)/);
+ assert.match(map,/tiles\.openfreemap\.org\/styles\/liberty/);
+ assert.match(map,/BRouterOfflineRouteClient\.route\(host/);
+ assert.match(map,/new GeoJsonSource\(SOURCE,\s*route\.geoJson\)/);
+ assert.match(map,/OSM-Abbiegeführung im Entwicklungstest aktiv/);
+ assert.doesNotMatch(map,/GoogleNavigationEngine|NAVSDK_API_KEY|setDestination\(/);
+});
+
+test('v21 restricted Google Navigation SDK key is stored on Android, not checked in',()=>{
+ const store=java('NavigationSdkKeyStore');
+ const main=java('MainActivity');
+ const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ assert.match(store,/AndroidKeyStore/);
+ assert.match(store,/AES\/GCM\/NoPadding/);
+ assert.match(store,/setRandomizedEncryptionRequired\(true\)/);
+ assert.match(store,/validKey\(String value\)/);
+ assert.match(store,/Arrays\.fill\(plain/);
+ assert.match(main,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
+ assert.match(main,/Google-SDK-Schlüssel lokal hinterlegen/);
+ assert.match(main,/NavigationSdkKeyStore\.save\(this,key\)/);
+ assert.match(main,/NavigationSdkKeyStore\.clear\(this\)/);
+ assert.match(google,/NavigationSdkKeyStore\.read\(host\)/);
+ assert.doesNotMatch(store,/Log\.|System\.out|new Intent\(Intent\.ACTION_SEND/);
+ assert.match(manifest,/android:allowBackup="false"/);
+});
+
+test('v21 BRouter guidance uses official voice hints, validated GPS and local German TTS',()=>{
+ const route=read('app/src/osm/java/com/cobrachris/fahrcockpit/BRouterRouteGeometry.java');
+ const backend=read('app/src/osm/java/com/cobrachris/fahrcockpit/BRouterOfflineRouteClient.java');
+ const guide=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmTurnGuidance.java');
+ const voice=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmSpeechGuide.java');
+ const engine=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmRoutingPreviewEngine.java');
+ assert.match(backend,/putString\("turnInstructionFormat", "osmand"\)/);
+ assert.match(route,/getAsJsonArray\("voicehints"\)/);
+ assert.match(route,/germanInstruction\(\)/);
+ assert.match(guide,/accuracyMeters > 35f/);
+ assert.match(guide,/offRouteCount>=3/);
+ assert.match(guide,/earlyAnnounced/);
+ assert.match(guide,/nearAnnounced/);
+ assert.match(voice,/new TextToSpeech\(activity,this\)/);
+ assert.match(voice,/Locale\.GERMANY/);
+ assert.match(voice,/USAGE_ASSISTANCE_NAVIGATION_GUIDANCE/);
+ assert.match(engine,/requestLocationUpdates\(LocationManager\.GPS_PROVIDER,1000L,3f/);
+ assert.match(engine,/onGpsLocation\(Location loc\)/);
+ assert.match(engine,/calculateFrom\(loc,epoch,true\)/);
+ assert.match(engine,/REROUTE_COOLDOWN_MS = 60000L/);
+ assert.match(engine,/stopGpsTracking\(\)/);
+ assert.match(engine,/voice\.close\(\)/);
+ assert.doesNotMatch(guide,/GoogleNavigationEngine|NAVSDK_API_KEY/);
+});
+
+test('v21 original App icon selects fixed Google 70/30 only with locally restricted SDK key',()=>{
+ const main=java('MainActivity');
+ const gradle=read('app/build.gradle');
+ const start=main.indexOf('private boolean restrictedGoogleSdkAvailable()');
+ const end=main.indexOf('private void startSplitAndMaps()',start);
+ assert.ok(start>0&&end>start);
+ const selection=main.slice(start,end);
+ assert.match(selection,/NavigationSdkKeyStore\.read\(this\)/);
+ assert.match(selection,/NavigationSdkKeyStore\.validKey\(NavigationSdkKeyStore\.read\(this\)\)/);
+ assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
+ assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
+ assert.match(main,/: SplitCockpitActivity\.class/);
+ assert.match(gradle,/versionCode 21/);
+ assert.match(gradle,/versionName '0\.9\.19-beta'/);
+});
+
+test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
+ const main=java('MainActivity');
+ const screen=java('IntegratedNavigationActivity');
+ assert.match(main,/OSM-Abbiegeführung im festen 70\/30 testen/);
+ assert.match(main,/IntegratedNavigationActivity\.EXTRA_FORCE_OSM_TEST,true/);
+ assert.match(main,/Class\.forName\("com\.cobrachris\.fahrcockpit\.OsmRoutingPreviewEngine"\)/);
+ assert.match(screen,/getIntent\(\)\.getBooleanExtra\(EXTRA_FORCE_OSM_TEST,false\)/);
+ assert.match(screen,/optionalEngine\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
+ assert.match(screen,/OSM-Abbiegeführung \(nicht für Fahrten freigegeben\)/);
+});
+
+test('v21 SDK-capable launch stays on local key setup rather than opening unwanted Android split',()=>{
+ const main=java('MainActivity');
+ assert.match(main,/if \(sdkCompiled && !restrictedGoogleSdkAvailable\(\)\)/);
+ assert.match(main,/startActivity\(new Intent\(this, sdkCompiled/);
+ assert.match(main,/embedded\.setOnClickListener\(v -> startSplitAndMaps\(\)\)/);
+ assert.match(main,/Google Navigation SDK vorhanden/);
+});
+
+
+test('v21 permanent fixed 70/30 has persisted Spotify left-right switching',()=>{
+  const screen=java('IntegratedNavigationActivity');
+  const prefs=java('CockpitPanePreferences');
+  const html=read('demo/fahrcockpit-v21-preview.html');
+  const asset=read('app/src/main/assets/fahrcockpit-v21-preview.html');
+  assert.match(screen,/CockpitPanePreferences\.spotifyLeft\(this\)/);
+  assert.match(screen,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
+  assert.match(screen,/if \(landscape && spotifyLeft\)/);
+  assert.match(screen,/root\.addView\(scroll, controlParams\)/);
+  assert.match(screen,/root\.addView\(mapPane, mapParams\)/);
+  assert.match(screen,/root\.removeView\(mapPane\)/);
+  assert.match(screen,/root\.removeView\(scroll\)/);
+  assert.doesNotMatch(screen,/sideToggle\.setOnClickListener\(v -> recreate\(\)/);
+  assert.match(prefs,/getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
+  assert.match(prefs,/putBoolean\(KEY_SPOTIFY_LEFT, left\)\.commit\(\)/);
+  assert.match(html,/classList\.toggle\('spotify-left',state\.spotifyLeft\)/);
+  assert.match(html,/SIDE_KEY='fahrcockpit-demo-spotify-left-v1'/);
+  assert.match(html,/localStorage\.setItem\(SIDE_KEY/);
+  assert.match(html,/\.app\.spotify-left\{flex-direction:row-reverse\}/);
+  assert.match(html,/sideSwitch/);
+  assert.strictEqual(html,asset);
+});
+
+test('v21 signed Google-only release rejects legacy visual preview or OSM compilation',()=>{
+ const gradle=read('app/build.gradle');
+ const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+ assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
+ assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
+ assert.doesNotMatch(ci,/-PwithOsmFallback=true|-PvisualPreview=true/);
+});
+
+
+test('standalone v21 preview never exposes Samsung split controls and survives activity restoration',()=>{
+ const main=java('MainActivity');
+ const start=main.indexOf('if (BuildConfig.VISUAL_PREVIEW) {', main.indexOf('setContentView(scroll)'));
+ const legacy=main.indexOf('Ui.section(this, root, "Dauerhaft kostenlose Navigation"',start);
+ assert.ok(start>0 && legacy>start);
+ const separate=main.slice(start,legacy);
+ assert.match(separate,/Festes 70\/30-Cockpit · kein Samsung-Splitscreen/);
+ assert.match(separate,/Festes 70\/30-Cockpit öffnen/);
+ assert.match(separate,/return;\s*\}\s*root\.addView\(Ui\.text/);
+ assert.match(separate,/IntegratedNavigationActivity\.EXTRA_FORCE_OSM_TEST,true/);
+ assert.doesNotMatch(separate,/Google Maps \+ Spotify kostenlos starten|startSplitAndMaps\(\)/);
+ assert.doesNotMatch(main,/BuildConfig\.VISUAL_PREVIEW && savedInstanceState == null/);
+});
+
+test('v21 landscape still 70/30 while portrait keeps Spotify usable; OSM centers on Android GPS',()=>{
+ const screen=java('IntegratedNavigationActivity');
+ const policy=java('CockpitLayoutRules');
+ const center=java('MapCenterRules');
+ const osm=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmRoutingPreviewEngine.java');
+ assert.match(policy,/PORTRAIT_MAP_WEIGHT = 9/);
+ assert.match(policy,/PORTRAIT_CONTROLS_WEIGHT = 11/);
+ assert.match(policy,/IntegratedNavigationRules.MAP_WEIGHT/);
+ assert.match(policy,/IntegratedNavigationRules.CONTROLS_WEIGHT/);
+ assert.match(screen,/CockpitLayoutRules.mapWeight\(false\)/);
+ assert.match(screen,/CockpitLayoutRules.controlsWeight\(false\)/);
+ assert.match(screen,/sideToggle.setVisibility\(landscape \? View.VISIBLE : View.GONE\)/);
+ assert.match(osm,/◎ Meine Position/);
+ assert.match(osm,/centerOnAndroidPosition\(false\)/);
+ assert.match(osm,/centerOnAndroidPosition\(true\)/);
+ assert.match(osm,/getLastKnownLocation\(provider\)/);
+ assert.match(osm,/getCurrentLocation\(provider, centerCancellation/);
+ assert.match(osm,/new CircleLayer\(USER_LAYER,USER_SOURCE\)/);
+ assert.match(osm,/cancelCenterRequest\(\)/);
+ assert.match(osm,/MapCenterRules.acceptable\(/);
+ assert.match(center,/MAX_AGE_MS = 180_000L/);
+ assert.match(center,/MAX_ACCURACY_METERS = 250f/);
+ assert.doesNotMatch(osm,/GoogleNavigationEngine|NAVSDK_API_KEY/);
+});
+test('v21 OSM preview cannot appear to be the Google SDK product',()=>{
+ const shell=java('IntegratedNavigationActivity');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ const gradle=read('app/build.gradle');
+ assert.match(shell,/FahrCockpit v21 · OSM-Sichttest/);
+ assert.match(shell,/Die fest integrierte Google-Navigation bleibt das Hauptziel/);
+ assert.match(shell,/Hier ist kein Google-SDK enthalten/);
+ assert.match(shell,/Google Maps separat öffnen \(Samsung-Splitscreen\)/);
+ assert.match(gradle,/if \(visualPreview && \(!withOsmFallback \|\| withGoogleNavSdk\)\)/);
+ assert.match(manifest,/\$\{appDisplayName\}/);
+});
+
+
+test('v21 release configuration fails closed to native Google SDK only',()=>{
+ const gradle=read('app/build.gradle');
+ const main=java('MainActivity');
+ const nav=java('IntegratedNavigationActivity');
+ const setup=java('GoogleSetupActivity');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+ assert.match(gradle,/def googleOnly = providers.gradleProperty\('googleOnly'\)/);
+ assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
+ assert.match(gradle,/buildConfigField 'boolean', 'GOOGLE_ONLY'/);
+ assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
+ assert.doesNotMatch(ci,/-PwithOsmFallback=true/);
+ assert.match(main,/if \(BuildConfig.GOOGLE_ONLY\) \{/);
+ assert.match(main,/\? IntegratedNavigationActivity.class/);
+ assert.match(main,/: GoogleSetupActivity.class/);
+ assert.match(nav,/if \(BuildConfig.GOOGLE_ONLY\) \{/);
+ assert.match(nav,/return optionalEngine\(IntegratedNavigationRules.ENGINE_CLASS\)/);
+ assert.match(nav,/if \(!BuildConfig.GOOGLE_ONLY\) \{/);
+ assert.match(nav,/startActivity\(new Intent\(this, GoogleSetupActivity.class\)\)/);
+ assert.match(setup,/NavigationSdkKeyStore.save\(this,value\)/);
+ assert.match(setup,/NavigationSdkKeyStore.clear\(this\)/);
+ assert.match(setup,/Festes Google-70\/30-Cockpit öffnen/);
+ assert.doesNotMatch(setup,/OsmRoutingPreviewEngine|SplitCockpitActivity|withOsmFallback/);
+ assert.match(manifest,/android:name=".GoogleSetupActivity"/);
+});
+test('v21 Google SDK errors and transferred deep links never expose alternate maps',()=>{
+ const main=java('MainActivity');
+ const nav=java('IntegratedNavigationActivity');
+ const setup=java('GoogleSetupActivity');
+ assert.match(main,/if \(BuildConfig\.GOOGLE_ONLY\) \{/);
+ const start=main.indexOf('if (BuildConfig.GOOGLE_ONLY) {');
+ const legacy=main.indexOf('getWindow().setStatusBarColor',start);
+ assert.ok(start>0&&legacy>start);
+ const nativeGate=main.slice(start,legacy);
+ assert.match(nativeGate,/\? IntegratedNavigationActivity.class/);
+ assert.match(nativeGate,/: GoogleSetupActivity.class/);
+ assert.doesNotMatch(nativeGate,/GoogleKeyTransfer\.isTransfer|SplitCockpitActivity|OsmRoutingPreviewEngine/);
+ assert.match(nav,/if \(BuildConfig\.GOOGLE_ONLY\) \{\s*\/\/ Never fall back/);
+ assert.match(nav,/Es wird keine Ersatzkarte oder neue kostenpflichtige/);
+ assert.match(nav,/Google Navigation SDK noch nicht eingerichtet/);
+ assert.doesNotMatch(setup,/OsmRoutingPreviewEngine|SplitCockpitActivity/);
+});
+
