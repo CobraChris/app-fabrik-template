@@ -19,6 +19,7 @@ jobs:
     outputs:
       source_sha: ${{ steps.request.outputs.sha }}
       version_code: ${{ steps.request.outputs.code }}
+      variant: ${{ steps.request.outputs.variant }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -52,11 +53,27 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           gradle-version: '8.11.1'
-      - name: Build and test without secrets
+      - name: Build and test exact approved feature variant without secrets
+        env:
+          VARIANT: ${{ needs.validate.outputs.variant }}
+          FAHRCOCKPIT_NAV_SDK_KEY: ''
         run: |
           set -euo pipefail
-          gradle --no-daemon -p experiments/fahrcockpit \
-            :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+          # The on-device Android Keystore handles the user's restricted
+          # Google key. Never bake keys into the signed distribution.
+          test -z "$FAHRCOCKPIT_NAV_SDK_KEY"
+          if [ "$VARIANT" = 'legacy' ]; then
+            gradle --no-daemon -p experiments/fahrcockpit \
+              :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+          elif [ "$VARIANT" = 'google-sdk-only' ]; then
+            # SDK 7.6.1 requires Android API 36. Runner images can change.
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36"
+            gradle --no-daemon -p experiments/fahrcockpit \
+              -PwithGoogleNavSdk=true -PgoogleOnly=true \
+              :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
+          else
+            echo "::error::Unapproved release feature variant"; exit 1
+          fi
       - name: Exact package and version verification
         id: meta
         env:
