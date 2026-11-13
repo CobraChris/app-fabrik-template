@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
@@ -55,6 +56,8 @@ public final class IntegratedNavigationActivity extends Activity {
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        // Android 15+ draws edge-to-edge; handle system bars and IME explicitly.
+        getWindow().setDecorFitsSystemWindows(false);
         stopService(new Intent(this, OverlayService.class));
         stopService(new Intent(this, DockedCockpitService.class));
 
@@ -80,7 +83,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 CockpitLayoutRules.mapWeight(false));
         // Add the map and Spotify panes in the chosen order below.
         ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(false);
+        scroll.setFillViewport(true);
         scroll.setBackgroundColor(Ui.PANEL);
         LinearLayout.LayoutParams controlParams = landscape
             ? new LinearLayout.LayoutParams(0, -1,
@@ -96,8 +99,9 @@ public final class IntegratedNavigationActivity extends Activity {
         }
 
         LinearLayout panel = Ui.column(this);
-        panel.setPadding(Ui.dp(this, 12), Ui.dp(this, 6),
-            Ui.dp(this, 12), Ui.dp(this, 20));
+        panel.setPadding(Ui.dp(this, landscape ? 8 : 12),
+            Ui.dp(this, landscape ? 2 : 6),
+            Ui.dp(this, landscape ? 8 : 12), Ui.dp(this, 20));
         scroll.addView(panel);
 
         if (engine != null && engine.configured()) {
@@ -143,6 +147,10 @@ public final class IntegratedNavigationActivity extends Activity {
                 13, Ui.WARN, true));
         }
         Button sideToggle = Ui.button(this,
+            landscape ? (spotifyLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
+                : CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
+        sideToggle.setTextSize(landscape ? 12 : 14);
+        sideToggle.setContentDescription(
             CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
         sideToggle.setEnabled(landscape);
         // The greyed-out horizontal control wasted portrait screen height.
@@ -167,7 +175,11 @@ public final class IntegratedNavigationActivity extends Activity {
                     root.addView(scroll, controlParams);
                 }
             }
-            sideToggle.setText(CockpitPanePreferences.toggleLabel(newLeft, landscape));
+            sideToggle.setText(landscape
+                ? (newLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
+                : CockpitPanePreferences.toggleLabel(newLeft, landscape));
+            sideToggle.setContentDescription(
+                CockpitPanePreferences.toggleLabel(newLeft, landscape));
         });
         status = Ui.text(this, isOsmPreview()
             ? "OSM-Abbiegeführung (Entwicklungstest, nicht für reale Fahrten)"
@@ -184,12 +196,22 @@ public final class IntegratedNavigationActivity extends Activity {
         routePanel.setVisibility(View.GONE);
         destination = new EditText(this);
         destination.setSingleLine(true);
+        // Keep Samsung's keyboard inline in landscape, not in extract mode.
+        destination.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            | android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI);
         destination.setTextColor(Ui.FG);
         destination.setHintTextColor(Ui.MUTED);
         destination.setTextSize(14);
         destination.setHint("Ziel, Adresse oder Koordinaten");
         destination.setText(chosenTarget == null ? "" : chosenTarget);
         routePanel.addView(destination);
+        destination.setOnFocusChangeListener((view, focused) -> {
+            if (focused && routePanel.getVisibility() == View.VISIBLE) {
+                scroll.post(() -> destination.requestRectangleOnScreen(
+                    new android.graphics.Rect(0, 0,
+                        destination.getWidth(), destination.getHeight()), true));
+            }
+        });
 
         Button remembered = Ui.button(this, "Gespeicherte Ziele wählen");
         routePanel.addView(remembered);
@@ -318,6 +340,30 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Eine kostenrelevante Route wird nur nach Bestätigung gestartet.",
             11, Ui.MUTED, false));
         setContentView(root);
+        // Keep interactive content away from Android's navigation/status bars
+        // and the IME. While typing a destination, temporarily hide the map;
+        // it returns to the fixed 70/30 layout as soon as the keyboard closes.
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            android.graphics.Insets keyboard = insets.getInsets(WindowInsets.Type.ime());
+            boolean keyboardVisible = insets.isVisible(WindowInsets.Type.ime())
+                && keyboard.bottom > 0;
+            root.setPadding(bars.left, bars.top, bars.right,
+                CockpitLayoutRules.safeBottomInset(bars.bottom, keyboard.bottom));
+            int mapVisibility = CockpitLayoutRules.shouldShowMap(keyboardVisible)
+                ? View.VISIBLE : View.GONE;
+            if (mapPane.getVisibility() != mapVisibility)
+                mapPane.setVisibility(mapVisibility);
+            if (keyboardVisible && routePanel.getVisibility() == View.VISIBLE
+                    && destination.hasFocus()) {
+                scroll.post(() -> destination.requestRectangleOnScreen(
+                    new android.graphics.Rect(0, 0,
+                        destination.getWidth(), destination.getHeight()), true));
+            }
+            return insets; // Let the Google NavigationView receive its insets too.
+        });
+        root.requestApplyInsets();
 
         if (BuildConfig.GOOGLE_ONLY && (engine == null || !engine.configured())) {
             // Fail closed: never silently reveal a MapLibre or external
