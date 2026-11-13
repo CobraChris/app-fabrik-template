@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateRequest,validateEvent,validatePush,validateSource,SOURCE_REF,GOOGLE_SOURCE_REF}
+import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF}
   from '../scripts/fahrcockpit-release-request.mjs';
 const sha='e6da2f64b027848d001b0f8f6158c5d5768171b0';
 const request={schema:1,intent:'fahrcockpit-signed-beta',request_id:'2026-11-07-signed-fahr',
@@ -89,3 +89,26 @@ test('Google-only signing workflow installs its required Android API 36',()=>{
  assert.doesNotMatch(workflow,/-PwithOsmFallback=true/);
 });
 
+
+test('v22 source gate pins the exact reviewed feature branch, not v21 or main',()=>{
+  const request22={schema:2,intent:'fahrcockpit-signed-beta',
+    request_id:'2026-11-13-fahrcockpit-v22-google-only',
+    source_sha:sha,expected_version_code:22,variant:'google-sdk-only'};
+  assert.deepEqual(validateRequest(request22),
+    {sha,code:22,variant:'google-sdk-only'});
+  assert.equal(sourceRefFor('google-sdk-only',22),GOOGLE_V22_SOURCE_REF);
+  assert.equal(sourceRefFor('google-sdk-only',21),GOOGLE_SOURCE_REF);
+  assert.doesNotThrow(()=>validateSource(sha,
+    sha+'\t'+GOOGLE_V22_SOURCE_REF+'\n','google-sdk-only',22));
+  assert.throws(()=>validateSource(sha,
+    sha+'\t'+GOOGLE_SOURCE_REF+'\n','google-sdk-only',22));
+  assert.throws(()=>validateSource(sha,
+    sha+'\t'+GOOGLE_V22_SOURCE_REF+'\n','google-sdk-only',21));
+  assert.throws(()=>validateSource(sha,
+    '0'.repeat(40)+'\t'+GOOGLE_V22_SOURCE_REF+'\n','google-sdk-only',22));
+  assert.throws(()=>validateRequest({...request22,
+    request_id:'2026-11-13-fahrcockpit-v22-fake'}));
+  assert.throws(()=>validateRequest({...request22,expected_version_code:23}));
+  assert.throws(()=>validateRequest({...request22,variant:'legacy'}));
+  assert.throws(()=>validateRequest({...request22,extra:true}));
+});
