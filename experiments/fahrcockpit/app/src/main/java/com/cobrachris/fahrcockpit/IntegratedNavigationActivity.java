@@ -126,9 +126,11 @@ public final class IntegratedNavigationActivity extends Activity {
 
         // State the actual provider prominently: preview packages NEVER
         // contain Google SDK. Google remains the shipping product target.
-        panel.addView(Ui.text(this, BuildConfig.VISUAL_PREVIEW
-            ? "FahrCockpit v21 · OSM-Sichttest"
-            : "FahrCockpit · Google-Navigation", 17, Ui.FG, true));
+        panel.addView(Ui.text(this, BuildConfig.GOOGLE_ONLY
+            ? "FahrCockpit · Google Navigation"
+            : (BuildConfig.VISUAL_PREVIEW
+                ? "FahrCockpit v21 · OSM-Sichttest"
+                : "FahrCockpit · Google-Navigation"), 17, Ui.FG, true));
         if (BuildConfig.VISUAL_PREVIEW) {
             panel.addView(Ui.text(this,
                 "Dies ist NUR die separat installierte OSM-Kartenvorschau. "
@@ -277,7 +279,9 @@ public final class IntegratedNavigationActivity extends Activity {
         backward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_BACK));
         forward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_FORWARD));
 
-        panel.addView(fallback); // Outside collapsed routePanel.
+        if (!BuildConfig.GOOGLE_ONLY) {
+            panel.addView(fallback); // Legacy external Samsung split only.
+        }
         Button toggleRoutes = Ui.button(this, "📍 Ziel / Route");
         panel.addView(toggleRoutes);
         panel.addView(routePanel);
@@ -313,10 +317,21 @@ public final class IntegratedNavigationActivity extends Activity {
             11, Ui.MUTED, false));
         setContentView(root);
 
+        if (BuildConfig.GOOGLE_ONLY && (engine == null || !engine.configured())) {
+            // Fail closed: never silently reveal a MapLibre or external
+            // Samsung split screen when the Google key is missing.
+            startActivity(new Intent(this, GoogleSetupActivity.class));
+            finish();
+            return;
+        }
         if (engine != null && engine.configured()) askLocationThenInitialize();
     }
 
     private NavigationEngine loadEngine() {
+        if (BuildConfig.GOOGLE_ONLY) {
+            // Google or no navigation at all, irrespective of Intent extras.
+            return optionalEngine(IntegratedNavigationRules.ENGINE_CLASS);
+        }
         if (getIntent().getBooleanExtra(EXTRA_FORCE_OSM_TEST,false)) {
             // Explicit TEST selection: no Google route/POI may be transferred.
             return optionalEngine(

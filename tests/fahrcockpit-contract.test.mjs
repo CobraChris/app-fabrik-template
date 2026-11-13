@@ -640,3 +640,29 @@ test('v21 OSM preview cannot appear to be the Google SDK product',()=>{
  assert.match(manifest,/\$\{appDisplayName\}/);
 });
 
+
+test('v21 release configuration fails closed to native Google SDK only',()=>{
+ const gradle=read('app/build.gradle');
+ const main=java('MainActivity');
+ const nav=java('IntegratedNavigationActivity');
+ const setup=java('GoogleSetupActivity');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+ assert.match(gradle,/def googleOnly = providers.gradleProperty\('googleOnly'\)/);
+ assert.match(gradle,/if \(googleOnly && \(!withOsmFallback \|\| visualPreview\)\)/);
+ assert.match(gradle,/buildConfigField 'boolean', 'GOOGLE_ONLY'/);
+ assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
+ assert.doesNotMatch(ci,/-PwithOsmFallback=true/);
+ assert.match(main,/if \(BuildConfig.GOOGLE_ONLY && !GoogleKeyTransfer.isTransfer\(getIntent\(\)\)\)/);
+ assert.match(main,/\? IntegratedNavigationActivity.class/);
+ assert.match(main,/: GoogleSetupActivity.class/);
+ assert.match(nav,/if \(BuildConfig.GOOGLE_ONLY\) \{/);
+ assert.match(nav,/return optionalEngine\(IntegratedNavigationRules.ENGINE_CLASS\)/);
+ assert.match(nav,/if \(!BuildConfig.GOOGLE_ONLY\) \{/);
+ assert.match(nav,/startActivity\(new Intent\(this, GoogleSetupActivity.class\)\)/);
+ assert.match(setup,/NavigationSdkKeyStore.save\(this,value\)/);
+ assert.match(setup,/NavigationSdkKeyStore.clear\(this\)/);
+ assert.match(setup,/Festes Google-70\/30-Cockpit öffnen/);
+ assert.doesNotMatch(setup,/OsmRoutingPreviewEngine|SplitCockpitActivity|withOsmFallback/);
+ assert.match(manifest,/android:name=".GoogleSetupActivity"/);
+});

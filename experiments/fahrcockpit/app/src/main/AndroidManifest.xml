@@ -46,6 +46,9 @@
         <activity android:name=".SplitCockpitActivity"
             android:exported="false"
             android:resizeableActivity="true" />
+        <activity android:name=".GoogleSetupActivity"
+            android:exported="false"
+            android:resizeableActivity="true" />
         <activity android:name=".IntegratedNavigationActivity"
             android:exported="false"
             android:resizeableActivity="true" />
