@@ -426,7 +426,7 @@ test('v21 Google SDK quota/auth failures are typed and shown without fake OSM na
  assert.match(google,/NavigationProviderPolicy\.Failure\.LOCAL_REQUEST_LIMIT/);
  assert.match(screen,/new NavigationEngine\.Status\(\)/);
  assert.match(screen,/showProviderFailure\(reason\)/);
- assert.match(screen,/NavigationProviderPolicy\.fallback\(reason, false\)/);
+ assert.match(screen,/NavigationProviderPolicy\.fallback\(reason,\s*false\)/);
  assert.match(screen,/OSM-Ersatznavigation ist noch nicht installiert/);
 });
 
