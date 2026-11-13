@@ -547,3 +547,26 @@ test('v21 SDK-capable launch stays on local key setup rather than opening unwant
  assert.match(main,/Google Navigation SDK vorhanden/);
 });
 
+
+test('v21 permanent fixed 70/30 has persisted Spotify left-right switching',()=>{
+  const screen=java('IntegratedNavigationActivity');
+  const prefs=java('CockpitPanePreferences');
+  const html=read('demo/fahrcockpit-v21-preview.html');
+  const asset=read('app/src/main/assets/fahrcockpit-v21-preview.html');
+  assert.match(screen,/CockpitPanePreferences\.spotifyLeft\(this\)/);
+  assert.match(screen,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
+  assert.match(screen,/if \(landscape && spotifyLeft\)/);
+  assert.match(screen,/root\.addView\(scroll, controlParams\)/);
+  assert.match(screen,/root\.addView\(mapPane, mapParams\)/);
+  assert.match(screen,/root\.removeView\(mapPane\)/);
+  assert.match(screen,/root\.removeView\(scroll\)/);
+  assert.doesNotMatch(screen,/sideToggle\.setOnClickListener\(v -> recreate\(\)/);
+  assert.match(prefs,/getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
+  assert.match(prefs,/putBoolean\(KEY_SPOTIFY_LEFT, left\)\.commit\(\)/);
+  assert.match(html,/classList\.toggle\('spotify-left',state\.spotifyLeft\)/);
+  assert.match(html,/SIDE_KEY='fahrcockpit-demo-spotify-left-v1'/);
+  assert.match(html,/localStorage\.setItem\(SIDE_KEY/);
+  assert.match(html,/\.app\.spotify-left\{flex-direction:row-reverse\}/);
+  assert.match(html,/sideSwitch/);
+  assert.strictEqual(html,asset);
+});

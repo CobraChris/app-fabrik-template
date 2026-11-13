@@ -72,13 +72,13 @@ public final class IntegratedNavigationActivity extends Activity {
 
         FrameLayout mapPane = new FrameLayout(this);
         mapPane.setBackgroundColor(0xff173139);
+        boolean spotifyLeft = CockpitPanePreferences.spotifyLeft(this);
         LinearLayout.LayoutParams mapParams = landscape
             ? new LinearLayout.LayoutParams(0, -1,
                 IntegratedNavigationRules.MAP_WEIGHT)
             : new LinearLayout.LayoutParams(-1, 0,
                 IntegratedNavigationRules.MAP_WEIGHT);
-        root.addView(mapPane, mapParams);
-
+        // Add the map and Spotify panes in the chosen order below.
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(false);
         scroll.setBackgroundColor(Ui.PANEL);
@@ -87,7 +87,13 @@ public final class IntegratedNavigationActivity extends Activity {
                 IntegratedNavigationRules.CONTROLS_WEIGHT)
             : new LinearLayout.LayoutParams(-1, 0,
                 IntegratedNavigationRules.CONTROLS_WEIGHT);
-        root.addView(scroll, controlParams);
+        if (landscape && spotifyLeft) {
+            root.addView(scroll, controlParams);
+            root.addView(mapPane, mapParams);
+        } else {
+            root.addView(mapPane, mapParams);
+            root.addView(scroll, controlParams);
+        }
 
         LinearLayout panel = Ui.column(this);
         panel.setPadding(Ui.dp(this, 12), Ui.dp(this, 6),
@@ -119,6 +125,31 @@ public final class IntegratedNavigationActivity extends Activity {
         }
 
         panel.addView(Ui.text(this, "FahrCockpit · Integriert", 17, Ui.FG, true));
+        Button sideToggle = Ui.button(this,
+            CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
+        sideToggle.setEnabled(landscape);
+        panel.addView(sideToggle);
+        sideToggle.setOnClickListener(v -> {
+            // Layout reparenting, not Activity recreation: preserve the active
+            // navigation engine, the route state and Spotify playback.
+            boolean newLeft = !CockpitPanePreferences.spotifyLeft(this);
+            if (!CockpitPanePreferences.saveSpotifyLeft(this, newLeft)) {
+                showStatus("Spotify-Seite konnte nicht gespeichert werden.");
+                return;
+            }
+            if (landscape) {
+                root.removeView(mapPane);
+                root.removeView(scroll);
+                if (newLeft) {
+                    root.addView(scroll, controlParams);
+                    root.addView(mapPane, mapParams);
+                } else {
+                    root.addView(mapPane, mapParams);
+                    root.addView(scroll, controlParams);
+                }
+            }
+            sideToggle.setText(CockpitPanePreferences.toggleLabel(newLeft, landscape));
+        });
         status = Ui.text(this, isOsmPreview()
             ? "OSM-Abbiegeführung (Entwicklungstest, nicht für reale Fahrten)"
             : (engine != null && engine.configured()
