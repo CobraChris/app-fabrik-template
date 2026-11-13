@@ -38,6 +38,12 @@ import java.util.Locale;
  * No auto polling; no location history or server-side account.
  */
 public final class FuelActivity extends Activity {
+    static final String EXTRA_RETURN_TO_COCKPIT = "fuel_return_to_cockpit";
+    static final String RESULT_LATITUDE = "fuel_station_lat";
+    static final String RESULT_LONGITUDE = "fuel_station_lng";
+    static final String RESULT_NAME = "fuel_station_name";
+
+    private boolean returnToCockpit;
     private static final String PREFS = "fuel_settings_v1";
     private static final String KEY = "tankerkoenig_local_key";
     private EditText apiKey;
@@ -52,6 +58,7 @@ public final class FuelActivity extends Activity {
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        returnToCockpit = getIntent().getBooleanExtra(EXTRA_RETURN_TO_COCKPIT, false);
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
         ScrollView scroll = new ScrollView(this);
@@ -290,7 +297,9 @@ public final class FuelActivity extends Activity {
         results.removeAllViews();
         String at = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
         message.setText(stations.length() + " Treffer · abgerufen um " + at +
-            "\nPreise ohne Garantie; Tippen überträgt das Ziel an Google Maps.");
+            (returnToCockpit
+                ? "\nTankstelle auswählen. Eine Google-Navigationsroute wird erst nach deiner Bestätigung berechnet."
+                : "\nPreise ohne Garantie; ausgewähltes Ziel in Google Maps öffnen."));
         if (stations.length() == 0) {
             results.addView(Ui.text(this, "Keine Meldungen im gewählten Radius.", 14, Ui.MUTED, false));
         }
@@ -318,14 +327,38 @@ public final class FuelActivity extends Activity {
             station.addView(Ui.text(this, priceText + "  ·  " + name, 17, Ui.FG, true));
             station.addView(Ui.text(this, brand + " · " + street + ", " + town +
                 "\n" + distText + " · " + openText, 13, Ui.MUTED, false));
-            Button route = Ui.button(this, "Als Ziel in Google Maps öffnen");
-            route.setEnabled(Double.isFinite(lat) && Double.isFinite(lng));
+            String coordinates = FuelRules.stationCoordinates(lat, lng);
+            if (returnToCockpit) {
+                Button inApp = Ui.button(this, "Als FahrCockpit-Ziel übernehmen");
+                inApp.setEnabled(coordinates != null);
+                inApp.setOnClickListener(v -> selectForCockpit(lat, lng,
+                    (brand.trim().isEmpty() ? "" : brand.trim() + " · ") + name));
+                station.addView(inApp);
+            }
+            // Preserve the external Maps alternative without forcing a switch.
+            Button route = Ui.button(this, "In Google Maps öffnen");
+            route.setEnabled(coordinates != null);
             route.setOnClickListener(v -> openMapsDestination(lat, lng));
             station.addView(route);
             results.addView(station, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             Ui.gap(this, results, 10);
         }
+    }
+
+    private void selectForCockpit(double lat, double lng, String name) {
+        String coordinates = FuelRules.stationCoordinates(lat, lng);
+        if (!returnToCockpit || coordinates == null) {
+            message.setText("Tankstellenziel ungültig oder keine FahrCockpit-Verbindung.");
+            return;
+        }
+        String label = RouteTargetRules.clean(name);
+        Intent result = new Intent()
+            .putExtra(RESULT_LATITUDE, lat)
+            .putExtra(RESULT_LONGITUDE, lng)
+            .putExtra(RESULT_NAME, label == null ? "Tankstelle" : label);
+        setResult(RESULT_OK, result);
+        finish(); // Returns to the existing Google NavigationView and route.
     }
 
     private void openMapsDestination(double lat, double lng) {

@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
@@ -30,6 +31,7 @@ public final class IntegratedNavigationActivity extends Activity {
     static final String EXTRA_TARGET = "integrated_navigation_destination";
     static final String EXTRA_FORCE_OSM_TEST = "integrated_force_osm_test";
     private static final int LOCATION_REQUEST = 420;
+    private static final int FUEL_PICK_REQUEST = 421;
     private static final String STATE_TARGET = "target";
     private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -39,6 +41,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private EditText destination;
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
+    private Button voiceButton;
     private boolean touchingSeek;
     private String chosenTarget;
     private long totalDuration = -1;
@@ -55,6 +58,8 @@ public final class IntegratedNavigationActivity extends Activity {
         getWindow().setStatusBarColor(Ui.BG);
         getWindow().setNavigationBarColor(Ui.BG);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        // Android 15+ draws edge-to-edge; handle system bars and IME explicitly.
+        getWindow().setDecorFitsSystemWindows(false);
         stopService(new Intent(this, OverlayService.class));
         stopService(new Intent(this, DockedCockpitService.class));
 
@@ -80,7 +85,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 CockpitLayoutRules.mapWeight(false));
         // Add the map and Spotify panes in the chosen order below.
         ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(false);
+        scroll.setFillViewport(true);
         scroll.setBackgroundColor(Ui.PANEL);
         LinearLayout.LayoutParams controlParams = landscape
             ? new LinearLayout.LayoutParams(0, -1,
@@ -96,8 +101,9 @@ public final class IntegratedNavigationActivity extends Activity {
         }
 
         LinearLayout panel = Ui.column(this);
-        panel.setPadding(Ui.dp(this, 12), Ui.dp(this, 6),
-            Ui.dp(this, 12), Ui.dp(this, 20));
+        panel.setPadding(Ui.dp(this, landscape ? 8 : 12),
+            Ui.dp(this, landscape ? 2 : 6),
+            Ui.dp(this, landscape ? 8 : 12), Ui.dp(this, 20));
         scroll.addView(panel);
 
         if (engine != null && engine.configured()) {
@@ -109,6 +115,9 @@ public final class IntegratedNavigationActivity extends Activity {
                     @Override public void onGoogleFailure(
                             NavigationProviderPolicy.Failure reason) {
                         runOnUiThread(() -> showProviderFailure(reason));
+                    }
+                    @Override public void onGuidanceStateChanged(boolean active) {
+                        runOnUiThread(() -> updateScreenAwake(active));
                     }
                 });
             mapPane.addView(navigation, new FrameLayout.LayoutParams(-1, -1));
@@ -142,7 +151,27 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Hier ist kein Google-SDK enthalten.",
                 13, Ui.WARN, true));
         }
+        voiceButton = Ui.button(this,
+            NavigationVoicePreferences.buttonLabel(
+                NavigationVoicePreferences.isMuted(this)));
+        voiceButton.setContentDescription("Google-Navigationsansagen an- oder ausschalten");
+        // Keep this one-touch mute control above the scrollable Spotify section.
+        voiceButton.setOnClickListener(v -> {
+            boolean muted = !NavigationVoicePreferences.isMuted(this);
+            if (!NavigationVoicePreferences.save(this, muted)) {
+                showStatus("Einstellung für Navigationsansagen konnte nicht gespeichert werden.");
+                return;
+            }
+            if (engine != null) engine.setVoiceMuted(muted);
+            voiceButton.setText(NavigationVoicePreferences.buttonLabel(muted));
+        });
+        panel.addView(voiceButton);
+
         Button sideToggle = Ui.button(this,
+            landscape ? (spotifyLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
+                : CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
+        sideToggle.setTextSize(landscape ? 12 : 14);
+        sideToggle.setContentDescription(
             CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
         sideToggle.setEnabled(landscape);
         // The greyed-out horizontal control wasted portrait screen height.
@@ -167,7 +196,11 @@ public final class IntegratedNavigationActivity extends Activity {
                     root.addView(scroll, controlParams);
                 }
             }
-            sideToggle.setText(CockpitPanePreferences.toggleLabel(newLeft, landscape));
+            sideToggle.setText(landscape
+                ? (newLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
+                : CockpitPanePreferences.toggleLabel(newLeft, landscape));
+            sideToggle.setContentDescription(
+                CockpitPanePreferences.toggleLabel(newLeft, landscape));
         });
         status = Ui.text(this, isOsmPreview()
             ? "OSM-Abbiegeführung (Entwicklungstest, nicht für reale Fahrten)"
@@ -184,12 +217,22 @@ public final class IntegratedNavigationActivity extends Activity {
         routePanel.setVisibility(View.GONE);
         destination = new EditText(this);
         destination.setSingleLine(true);
+        // Keep Samsung's keyboard inline in landscape, not in extract mode.
+        destination.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+            | android.view.inputmethod.EditorInfo.IME_FLAG_NO_EXTRACT_UI);
         destination.setTextColor(Ui.FG);
         destination.setHintTextColor(Ui.MUTED);
         destination.setTextSize(14);
         destination.setHint("Ziel, Adresse oder Koordinaten");
         destination.setText(chosenTarget == null ? "" : chosenTarget);
         routePanel.addView(destination);
+        destination.setOnFocusChangeListener((view, focused) -> {
+            if (focused && routePanel.getVisibility() == View.VISIBLE) {
+                scroll.post(() -> destination.requestRectangleOnScreen(
+                    new android.graphics.Rect(0, 0,
+                        destination.getWidth(), destination.getHeight()), true));
+            }
+        });
 
         Button remembered = Ui.button(this, "Gespeicherte Ziele wählen");
         routePanel.addView(remembered);
@@ -297,8 +340,10 @@ public final class IntegratedNavigationActivity extends Activity {
 
         Button fuel = Ui.button(this, "⛽ Tankstellen");
         panel.addView(fuel);
-        fuel.setOnClickListener(v -> startActivity(
-            new Intent(this, FuelActivity.class)));
+        fuel.setOnClickListener(v -> startActivityForResult(
+            new Intent(this, FuelActivity.class)
+                .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
+            FUEL_PICK_REQUEST));
         Button saphe = Ui.button(this, "Saphe öffnen");
         panel.addView(saphe);
         saphe.setOnClickListener(v -> {
@@ -318,6 +363,30 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Eine kostenrelevante Route wird nur nach Bestätigung gestartet.",
             11, Ui.MUTED, false));
         setContentView(root);
+        // Keep interactive content away from Android's navigation/status bars
+        // and the IME. While typing a destination, temporarily hide the map;
+        // it returns to the fixed 70/30 layout as soon as the keyboard closes.
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            android.graphics.Insets keyboard = insets.getInsets(WindowInsets.Type.ime());
+            boolean keyboardVisible = insets.isVisible(WindowInsets.Type.ime())
+                && keyboard.bottom > 0;
+            root.setPadding(bars.left, bars.top, bars.right,
+                CockpitLayoutRules.safeBottomInset(bars.bottom, keyboard.bottom));
+            int mapVisibility = CockpitLayoutRules.shouldShowMap(keyboardVisible)
+                ? View.VISIBLE : View.GONE;
+            if (mapPane.getVisibility() != mapVisibility)
+                mapPane.setVisibility(mapVisibility);
+            if (keyboardVisible && routePanel.getVisibility() == View.VISIBLE
+                    && destination.hasFocus()) {
+                scroll.post(() -> destination.requestRectangleOnScreen(
+                    new android.graphics.Rect(0, 0,
+                        destination.getWidth(), destination.getHeight()), true));
+            }
+            return insets; // Let the Google NavigationView receive its insets too.
+        });
+        root.requestApplyInsets();
 
         if (BuildConfig.GOOGLE_ONLY && (engine == null || !engine.configured())) {
             // Fail closed: never silently reveal a MapLibre or external
@@ -402,6 +471,42 @@ public final class IntegratedNavigationActivity extends Activity {
             .setItems(values.toArray(new String[0]),
                 (dialog, which) -> destination.setText(values.get(which)))
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
+            .show();
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != FUEL_PICK_REQUEST || resultCode != RESULT_OK || data == null)
+            return;
+        double lat = data.getDoubleExtra(FuelActivity.RESULT_LATITUDE, Double.NaN);
+        double lng = data.getDoubleExtra(FuelActivity.RESULT_LONGITUDE, Double.NaN);
+        String coords = FuelRules.stationCoordinates(lat, lng);
+        if (coords == null) {
+            showStatus("Tankstelle hat ungültige Zielkoordinaten.");
+            return;
+        }
+        String name = RouteTargetRules.clean(
+            data.getStringExtra(FuelActivity.RESULT_NAME));
+        if (name == null) name = "Tankstelle";
+        chosenTarget = coords;
+        destination.setText(coords);
+        if (engine == null || !engine.ready()) {
+            showStatus("Tankstelle übernommen. Navigation noch nicht bereit.");
+            return;
+        }
+        // No silent Google route switch or billable request: require consent.
+        final String chosenName = name;
+        new AlertDialog.Builder(this)
+            .setTitle("Google Navigation: Tankstelle anfahren")
+            .setMessage(chosenName + "\nZielkoordinaten: " + coords
+                + "\n\nDie neue Route ersetzt nach Bestätigung gegebenenfalls "
+                + "die bisherige Route. Die Berechnung zählt gegen die "
+                + "Google-Navigation-SDK-Quote.")
+            .setNegativeButton("Abbrechen", (dialog, which) -> {})
+            .setPositiveButton("Route berechnen", (dialog, which) -> {
+                if (engine != null && engine.ready())
+                    engine.startConfirmedRoute(lat, lng, chosenName);
+            })
             .show();
     }
 
@@ -516,6 +621,16 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
 
+    private void updateScreenAwake(boolean routeActive) {
+        if (routeActive) {
+            // Only an active route keeps the display awake. It cannot defeat
+            // a manual power-button lock or system-enforced security policy.
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+    }
+
     private void showStatus(String message) {
         if (status != null) status.setText(message);
     }
@@ -560,6 +675,7 @@ public final class IntegratedNavigationActivity extends Activity {
     @Override protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         if (engine != null) engine.onDestroy(isFinishing());
+        updateScreenAwake(false);
         super.onDestroy();
     }
     @Override protected void onSaveInstanceState(Bundle bundle) {

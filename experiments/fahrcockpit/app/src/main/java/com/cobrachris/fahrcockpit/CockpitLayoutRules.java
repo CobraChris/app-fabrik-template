@@ -18,4 +18,14 @@ final class CockpitLayoutRules {
         return landscape ? IntegratedNavigationRules.CONTROLS_WEIGHT
                          : PORTRAIT_CONTROLS_WEIGHT;
     }
+
+    // While the keyboard is on screen, give the destination input the full
+    // usable viewport. Restore the permanent 70/30 split after dismissal.
+    static boolean shouldShowMap(boolean keyboardVisible) {
+        return !keyboardVisible;
+    }
+
+    static int safeBottomInset(int systemBarBottom, int keyboardBottom) {
+        return Math.max(systemBarBottom, keyboardBottom);
+    }
 }
