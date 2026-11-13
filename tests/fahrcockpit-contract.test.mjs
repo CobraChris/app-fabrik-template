@@ -426,8 +426,8 @@ test('v21 Google SDK quota/auth failures are typed and shown without fake OSM na
  assert.match(google,/NavigationProviderPolicy\.Failure\.LOCAL_REQUEST_LIMIT/);
  assert.match(screen,/new NavigationEngine\.Status\(\)/);
  assert.match(screen,/showProviderFailure\(reason\)/);
- assert.match(screen,/NavigationProviderPolicy\.fallback\(reason,\s*false\)/);
- assert.match(screen,/OSM-Ersatznavigation ist noch nicht installiert/);
+  assert.match(screen,/if \(BuildConfig\.GOOGLE_ONLY\) \{/);
+  assert.match(screen,/Es wird keine Ersatzkarte oder neue kostenpflichtige/);
 });
 
 test('v21 independent BRouter offline routing bridge validates GeoJSON and never uses Google SDK data',()=>{
