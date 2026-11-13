@@ -603,3 +603,28 @@ test('standalone v21 preview never exposes Samsung split controls and survives a
  assert.doesNotMatch(separate,/Google Maps \+ Spotify kostenlos starten|startSplitAndMaps\(\)/);
  assert.doesNotMatch(main,/BuildConfig\.VISUAL_PREVIEW && savedInstanceState == null/);
 });
+
+test('v21 landscape still 70/30 while portrait keeps Spotify usable; OSM centers on Android GPS',()=>{
+ const screen=java('IntegratedNavigationActivity');
+ const policy=java('CockpitLayoutRules');
+ const center=java('MapCenterRules');
+ const osm=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmRoutingPreviewEngine.java');
+ assert.match(policy,/PORTRAIT_MAP_WEIGHT = 9/);
+ assert.match(policy,/PORTRAIT_CONTROLS_WEIGHT = 11/);
+ assert.match(policy,/IntegratedNavigationRules.MAP_WEIGHT/);
+ assert.match(policy,/IntegratedNavigationRules.CONTROLS_WEIGHT/);
+ assert.match(screen,/CockpitLayoutRules.mapWeight\(false\)/);
+ assert.match(screen,/CockpitLayoutRules.controlsWeight\(false\)/);
+ assert.match(screen,/sideToggle.setVisibility\(landscape \? View.VISIBLE : View.GONE\)/);
+ assert.match(osm,/◎ Meine Position/);
+ assert.match(osm,/centerOnAndroidPosition\(false\)/);
+ assert.match(osm,/centerOnAndroidPosition\(true\)/);
+ assert.match(osm,/getLastKnownLocation\(provider\)/);
+ assert.match(osm,/getCurrentLocation\(provider, centerCancellation/);
+ assert.match(osm,/new CircleLayer\(USER_LAYER,USER_SOURCE\)/);
+ assert.match(osm,/cancelCenterRequest\(\)/);
+ assert.match(osm,/MapCenterRules.acceptable\(/);
+ assert.match(center,/MAX_AGE_MS = 180_000L/);
+ assert.match(center,/MAX_ACCURACY_METERS = 250f/);
+ assert.doesNotMatch(osm,/GoogleNavigationEngine|NAVSDK_API_KEY/);
+});

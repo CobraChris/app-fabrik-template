@@ -56,3 +56,10 @@ Die OSM-CI erzeugt nun mit `-PwithOsmFallback=true -PvisualPreview=true` eine un
 
 GitHub Actions lädt eine kurzlebige, Android-typisch debug-signierte APK nur als **CI-Artefakt** hoch (7 Tage); kein GitHub-Release, keine Originalsignierung, kein Upgrade von v20 und keine Installation. Die Debug-Signatur kann bei erneuten CI-Builds wechseln: Folgeversionen dieses unabhängigen Sichttests sind daher nicht als reguläre Updates zugesichert. Für eine dauerhaft updatefähige v21 mit Originalpaket und Google SDK muss die bestehende geschützte Releasepipeline gesondert freigegeben und korrekt auf beide Module konfiguriert werden.
 
+
+## 13.11.2026 – Bildschirmtest: Weltkarte und verdecktes Spotify behoben
+
+Hardware-Screenshots der unabhängig installierten v21-Vorschau zeigten die OSM-Karte beim ersten Start in der Weltansicht und zu wenig Raum für Spotify im Hochformat. Im **Querformat bleibt der native 70/30-Split unverändert**, einschließlich persistentem Links-/Rechts-Umschalter. Im **Hochformat wird die Kartenhöhe auf 45 % und der separat scrollbar bedienbare Spotify-/Einstellungsbereich auf 55 %** gesetzt. Der deaktivierte Links-/Rechts-Umschalter wird im Hochformat ausgeblendet.
+
+Die kostenlose MapLibre-OSM-Engine zentriert bei vorhandener Feinstandortberechtigung einmalig auf einen zeitlich frischen Android-GPS-/Netzwerkfix (max. 3 min alt, Genauigkeit <=250 m). Der neue gut sichtbare **„◎ Meine Position“**-Knopf rechts oben erlaubt die jederzeitige manuelle Neuzentrierung. Ein blauer, weiß umrandeter Positionspunkt zeigt nur den unabhängig ermittelten Android-Standort. Fehlende Berechtigungen, deaktivierter Standort oder ungenaue/stale Fixes werden nicht als gültige Position vorgetäuscht. Ausstehende Standortabfragen werden bei Hintergrundwechsel/Schließen abgebrochen. Es werden keine Google-Maps-SDK-Daten an OSM weitergegeben und keine neuen kostenpflichtigen Dienste eingebunden.
+

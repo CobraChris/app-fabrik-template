@@ -77,7 +77,7 @@ public final class IntegratedNavigationActivity extends Activity {
             ? new LinearLayout.LayoutParams(0, -1,
                 IntegratedNavigationRules.MAP_WEIGHT)
             : new LinearLayout.LayoutParams(-1, 0,
-                IntegratedNavigationRules.MAP_WEIGHT);
+                CockpitLayoutRules.mapWeight(false));
         // Add the map and Spotify panes in the chosen order below.
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(false);
@@ -86,7 +86,7 @@ public final class IntegratedNavigationActivity extends Activity {
             ? new LinearLayout.LayoutParams(0, -1,
                 IntegratedNavigationRules.CONTROLS_WEIGHT)
             : new LinearLayout.LayoutParams(-1, 0,
-                IntegratedNavigationRules.CONTROLS_WEIGHT);
+                CockpitLayoutRules.controlsWeight(false));
         if (landscape && spotifyLeft) {
             root.addView(scroll, controlParams);
             root.addView(mapPane, mapParams);
@@ -128,6 +128,8 @@ public final class IntegratedNavigationActivity extends Activity {
         Button sideToggle = Ui.button(this,
             CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
         sideToggle.setEnabled(landscape);
+        // The greyed-out horizontal control wasted portrait screen height.
+        sideToggle.setVisibility(landscape ? View.VISIBLE : View.GONE);
         panel.addView(sideToggle);
         sideToggle.setOnClickListener(v -> {
             // Layout reparenting, not Activity recreation: preserve the active

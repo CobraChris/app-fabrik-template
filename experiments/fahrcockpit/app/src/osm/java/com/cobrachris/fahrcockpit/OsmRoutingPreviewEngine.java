@@ -25,9 +25,15 @@ import org.maplibre.android.maps.MapLibreMap;
 import org.maplibre.android.maps.MapView;
 import org.maplibre.android.maps.Style;
 import org.maplibre.android.style.layers.LineLayer;
+import org.maplibre.android.style.layers.CircleLayer;
 import org.maplibre.android.style.sources.GeoJsonSource;
 import static org.maplibre.android.style.layers.PropertyFactory.lineColor;
 import static org.maplibre.android.style.layers.PropertyFactory.lineWidth;
+import static org.maplibre.android.style.layers.PropertyFactory.circleColor;
+import static org.maplibre.android.style.layers.PropertyFactory.circleRadius;
+import static org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor;
+import static org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth;
+import java.util.Locale;
 
 /**
  * EXPERIMENTAL: native OSM/BRouter turn guidance, foreground location tracking,
@@ -40,6 +46,8 @@ import static org.maplibre.android.style.layers.PropertyFactory.lineWidth;
  */
 public final class OsmRoutingPreviewEngine implements NavigationEngine {
     private static final String SOURCE = "fahrcockpit-brouter-route-source";
+    private static final String USER_SOURCE = "fahrcockpit-android-position-source";
+    private static final String USER_LAYER = "fahrcockpit-android-position-circle";
     private static final String LAYER = "fahrcockpit-brouter-route-line";
     private static final String EMPTY =
         "{\"type\":\"FeatureCollection\",\"features\":[]}";
@@ -63,6 +71,10 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
     private double destinationLat, destinationLon;
     private long lastRerouteElapsed;
     private String lastVisualInstruction;
+    private boolean initiallyCentered;
+    private boolean locationCenterPending;
+    private int centerEpoch;
+    private CancellationSignal centerCancellation;
 
     public OsmRoutingPreviewEngine(Activity activity) { host=activity; }
     @Override public boolean configured() { return true; }
@@ -84,6 +96,20 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
             Gravity.BOTTOM|Gravity.LEFT);
         credit.setMargins(8,8,8,28);
         container.addView(attribution,credit);
+        TextView myPosition = new TextView(host);
+        myPosition.setText("◎ Meine Position");
+        myPosition.setTextColor(Color.WHITE);
+        myPosition.setTextSize(14f);
+        myPosition.setGravity(Gravity.CENTER);
+        myPosition.setBackgroundColor(0xe6223540);
+        myPosition.setPadding(Ui.dp(host,14),Ui.dp(host,8),
+            Ui.dp(host,14),Ui.dp(host,8));
+        myPosition.setMinHeight(Ui.dp(host,48));
+        FrameLayout.LayoutParams positionParams = new FrameLayout.LayoutParams(
+            -2, -2, Gravity.TOP | Gravity.RIGHT);
+        positionParams.setMargins(0,Ui.dp(host,14),Ui.dp(host,14),0);
+        container.addView(myPosition,positionParams);
+        myPosition.setOnClickListener(v -> centerOnAndroidPosition(true));
         attribution.setOnClickListener(v -> new android.app.AlertDialog.Builder(host)
             .setTitle("OSM Kartendaten")
             .setMessage("© OpenStreetMap contributors (ODbL), Karten: OpenFreeMap. "
@@ -97,6 +123,7 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
             map.setStyle(new Style.Builder().fromUri(STYLE), style -> {
                 if(closed)return;
                 styleReady=true;
+                centerOnAndroidPosition(false); // First useful viewport, not world.
                 status.onStatus(BRouterOfflineRouteClient.available(host)
                     ? "OSM-Karte bereit. BRouter-Abbiegeführung im Entwicklungstest. "
                         + "Nicht während der Fahrt benutzen."
@@ -108,8 +135,106 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
     }
 
     @Override public void initializeAfterLocationPermission() {
-        if(!closed && status!=null)
-            status.onStatus("GPS-Freigabe erkannt. OSM-Testroute kann geplant werden.");
+        if(!closed && status!=null) {
+            status.onStatus("GPS-Freigabe erkannt. OSM-Testkarte wird zentriert.");
+            centerOnAndroidPosition(false);
+        }
+    }
+
+    private void centerOnAndroidPosition(boolean explicit) {
+        if (closed || !styleReady || !foreground) return;
+        if (!explicit && initiallyCentered) return;
+        if (host.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            if (explicit && status != null)
+                status.onStatus("Für 'Meine Position' bitte Standort erlauben.");
+            return;
+        }
+        if (locationCenterPending) return;
+        LocationManager lm = locationManager();
+        Location selected = null;
+        try {
+            for (String provider : new String[] {
+                    LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER}) {
+                if (!lm.isProviderEnabled(provider)) continue;
+                Location candidate = lm.getLastKnownLocation(provider);
+                if (!validMapFix(candidate)) continue;
+                if (selected == null || candidate.getTime() > selected.getTime())
+                    selected = candidate;
+            }
+            if (selected != null) {
+                applyAndroidPosition(selected, explicit);
+                return;
+            }
+            String provider = lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+                ? LocationManager.NETWORK_PROVIDER
+                : (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    ? LocationManager.GPS_PROVIDER : null);
+            if (provider == null) {
+                if (explicit) status.onStatus("Standortdienste sind ausgeschaltet.");
+                return;
+            }
+            locationCenterPending = true;
+            final int expected = ++centerEpoch;
+            centerCancellation = new CancellationSignal();
+            lm.getCurrentLocation(provider, centerCancellation,
+                host.getMainExecutor(), fix -> {
+                    if (closed || expected != centerEpoch) return;
+                    locationCenterPending = false;
+                    centerCancellation = null;
+                    if (validMapFix(fix)) applyAndroidPosition(fix, explicit);
+                    else if (explicit && status != null)
+                        status.onStatus("Noch kein ausreichend genauer Standort. "
+                            + "Im Freien erneut versuchen.");
+                });
+        } catch (SecurityException | IllegalArgumentException unavailable) {
+            locationCenterPending = false;
+            centerCancellation = null;
+            if (explicit && status != null)
+                status.onStatus("Android-Standort konnte nicht abgerufen werden.");
+        }
+    }
+
+    private static boolean validMapFix(Location fix) {
+        return fix != null && fix.hasAccuracy()
+            && MapCenterRules.acceptable(fix.getLatitude(),fix.getLongitude(),
+                fix.getAccuracy(),fix.getTime(),System.currentTimeMillis());
+    }
+
+    private void applyAndroidPosition(Location fix, boolean explicit) {
+        if (closed || !styleReady || map == null) return;
+        initiallyCentered = true;
+        double lat = fix.getLatitude(), lon = fix.getLongitude();
+        map.animateCamera(CameraUpdateFactory.newLatLngZoom(
+            new LatLng(lat,lon),15.0));
+        String marker = String.format(Locale.US,
+            "{\"type\":\"Feature\",\"geometry\":{\"type\":\"Point\","
+            + "\"coordinates\":[%.7f,%.7f]},\"properties\":{}}",lon,lat);
+        map.getStyle(style -> {
+            if (closed) return;
+            GeoJsonSource pos = (GeoJsonSource)style.getSource(USER_SOURCE);
+            if (pos == null) {
+                style.addSource(new GeoJsonSource(USER_SOURCE,marker));
+                style.addLayer(new CircleLayer(USER_LAYER,USER_SOURCE)
+                    .withProperties(circleColor(Color.rgb(40,128,250)),
+                                    circleRadius(8f),
+                                    circleStrokeColor(Color.WHITE),
+                                    circleStrokeWidth(2.5f)));
+            } else {
+                pos.setGeoJson(marker);
+            }
+        });
+        if (explicit && status != null)
+            status.onStatus("Karte auf meine Android-Position zentriert.");
+    }
+
+    private void cancelCenterRequest() {
+        ++centerEpoch;
+        locationCenterPending = false;
+        if (centerCancellation != null) {
+            centerCancellation.cancel();
+            centerCancellation = null;
+        }
     }
 
     @Override public boolean ready() {
@@ -335,10 +460,12 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
     @Override public void onResume() {
         foreground=true;
         if(view!=null)view.onResume();
+        centerOnAndroidPosition(false);
         startGpsTracking();
     }
     @Override public void onPause() {
         foreground=false;
+        cancelCenterRequest();
         stopGpsTracking();
         if(voice!=null)voice.stop();
         if(view!=null)view.onPause();
@@ -346,6 +473,7 @@ public final class OsmRoutingPreviewEngine implements NavigationEngine {
     @Override public void onStop() {if(view!=null)view.onStop();}
     @Override public void onDestroy(boolean finishing) {
         closed=true;
+        cancelCenterRequest();
         requestEpoch++;
         pending.set(false);
         guidance=null;
