@@ -77,7 +77,9 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                         status.onStatus("Standortberechtigung wurde entzogen.");
                     }
                 });
-                status.onStatus("Google Navigation bereit · bitte Ziel wählen.");
+                // SDK can resume an already selected route after Activity restore.
+                // Do not incorrectly demand a new destination when reconnecting.
+                status.onStatus("Google Navigation bereit.");
             }
 
             @Override public void onError(@NavigationApi.ErrorCode int code) {
