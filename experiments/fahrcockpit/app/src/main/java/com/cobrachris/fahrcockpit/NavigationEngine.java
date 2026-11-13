@@ -13,6 +13,8 @@ interface NavigationEngine {
         void onStatus(String message);
         /** Typed failure path, without changing the existing functional interface. */
         default void onGoogleFailure(NavigationProviderPolicy.Failure reason) {}
+        /** Active guidance affects the host window's keep-awake flag. */
+        default void onGuidanceStateChanged(boolean active) {}
     }
 
     boolean configured();
@@ -21,6 +23,8 @@ interface NavigationEngine {
     boolean ready();
     void startConfirmedRoute(double lat, double lng, String label);
     void stopGuidanceAndClearRoute();
+    /** Explicit user preference; does not start or alter a route. */
+    default void setVoiceMuted(boolean muted) {}
     void onStart();
     void onResume();
     void onPause();
