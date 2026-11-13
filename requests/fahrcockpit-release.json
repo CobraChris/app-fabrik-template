@@ -1,7 +1,8 @@
 {
-  "schema": 1,
+  "schema": 2,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-12-fahrcockpit-v20-free-app-pair",
-  "source_sha": "06aad47288228574881e1bd583e43f31399d9a69",
-  "expected_version_code": 20
+  "request_id": "2026-11-13-fahrcockpit-v21-google-only",
+  "source_sha": "d5864d7e90c1600450e8cfb0611f27e5a3a65b6a",
+  "expected_version_code": 21,
+  "variant": "google-sdk-only"
 }
