@@ -41,6 +41,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private EditText destination;
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
+    private Button voiceButton;
     private boolean touchingSeek;
     private String chosenTarget;
     private long totalDuration = -1;
@@ -115,6 +116,9 @@ public final class IntegratedNavigationActivity extends Activity {
                             NavigationProviderPolicy.Failure reason) {
                         runOnUiThread(() -> showProviderFailure(reason));
                     }
+                    @Override public void onGuidanceStateChanged(boolean active) {
+                        runOnUiThread(() -> updateScreenAwake(active));
+                    }
                 });
             mapPane.addView(navigation, new FrameLayout.LayoutParams(-1, -1));
         } else {
@@ -147,6 +151,22 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Hier ist kein Google-SDK enthalten.",
                 13, Ui.WARN, true));
         }
+        voiceButton = Ui.button(this,
+            NavigationVoicePreferences.buttonLabel(
+                NavigationVoicePreferences.isMuted(this)));
+        voiceButton.setContentDescription("Google-Navigationsansagen an- oder ausschalten");
+        // Keep this one-touch mute control above the scrollable Spotify section.
+        voiceButton.setOnClickListener(v -> {
+            boolean muted = !NavigationVoicePreferences.isMuted(this);
+            if (!NavigationVoicePreferences.save(this, muted)) {
+                showStatus("Einstellung für Navigationsansagen konnte nicht gespeichert werden.");
+                return;
+            }
+            if (engine != null) engine.setVoiceMuted(muted);
+            voiceButton.setText(NavigationVoicePreferences.buttonLabel(muted));
+        });
+        panel.addView(voiceButton);
+
         Button sideToggle = Ui.button(this,
             landscape ? (spotifyLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
                 : CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
@@ -601,6 +621,16 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
 
+    private void updateScreenAwake(boolean routeActive) {
+        if (routeActive) {
+            // Only an active route keeps the display awake. It cannot defeat
+            // a manual power-button lock or system-enforced security policy.
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+    }
+
     private void showStatus(String message) {
         if (status != null) status.setText(message);
     }
@@ -645,6 +675,7 @@ public final class IntegratedNavigationActivity extends Activity {
     @Override protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         if (engine != null) engine.onDestroy(isFinishing());
+        updateScreenAwake(false);
         super.onDestroy();
     }
     @Override protected void onSaveInstanceState(Bundle bundle) {
