@@ -149,7 +149,7 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         try {
             ListenableResultFuture<Navigator.RouteStatus> request =
                 navigator.setDestination(waypoint, options);
-            request.setOnResultListener(result -> {
+            request.setOnResultListener(result -> host.runOnUiThread(() -> {
             if (closed || requestGeneration != routeGeneration
                     || host.isFinishing() || host.isDestroyed()) return;
             calculating = false;
@@ -162,7 +162,8 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                 status.onGuidanceStateChanged(true);
                 status.onStatus("Echte Google-Abbiegenavigation in FahrCockpit aktiv.");
             } else {
-                startedRoute = false;
+                startedRoute = navigator.isGuidanceRunning();
+                status.onGuidanceStateChanged(startedRoute);
                 if (result == Navigator.RouteStatus.QUOTA_CHECK_FAILED) {
                     status.onGoogleFailure(
                         NavigationProviderPolicy.Failure.NAVIGATION_QUOTA_EXHAUSTED);
@@ -175,7 +176,7 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                     status.onStatus("Google-Route nicht verfügbar: " + result);
                 }
             }
-            });
+            }));
         } catch (RuntimeException routeFailure) {
             calculating = false;
             status.onGoogleFailure(
@@ -184,6 +185,10 @@ public final class GoogleNavigationEngine implements NavigationEngine {
     }
 
     private void applyAudioPreference() {
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
+            host.runOnUiThread(this::applyAudioPreference);
+            return;
+        }
         if (navigator == null || closed) return;
         // Google Navigation SDK 7.6.1 uses integer AudioGuidance flags.
         // This UI-thread call has no billable route request.
