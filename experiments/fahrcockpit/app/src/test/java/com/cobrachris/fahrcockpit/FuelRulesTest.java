@@ -20,6 +20,14 @@ public final class FuelRulesTest {
         assertTrue(url.startsWith("https://creativecommons.tankerkoenig.de/json/list.php?"));
         assertTrue(url.contains("rad=10&type=e10&sort=price&apikey=" + KEY));
     }
+    @Test public void acceptsFuelStationCoordinatesWithoutNavigationRequest() {
+        assertEquals("53.551100,10.000000",
+            FuelRules.stationCoordinates(53.5511, 10.0));
+        assertNull(FuelRules.stationCoordinates(Double.NaN, 10.0));
+        assertNull(FuelRules.stationCoordinates(91.0, 10.0));
+        assertNull(FuelRules.stationCoordinates(35.68, 139.69));
+    }
+
     @Test(expected=IllegalArgumentException.class)
     public void blocksExcessiveRadius() {
         FuelRules.requestUrl(KEY, 53.55, 10, 50, "e5");
