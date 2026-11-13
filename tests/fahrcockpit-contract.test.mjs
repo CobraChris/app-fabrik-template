@@ -570,3 +570,22 @@ test('v21 permanent fixed 70/30 has persisted Spotify left-right switching',()=>
   assert.match(html,/sideSwitch/);
   assert.strictEqual(html,asset);
 });
+
+test('v21 standalone visual preview uses separate package and never the protected release certificate',()=>{
+ const gradle=read('app/build.gradle');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ const main=java('MainActivity');
+ const osmWorkflow=read('../.github/workflows/fahrcockpit-osm-compile.yml');
+ assert.match(gradle,/visualPreview.*providers\.gradleProperty\('visualPreview'\)/s);
+ assert.match(gradle,/applicationIdSuffix '\.preview'/);
+ assert.match(gradle,/if \(visualPreview && \(!withOsmFallback \|\| withGoogleNavSdk\)\)/);
+ assert.match(gradle,/buildConfigField 'boolean', 'VISUAL_PREVIEW'/);
+ assert.match(manifest,/android:label="\$\{appDisplayName\}"/);
+ assert.match(main,/BuildConfig\.VISUAL_PREVIEW && savedInstanceState == null/);
+ assert.match(main,/IntegratedNavigationActivity\.EXTRA_FORCE_OSM_TEST, true/);
+ assert.match(main,/Feste 70\/30-Ansicht mit OSM-Karte öffnen/);
+ assert.match(osmWorkflow,/visualPreview=true :app:assembleDebug/);
+ assert.match(osmWorkflow,/com\.cobrachris\.fahrcockpit\.preview/);
+ assert.match(osmWorkflow,/fahrcockpit-v21-visual-preview-debug-only/);
+ assert.doesNotMatch(osmWorkflow,/FAHRCOCKPIT_SIGNING_KEYSTORE_BASE64|gh release create/);
+});

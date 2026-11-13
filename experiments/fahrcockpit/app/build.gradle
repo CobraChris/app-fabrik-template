@@ -9,6 +9,12 @@ def withGoogleNavSdk = providers.gradleProperty('withGoogleNavSdk')
 // Never included silently in the normal protected signed release.
 def withOsmFallback = providers.gradleProperty('withOsmFallback')
     .orElse('false').get().toBoolean()
+// Temporary side-by-side visual preview: never uses the signed release package.
+def visualPreview = providers.gradleProperty('visualPreview')
+    .orElse('false').get().toBoolean()
+if (visualPreview && (!withOsmFallback || withGoogleNavSdk)) {
+    throw new GradleException('Standalone visual preview is OSM-only and requires -PwithOsmFallback=true')
+}
 def googleNavKey = System.getenv('FAHRCOCKPIT_NAV_SDK_KEY') ?: ''
 if (googleNavKey && !(googleNavKey ==~ /AIza[A-Za-z0-9_-]{25,90}/)) {
     throw new GradleException('FAHRCOCKPIT_NAV_SDK_KEY has an unexpected format')
@@ -22,11 +28,15 @@ android {
     compileSdk = (withGoogleNavSdk || withOsmFallback) ? 36 : 35
     defaultConfig {
         applicationId 'com.cobrachris.fahrcockpit'
+        if (visualPreview) applicationIdSuffix '.preview'
+        manifestPlaceholders = [appDisplayName: visualPreview
+            ? 'FahrCockpit v21 Vorschau' : 'FahrCockpit (Test)']
         minSdk 30
         targetSdk withGoogleNavSdk ? 36 : 35
         versionCode 21
         versionName '0.9.19-beta'
         buildConfigField 'String', 'NAVSDK_API_KEY', '"' + googleNavKey + '"'
+        buildConfigField 'boolean', 'VISUAL_PREVIEW', visualPreview.toString()
         if (withGoogleNavSdk) multiDexEnabled true
     }
     buildFeatures {

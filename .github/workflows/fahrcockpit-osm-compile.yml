@@ -50,3 +50,33 @@ jobs:
           gradle --no-daemon -p experiments/fahrcockpit \
             -PwithGoogleNavSdk=true -PwithOsmFallback=true \
             :app:assembleDebug
+
+      - name: Side-by-side v21 visual preview (separate debug package)
+        env:
+          FAHRCOCKPIT_NAV_SDK_KEY: ''
+        run: |
+          set -euo pipefail
+          gradle --no-daemon -p experiments/fahrcockpit \
+            -PwithOsmFallback=true -PvisualPreview=true :app:assembleDebug
+          python3 - <<'PY'
+          import json
+          p='experiments/fahrcockpit/app/build/outputs/apk/debug/output-metadata.json'
+          with open(p,encoding='utf-8') as stream:
+              metadata=json.load(stream)
+          assert metadata['applicationId']=='com.cobrachris.fahrcockpit.preview'
+          assert len(metadata.get('elements',[]))==1
+          assert metadata['elements'][0]['versionCode']==21
+          print('Separate preview package verified: original app untouched')
+          PY
+          apk=experiments/fahrcockpit/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          apksigner="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner | sort -V | tail -n 1)"
+          "$apksigner" verify "$apk"
+          cp "$apk" fahrcockpit-v21-visual-preview.apk
+      - name: Upload short-lived visual-only APK artifact (no release)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: fahrcockpit-v21-visual-preview-debug-only
+          path: fahrcockpit-v21-visual-preview.apk
+          retention-days: 7
+          if-no-files-found: error

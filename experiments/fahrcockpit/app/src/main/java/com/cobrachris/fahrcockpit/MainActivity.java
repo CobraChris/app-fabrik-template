@@ -41,6 +41,14 @@ public final class MainActivity extends Activity {
             Ui.dp(this, 22), Ui.dp(this, 40));
         scroll.addView(root);
         setContentView(scroll);
+        if (BuildConfig.VISUAL_PREVIEW && savedInstanceState == null) {
+            // Launch the native 70/30 screen immediately for a design test.
+            // Force the real OSM map, never attempt Google billing or a
+            // restricted-key request from the separate .preview package.
+            scroll.post(() -> startActivity(new Intent(this,
+                IntegratedNavigationActivity.class).putExtra(
+                IntegratedNavigationActivity.EXTRA_FORCE_OSM_TEST, true)));
+        }
         getWindow().getDecorView().setOnApplyWindowInsetsListener((view, insets) -> {
             android.graphics.Insets bars =
                 insets.getInsets(android.view.WindowInsets.Type.systemBars());
@@ -48,7 +56,20 @@ public final class MainActivity extends Activity {
             return insets;
         });
 
-        root.addView(Ui.text(this, "FahrCockpit", 30, Ui.FG, true));
+        root.addView(Ui.text(this, BuildConfig.VISUAL_PREVIEW
+            ? "FahrCockpit v21 – Sichttest" : "FahrCockpit", 30, Ui.FG, true));
+        if (BuildConfig.VISUAL_PREVIEW) {
+            Ui.section(this, root, "Feste 70/30-Ansicht auf dem Gerät",
+                "Diese unabhängige Vorschau nutzt eine echte OSM-Karte, "
+                + "aber NICHT das Google Navigation SDK. "
+                + "Die originale FahrCockpit v20 bleibt installiert.");
+            Button showNative = Ui.button(this,
+                "Feste 70/30-Ansicht mit OSM-Karte öffnen");
+            root.addView(showNative);
+            showNative.setOnClickListener(v -> startActivity(new Intent(this,
+                IntegratedNavigationActivity.class).putExtra(
+                IntegratedNavigationActivity.EXTRA_FORCE_OSM_TEST,true)));
+        }
         root.addView(Ui.text(this,
             "Google-Karte und Spotify haben getrennte Bildschirmbereiche. " +
             "Die bereits vorhandene Google-Demo-Einrichtung kann ohne " +

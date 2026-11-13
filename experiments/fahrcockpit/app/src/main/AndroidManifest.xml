@@ -24,7 +24,7 @@
         android:allowBackup="false"
         android:usesCleartextTraffic="false"
         android:icon="@android:drawable/ic_menu_compass"
-        android:label="FahrCockpit (Test)"
+        android:label="${appDisplayName}"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
         <activity android:name=".MainActivity" android:exported="true"

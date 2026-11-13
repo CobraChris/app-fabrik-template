@@ -49,3 +49,10 @@ Im eigenständigen festen 70/30-Cockpit kann der Nutzer **im Querformat** den Sp
 
 Die Browser-/In-App-Vorschau hat ebenfalls einen „⇄ Spotify links/rechts“-Umschalter mit CSS-`row-reverse` im Querformat. Im externen Browser wird die Auswahl mit LocalStorage gespeichert; in der abgesicherten lokalen WebView mit deaktiviertem DOM-Storage dient der Knopf ausschließlich der unmittelbar sichtbaren Vorschau. Die **native** FahrCockpit-Einstellung ist davon unabhängig persistent. Keine neuen API-Aufrufe, Bibliotheken, Berechtigungen oder Kosten; geschützte v20 bleibt unverändert.
 
+
+## 13.11.2026 – Separat installierbare visuelle Android-Probe
+
+Die OSM-CI erzeugt nun mit `-PwithOsmFallback=true -PvisualPreview=true` eine unabhängige **Debug-Sichttest-App** unter Paket `com.cobrachris.fahrcockpit.preview` und dem Namen „FahrCockpit v21 Vorschau“. Sie kann **neben** der normal signierten v20 stehen, ohne Paket oder Einstellungen der v20 zu überschreiben. Nach App-Start öffnet sich sofort die **native feste 70/30-Oberfläche** mit MapLibre-OSM-Karte, Spotify-Steuerung sowie dem links/rechts-Umschalter. Über „Zurück“ gelangt man zu den Vorschau-Optionen. Es wird **kein Google Navigation SDK und kein Google API-Key** verwendet, weil der ursprüngliche Google-Schlüssel auf den Originalpaketnamen eingeschränkt ist. Der experimentelle OSM-Navigator bleibt ausdrücklich nicht für Fahrten freigegeben.
+
+GitHub Actions lädt eine kurzlebige, Android-typisch debug-signierte APK nur als **CI-Artefakt** hoch (7 Tage); kein GitHub-Release, keine Originalsignierung, kein Upgrade von v20 und keine Installation. Die Debug-Signatur kann bei erneuten CI-Builds wechseln: Folgeversionen dieses unabhängigen Sichttests sind daher nicht als reguläre Updates zugesichert. Für eine dauerhaft updatefähige v21 mit Originalpaket und Google SDK muss die bestehende geschützte Releasepipeline gesondert freigegeben und korrekt auf beide Module konfiguriert werden.
+
