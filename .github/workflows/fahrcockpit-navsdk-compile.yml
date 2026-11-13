@@ -2,7 +2,7 @@ name: FahrCockpit – optionale Google Navigation SDK Kompilierung (OHNE Billing
 
 on:
   push:
-    branches: [feature/fahrcockpit-v20-integrated-navigation-gated, feature/fahrcockpit-blitzer-bridge, feature/fahrcockpit-v21-google-first-fallback]
+    branches: [feature/fahrcockpit-v20-integrated-navigation-gated, feature/fahrcockpit-blitzer-bridge, feature/fahrcockpit-v21-google-first-fallback, fix/fahrcockpit-v22-keyboard-insets-layout]
     paths:
       - 'experiments/fahrcockpit/**'
       - 'tests/fahrcockpit-contract.test.mjs'
