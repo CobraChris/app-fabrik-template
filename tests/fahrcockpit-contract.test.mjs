@@ -575,7 +575,7 @@ test('v21 standalone visual preview uses separate package and never the protecte
  const gradle=read('app/build.gradle');
  const manifest=read('app/src/main/AndroidManifest.xml');
  const main=java('MainActivity');
- const osmWorkflow=read('../.github/workflows/fahrcockpit-osm-compile.yml');
+ const osmWorkflow=read('../../.github/workflows/fahrcockpit-osm-compile.yml');
  assert.match(gradle,/visualPreview.*providers\.gradleProperty\('visualPreview'\)/s);
  assert.match(gradle,/applicationIdSuffix '\.preview'/);
  assert.match(gradle,/if \(visualPreview && \(!withOsmFallback \|\| withGoogleNavSdk\)\)/);
