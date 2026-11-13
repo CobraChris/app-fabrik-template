@@ -18,6 +18,13 @@ public final class FuelRules {
         return lat >= 47.1 && lat <= 55.2 && lng >= 5.5 && lng <= 15.6;
     }
 
+    // Pure validation for safe in-app handoff; never initiates a route request.
+    public static String stationCoordinates(double lat, double lng) {
+        if (!Double.isFinite(lat) || !Double.isFinite(lng)
+                || !inGermany(lat, lng)) return null;
+        return String.format(Locale.US, "%.6f,%.6f", lat, lng);
+    }
+
     public static String requestUrl(String key, double lat, double lng,
                                     int radiusKm, String type) {
         if (!validKey(key)) throw new IllegalArgumentException("Ungültiger API-Key");
