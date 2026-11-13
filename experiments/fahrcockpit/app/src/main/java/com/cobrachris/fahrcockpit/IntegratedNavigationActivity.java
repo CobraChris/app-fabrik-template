@@ -31,6 +31,7 @@ public final class IntegratedNavigationActivity extends Activity {
     static final String EXTRA_TARGET = "integrated_navigation_destination";
     static final String EXTRA_FORCE_OSM_TEST = "integrated_force_osm_test";
     private static final int LOCATION_REQUEST = 420;
+    private static final int FUEL_PICK_REQUEST = 421;
     private static final String STATE_TARGET = "target";
     private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -319,8 +320,10 @@ public final class IntegratedNavigationActivity extends Activity {
 
         Button fuel = Ui.button(this, "⛽ Tankstellen");
         panel.addView(fuel);
-        fuel.setOnClickListener(v -> startActivity(
-            new Intent(this, FuelActivity.class)));
+        fuel.setOnClickListener(v -> startActivityForResult(
+            new Intent(this, FuelActivity.class)
+                .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
+            FUEL_PICK_REQUEST));
         Button saphe = Ui.button(this, "Saphe öffnen");
         panel.addView(saphe);
         saphe.setOnClickListener(v -> {
@@ -448,6 +451,42 @@ public final class IntegratedNavigationActivity extends Activity {
             .setItems(values.toArray(new String[0]),
                 (dialog, which) -> destination.setText(values.get(which)))
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
+            .show();
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != FUEL_PICK_REQUEST || resultCode != RESULT_OK || data == null)
+            return;
+        double lat = data.getDoubleExtra(FuelActivity.RESULT_LATITUDE, Double.NaN);
+        double lng = data.getDoubleExtra(FuelActivity.RESULT_LONGITUDE, Double.NaN);
+        String coords = FuelRules.stationCoordinates(lat, lng);
+        if (coords == null) {
+            showStatus("Tankstelle hat ungültige Zielkoordinaten.");
+            return;
+        }
+        String name = RouteTargetRules.clean(
+            data.getStringExtra(FuelActivity.RESULT_NAME));
+        if (name == null) name = "Tankstelle";
+        chosenTarget = coords;
+        destination.setText(coords);
+        if (engine == null || !engine.ready()) {
+            showStatus("Tankstelle übernommen. Navigation noch nicht bereit.");
+            return;
+        }
+        // No silent Google route switch or billable request: require consent.
+        final String chosenName = name;
+        new AlertDialog.Builder(this)
+            .setTitle("Google Navigation: Tankstelle anfahren")
+            .setMessage(chosenName + "\nZielkoordinaten: " + coords
+                + "\n\nDie neue Route ersetzt nach Bestätigung gegebenenfalls "
+                + "die bisherige Route. Die Berechnung zählt gegen die "
+                + "Google-Navigation-SDK-Quote.")
+            .setNegativeButton("Abbrechen", (dialog, which) -> {})
+            .setPositiveButton("Route berechnen", (dialog, which) -> {
+                if (engine != null && engine.ready())
+                    engine.startConfirmedRoute(lat, lng, chosenName);
+            })
             .show();
     }
 
