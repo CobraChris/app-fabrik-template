@@ -92,7 +92,7 @@ jobs:
           p='experiments/fahrcockpit/app/build/outputs/apk/release/output-metadata.json'
           with open(p,encoding='utf-8') as f: meta=json.load(f)
           assert meta['applicationId']=='com.cobrachris.fahrcockpit'
-          assert meta['elements'][0]['versionCode']==21
+          assert meta['elements'][0]['versionCode']==22
           assert meta['elements'][0]['outputFile']=='app-release-unsigned.apk'
-          print('Verified: Google-only v21 original package, unsigned, no API key.')
+          print('Verified: Google-only v22 original package, unsigned, no API key.')
           PY
