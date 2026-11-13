@@ -62,6 +62,10 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             @Override public void onNavigatorReady(Navigator result) {
                 if (closed || host.isFinishing() || host.isDestroyed()) return;
                 navigator = result;
+                // Navigator is a singleton and may still guide after rotation.
+                startedRoute = navigator.isGuidanceRunning();
+                status.onGuidanceStateChanged(startedRoute);
+                applyAudioPreference();
                 map.getMapAsync(googleMap -> {
                     if (host.checkSelfPermission(
                             android.Manifest.permission.ACCESS_FINE_LOCATION)
@@ -79,7 +83,9 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                 });
                 // SDK can resume an already selected route after Activity restore.
                 // Do not incorrectly demand a new destination when reconnecting.
-                status.onStatus("Google Navigation bereit.");
+                status.onStatus(startedRoute
+                    ? "Echte Google-Abbiegenavigation in FahrCockpit aktiv."
+                    : "Google Navigation bereit.");
             }
 
             @Override public void onError(@NavigationApi.ErrorCode int code) {
@@ -148,14 +154,12 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                     || host.isFinishing() || host.isDestroyed()) return;
             calculating = false;
             if (result == Navigator.RouteStatus.OK) {
-                // Nav SDK 7.6.1 still uses the integer guidance flags.
-                // AudioGuidanceSettings was introduced in later SDK releases.
-                navigator.setAudioGuidance(
-                    Navigator.AudioGuidance.VOICE_ALERTS_AND_GUIDANCE
-                    | Navigator.AudioGuidance.VIBRATION
-                    | Navigator.AudioGuidance.BLUETOOTH_AUDIO);
+                // Apply the persisted preference on every route, even after
+                // re-routing. Never silently re-enable turn-by-turn speech.
+                applyAudioPreference();
                 navigator.startGuidance();
                 startedRoute = true;
+                status.onGuidanceStateChanged(true);
                 status.onStatus("Echte Google-Abbiegenavigation in FahrCockpit aktiv.");
             } else {
                 startedRoute = false;
@@ -179,10 +183,29 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         }
     }
 
+    private void applyAudioPreference() {
+        if (navigator == null || closed) return;
+        // Google Navigation SDK 7.6.1 uses integer AudioGuidance flags.
+        // This UI-thread call has no billable route request.
+        int mode = NavigationVoicePreferences.isMuted(host)
+            ? Navigator.AudioGuidance.SILENT
+            : Navigator.AudioGuidance.VOICE_ALERTS_AND_GUIDANCE
+                | Navigator.AudioGuidance.VIBRATION
+                | Navigator.AudioGuidance.BLUETOOTH_AUDIO;
+        navigator.setAudioGuidance(mode);
+    }
+
+    @Override public void setVoiceMuted(boolean muted) {
+        // The activity persists the selection before calling this method.
+        if (navigator == null || closed) return;
+        host.runOnUiThread(this::applyAudioPreference);
+    }
+
     @Override public void stopGuidanceAndClearRoute() {
         routeGeneration++; // Ignore the result of a canceled async request.
         calculating = false;
         startedRoute = false;
+        status.onGuidanceStateChanged(false);
         if (navigator == null) return;
         navigator.stopGuidance();
         navigator.clearDestinations();
@@ -190,7 +213,13 @@ public final class GoogleNavigationEngine implements NavigationEngine {
     }
 
     @Override public void onStart() {if (map != null) map.onStart();}
-    @Override public void onResume() {if (map != null) map.onResume();}
+    @Override public void onResume() {
+        if (map != null) map.onResume();
+        if (navigator != null && !closed) {
+            startedRoute = navigator.isGuidanceRunning();
+            status.onGuidanceStateChanged(startedRoute);
+        }
+    }
     @Override public void onPause() {if (map != null) map.onPause();}
     @Override public void onStop() {if (map != null) map.onStop();}
     @Override public void onDestroy(boolean activityFinishing) {
