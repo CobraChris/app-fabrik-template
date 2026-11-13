@@ -649,7 +649,7 @@ test('v21 release configuration fails closed to native Google SDK only',()=>{
  const manifest=read('app/src/main/AndroidManifest.xml');
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(gradle,/def googleOnly = providers.gradleProperty\('googleOnly'\)/);
- assert.match(gradle,/if \(googleOnly && \(!withOsmFallback \|\| visualPreview\)\)/);
+ assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  assert.match(gradle,/buildConfigField 'boolean', 'GOOGLE_ONLY'/);
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
  assert.doesNotMatch(ci,/-PwithOsmFallback=true/);
