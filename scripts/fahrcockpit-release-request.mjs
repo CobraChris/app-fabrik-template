@@ -8,9 +8,15 @@ export const SOURCE_REF = 'refs/heads/feature/fahrcockpit-blitzer-bridge';
 
 export function validateRequest(r) {
   if (!r || Array.isArray(r) || typeof r !== 'object') throw Error('Not an object');
-  const keys = ['expected_version_code','intent','request_id','schema','source_sha'];
-  if (Object.keys(r).sort().join(',') !== keys.join(',')) throw Error('Unexpected keys');
-  if (r.schema !== 1 || r.intent !== 'fahrcockpit-signed-beta' ||
+  const legacy = r.schema === 1;
+  const integrated = r.schema === 2;
+  const keys = integrated
+    ? ['expected_version_code','intent','request_id','schema','source_sha','variant']
+    : ['expected_version_code','intent','request_id','schema','source_sha'];
+  if ((!legacy && !integrated) ||
+      Object.keys(r).sort().join(',') !== keys.join(','))
+    throw Error('Unexpected release request keys');
+  if (r.intent !== 'fahrcockpit-signed-beta' ||
       typeof r.request_id !== 'string' ||
       !/^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]{3,60}$/.test(r.request_id))
     throw Error('Unexpected request identity');
@@ -19,7 +25,16 @@ export function validateRequest(r) {
   if (!Number.isSafeInteger(r.expected_version_code) ||
       r.expected_version_code < 1 || r.expected_version_code > 2100000000)
     throw Error('Invalid version');
-  return { sha:r.source_sha, code:r.expected_version_code };
+  if (legacy) {
+    if (r.expected_version_code > 20)
+      throw Error('Versions 21+ require explicit Google+OSM release schema');
+    return { sha:r.source_sha, code:r.expected_version_code };
+  }
+  if (r.variant !== 'google-osm-integrated' ||
+      r.expected_version_code < 21)
+    throw Error('Integrated release must explicitly authorize both SDKs');
+  return { sha:r.source_sha, code:r.expected_version_code,
+    variant:r.variant };
 }
 
 export function validateEvent(env) {
@@ -39,14 +54,15 @@ function run() {
   validateEvent(process.env);
   const stat=lstatSync(REQUEST);
   if (!stat.isFile() || stat.isSymbolicLink()) throw Error('Unsafe request file');
-  const {sha,code}=validateRequest(JSON.parse(readFileSync(REQUEST,'utf8')));
+  const {sha,code,variant}=validateRequest(JSON.parse(readFileSync(REQUEST,'utf8')));
   validatePush(process.env.REQUEST_BEFORE||'',process.env.GITHUB_SHA||'',
       execFileSync('git',['diff','--name-only',process.env.REQUEST_BEFORE,
           process.env.GITHUB_SHA],{encoding:'utf8',timeout:10000}));
   validateSource(sha,execFileSync('git',['ls-remote','origin',SOURCE_REF],
       {encoding:'utf8',timeout:20000}));
   if (!process.env.GITHUB_OUTPUT) throw Error('Missing output');
-  appendFileSync(process.env.GITHUB_OUTPUT,'sha='+sha+'\ncode='+code+'\n');
+  appendFileSync(process.env.GITHUB_OUTPUT,'sha='+sha+'\ncode='+code
+    +'\nvariant='+(variant || 'legacy')+'\n');
   console.log('FahrCockpit source approved '+sha.slice(0,12));
 }
 if (process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta.url))

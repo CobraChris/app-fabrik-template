@@ -35,10 +35,35 @@ test('release signing never uses shared Sanftwecker secrets',()=>{
 test('GitHub release workflow expressions must be complete and Actions pinned',()=>{
   const y=readFileSync(new URL('../.github/workflows/fahrcockpit-release-candidate.yml',import.meta.url),'utf8');
   const complete=[...y.matchAll(/\$\{\{[^}\n]*\}\}/g)].length;
-  assert.equal(complete,16,'Expected all sixteen GitHub expressions');
+  assert.equal(complete,18,'Expected all eighteen GitHub expressions');
   assert.doesNotMatch(y,/\$\{\{[^}\n]*\}(?!\})/,'Broken GitHub expression');
   const refs=[...y.matchAll(/\buses:\s*([^\n\s]+)/g)].map(x=>x[1]);
   assert.equal(refs.length,8);
   assert.ok(refs.every(ref=>/@[a-f0-9]{40}$/.test(ref)),
     'Release pipeline must pin each action to an immutable commit SHA');
+});
+
+test('v21+ requires explicit, pin-validated dual navigation SDK release request',()=>{
+  const v21={schema:2,intent:'fahrcockpit-signed-beta',
+    request_id:'2026-11-13-fahrcockpit-v21-google-osm',source_sha:sha,
+    expected_version_code:21,variant:'google-osm-integrated'};
+  assert.deepEqual(validateRequest(v21),
+    {sha,code:21,variant:'google-osm-integrated'});
+  assert.throws(()=>validateRequest({...request,expected_version_code:21}),
+    /schema/);
+  assert.throws(()=>validateRequest({...v21,variant:'google-only'}));
+  assert.throws(()=>validateRequest({...v21,variant:'legacy'}));
+  assert.throws(()=>validateRequest({...v21,expected_version_code:20}));
+  assert.throws(()=>validateRequest({...v21,skip_tests:true}));
+});
+
+test('v21 protected release build includes BOTH Google SDK and OSM, no API key',()=>{
+  const y=readFileSync(new URL('../.github/workflows/fahrcockpit-release-candidate.yml',
+    import.meta.url),'utf8');
+  assert.match(y,/VARIANT: \$\{\{ needs\.validate\.outputs\.variant \}\}/);
+  assert.match(y,/FAHRCOCKPIT_NAV_SDK_KEY: ''/);
+  assert.match(y,/-PwithGoogleNavSdk=true -PwithOsmFallback=true/);
+  assert.match(y,/if \[ "\$VARIANT" = 'legacy' \]/);
+  assert.match(y,/elif \[ "\$VARIANT" = 'google-osm-integrated' \]/);
+  assert.doesNotMatch(y,/gh release create [^\n]*-PwithGoogleNavSdk/);
 });
