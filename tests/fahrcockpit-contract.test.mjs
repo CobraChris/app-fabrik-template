@@ -571,24 +571,14 @@ test('v21 permanent fixed 70/30 has persisted Spotify left-right switching',()=>
   assert.strictEqual(html,asset);
 });
 
-test('v21 standalone visual preview uses separate package and never the protected release certificate',()=>{
+test('v21 signed Google-only release rejects legacy visual preview or OSM compilation',()=>{
  const gradle=read('app/build.gradle');
- const manifest=read('app/src/main/AndroidManifest.xml');
- const main=java('MainActivity');
- const osmWorkflow=read('../../.github/workflows/fahrcockpit-osm-compile.yml');
- assert.match(gradle,/visualPreview.*providers\.gradleProperty\('visualPreview'\)/s);
- assert.match(gradle,/applicationIdSuffix '\.preview'/);
- assert.match(gradle,/if \(visualPreview && \(!withOsmFallback \|\| withGoogleNavSdk\)\)/);
- assert.match(gradle,/buildConfigField 'boolean', 'VISUAL_PREVIEW'/);
- assert.match(manifest,/android:label="\$\{appDisplayName\}"/);
- assert.match(main,/if \(BuildConfig\.VISUAL_PREVIEW\) \{/);
- assert.match(main,/IntegratedNavigationActivity\.EXTRA_FORCE_OSM_TEST, true/);
- assert.match(main,/Festes 70\/30-Cockpit öffnen/);
- assert.match(osmWorkflow,/visualPreview=true :app:assembleDebug/);
- assert.match(osmWorkflow,/com\.cobrachris\.fahrcockpit\.preview/);
- assert.match(osmWorkflow,/fahrcockpit-v21-visual-preview-debug-only/);
- assert.doesNotMatch(osmWorkflow,/FAHRCOCKPIT_SIGNING_KEYSTORE_BASE64|gh release create/);
+ const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+ assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
+ assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
+ assert.doesNotMatch(ci,/-PwithOsmFallback=true|-PvisualPreview=true/);
 });
+
 
 test('standalone v21 preview never exposes Samsung split controls and survives activity restoration',()=>{
  const main=java('MainActivity');
