@@ -14,4 +14,15 @@ public final class CockpitLayoutRulesTest {
         assertEquals(20, CockpitLayoutRules.mapWeight(false)
             + CockpitLayoutRules.controlsWeight(false));
     }
+
+    @Test public void keyboardHidesMapUntilInputIsFinished() {
+        assertFalse(CockpitLayoutRules.shouldShowMap(true));
+        assertTrue(CockpitLayoutRules.shouldShowMap(false));
+    }
+
+    @Test public void safeInsetAvoidsBothKeyboardAndSystemNavigation() {
+        assertEquals(320, CockpitLayoutRules.safeBottomInset(24, 320));
+        assertEquals(24, CockpitLayoutRules.safeBottomInset(24, 0));
+        assertEquals(30, CockpitLayoutRules.safeBottomInset(12, 30));
+    }
 }
