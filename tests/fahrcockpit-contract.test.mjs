@@ -512,7 +512,7 @@ test('v21 BRouter guidance uses official voice hints, validated GPS and local Ge
  assert.doesNotMatch(guide,/GoogleNavigationEngine|NAVSDK_API_KEY/);
 });
 
-test('v21 original App icon selects fixed Google 70/30 only with locally restricted SDK key',()=>{
+test('v22 original App icon selects fixed Google 70/30 only with locally restricted SDK key',()=>{
  const main=java('MainActivity');
  const gradle=read('app/build.gradle');
  const start=main.indexOf('private boolean restrictedGoogleSdkAvailable()');
@@ -524,8 +524,8 @@ test('v21 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 21/);
- assert.match(gradle,/versionName '0\.9\.19-beta'/);
+ assert.match(gradle,/versionCode 22/);
+ assert.match(gradle,/versionName '0\.9\.20-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
