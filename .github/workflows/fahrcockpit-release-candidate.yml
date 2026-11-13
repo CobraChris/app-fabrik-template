@@ -65,9 +65,9 @@ jobs:
           if [ "$VARIANT" = 'legacy' ]; then
             gradle --no-daemon -p experiments/fahrcockpit \
               :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
-          elif [ "$VARIANT" = 'google-osm-integrated' ]; then
+          elif [ "$VARIANT" = 'google-sdk-only' ]; then
             gradle --no-daemon -p experiments/fahrcockpit \
-              -PwithGoogleNavSdk=true -PwithOsmFallback=true \
+              -PwithGoogleNavSdk=true -PgoogleOnly=true \
               :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
           else
             echo "::error::Unapproved release feature variant"; exit 1

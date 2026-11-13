@@ -5,6 +5,8 @@ import path from 'node:path';
 
 export const REQUEST = 'requests/fahrcockpit-release.json';
 export const SOURCE_REF = 'refs/heads/feature/fahrcockpit-blitzer-bridge';
+export const GOOGLE_SOURCE_REF =
+    'refs/heads/feature/fahrcockpit-v21-google-first-fallback';
 
 export function validateRequest(r) {
   if (!r || Array.isArray(r) || typeof r !== 'object') throw Error('Not an object');
@@ -27,12 +29,12 @@ export function validateRequest(r) {
     throw Error('Invalid version');
   if (legacy) {
     if (r.expected_version_code > 20)
-      throw Error('Versions 21+ require explicit Google+OSM release schema');
+      throw Error('Versions 21+ require explicit Google-only release schema');
     return { sha:r.source_sha, code:r.expected_version_code };
   }
-  if (r.variant !== 'google-osm-integrated' ||
+  if (r.variant !== 'google-sdk-only' ||
       r.expected_version_code < 21)
-    throw Error('Integrated release must explicitly authorize both SDKs');
+    throw Error('Google-only release must explicitly exclude OSM and preview');
   return { sha:r.source_sha, code:r.expected_version_code,
     variant:r.variant };
 }
@@ -46,8 +48,9 @@ export function validatePush(before, after, changed) {
   if (!/^[a-f0-9]{40}$/.test(before) || !/^[a-f0-9]{40}$/.test(after) ||
       changed.trim() !== REQUEST) throw Error('Untrusted push content');
 }
-export function validateSource(sha, remote) {
-  if (remote.trim() !== sha + '\t' + SOURCE_REF) throw Error('Source HEAD changed');
+export function validateSource(sha, remote, variant = 'legacy') {
+  const ref = variant === 'google-sdk-only' ? GOOGLE_SOURCE_REF : SOURCE_REF;
+  if (remote.trim() !== sha + '\t' + ref) throw Error('Source HEAD changed');
 }
 
 function run() {
@@ -58,8 +61,10 @@ function run() {
   validatePush(process.env.REQUEST_BEFORE||'',process.env.GITHUB_SHA||'',
       execFileSync('git',['diff','--name-only',process.env.REQUEST_BEFORE,
           process.env.GITHUB_SHA],{encoding:'utf8',timeout:10000}));
-  validateSource(sha,execFileSync('git',['ls-remote','origin',SOURCE_REF],
-      {encoding:'utf8',timeout:20000}));
+  const verifiedBranch = variant === 'google-sdk-only'
+    ? GOOGLE_SOURCE_REF : SOURCE_REF;
+  validateSource(sha,execFileSync('git',['ls-remote','origin',verifiedBranch],
+      {encoding:'utf8',timeout:20000}),variant);
   if (!process.env.GITHUB_OUTPUT) throw Error('Missing output');
   appendFileSync(process.env.GITHUB_OUTPUT,'sha='+sha+'\ncode='+code
     +'\nvariant='+(variant || 'legacy')+'\n');
