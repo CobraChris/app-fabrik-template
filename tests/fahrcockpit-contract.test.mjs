@@ -674,3 +674,52 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
  assert.doesNotMatch(setup,/OsmRoutingPreviewEngine|SplitCockpitActivity/);
 });
 
+
+
+test('v22 Google-only candidate preserves package and build identity',()=>{
+ const gradle=read('app/build.gradle');
+ assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
+ assert.match(gradle,/versionCode 22/);
+ assert.match(gradle,/versionName '0\.9\.20-beta'/);
+ assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
+ const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+ assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
+ assert.match(ci,/versionCode'\]===22/);
+ assert.doesNotMatch(ci,/pull_request_target/);
+});
+
+test('v22 only holds the screen awake during active Google guidance',()=>{
+ const activity=java('IntegratedNavigationActivity');
+ const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+ assert.match(activity,/onGuidanceStateChanged\(boolean active\)/);
+ assert.match(activity,/FLAG_KEEP_SCREEN_ON/);
+ assert.match(activity,/if \(routeActive\)/);
+ assert.match(activity,/getWindow\(\)\.clearFlags\(WindowManager\.LayoutParams\.FLAG_KEEP_SCREEN_ON\)/);
+ assert.match(engine,/navigator\.isGuidanceRunning\(\)/);
+ assert.match(engine,/status\.onGuidanceStateChanged\(false\)/);
+});
+
+test('v22 mute affects Google guidance speech, not Spotify or routing',()=>{
+ const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+ const activity=java('IntegratedNavigationActivity');
+ const voice=java('NavigationVoicePreferences');
+ assert.match(engine,/Navigator\.AudioGuidance\.VIBRATION/);
+ assert.match(engine,/navigator\.setAudioGuidance\(mode\)/);
+ assert.match(engine,/NavigationVoicePreferences\.isMuted\(host\)/);
+ assert.match(activity,/voiceButton\.setOnClickListener/);
+ assert.match(activity,/engine\.setVoiceMuted\(muted\)/);
+ assert.match(voice,/buttonLabel\(boolean muted\)/);
+ assert.doesNotMatch(voice,/SpotifyMedia/);
+});
+
+test('v22 fuel handoff requires confirmation before Google route request',()=>{
+ const activity=java('IntegratedNavigationActivity');
+ const fuel=java('FuelActivity');
+ assert.match(activity,/new Intent\(this, FuelActivity\.class\)/);
+ assert.match(activity,/FUEL_PICK_REQUEST/);
+ assert.match(activity,/setPositiveButton\("Route berechnen"/);
+ assert.match(activity,/engine\.startConfirmedRoute\(lat, lng, chosenName\)/);
+ assert.match(fuel,/setResult\(RESULT_OK, result\)/);
+ assert.match(fuel,/String coordinates = FuelRules\.stationCoordinates\(lat, lng\)/);
+ assert.match(fuel,/if \(returnToCockpit\)/);
+});
