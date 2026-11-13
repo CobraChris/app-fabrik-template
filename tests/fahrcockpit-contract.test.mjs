@@ -334,7 +334,7 @@ test('v20 free-first navigation does not depend on 90-day Cloud trial',()=>{
  assert.match(launcher,/: SplitCockpitActivity\.class/);
  assert.doesNotMatch(launcher,/BuildConfig\.NAVSDK_API_KEY|EmbeddedMapActivity\.class/);
  assert.match(split,/GoogleMapsLaunch\.adjacentDrivingIntent\(target\)/);
- assert.match(shell,/Google Maps dauerhaft kostenlos/);
+ assert.match(shell,/Google Maps separat öffnen \(Samsung-Splitscreen\)/);
  assert.match(shell,/panel\.addView\(fallback\)/);
 });
 
@@ -628,3 +628,15 @@ test('v21 landscape still 70/30 while portrait keeps Spotify usable; OSM centers
  assert.match(center,/MAX_ACCURACY_METERS = 250f/);
  assert.doesNotMatch(osm,/GoogleNavigationEngine|NAVSDK_API_KEY/);
 });
+test('v21 OSM preview cannot appear to be the Google SDK product',()=>{
+ const shell=java('IntegratedNavigationActivity');
+ const manifest=read('app/src/main/AndroidManifest.xml');
+ const gradle=read('app/build.gradle');
+ assert.match(shell,/FahrCockpit v21 · OSM-Sichttest/);
+ assert.match(shell,/Die fest integrierte Google-Navigation bleibt das Hauptziel/);
+ assert.match(shell,/Hier ist kein Google-SDK enthalten/);
+ assert.match(shell,/Google Maps separat öffnen \(Samsung-Splitscreen\)/);
+ assert.match(gradle,/if \(visualPreview && \(!withOsmFallback \|\| withGoogleNavSdk\)\)/);
+ assert.match(manifest,/\$\{appDisplayName\}/);
+});
+

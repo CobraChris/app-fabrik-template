@@ -124,7 +124,20 @@ public final class IntegratedNavigationActivity extends Activity {
             mapPane.addView(placeholder, new FrameLayout.LayoutParams(-1, -1));
         }
 
-        panel.addView(Ui.text(this, "FahrCockpit · Integriert", 17, Ui.FG, true));
+        // State the actual provider prominently: preview packages NEVER
+        // contain Google SDK. Google remains the shipping product target.
+        panel.addView(Ui.text(this, BuildConfig.VISUAL_PREVIEW
+            ? "FahrCockpit v21 · OSM-Sichttest"
+            : "FahrCockpit · Google-Navigation", 17, Ui.FG, true));
+        if (BuildConfig.VISUAL_PREVIEW) {
+            panel.addView(Ui.text(this,
+                "Dies ist NUR die separat installierte OSM-Kartenvorschau. "
+                + "Die fest integrierte Google-Navigation bleibt das Hauptziel "
+                + "und ist ausschließlich für die noch nicht veröffentlichte "
+                + "Original-App mit Google Navigation SDK vorgesehen. "
+                + "Hier ist kein Google-SDK enthalten.",
+                13, Ui.WARN, true));
+        }
         Button sideToggle = Ui.button(this,
             CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
         sideToggle.setEnabled(landscape);
@@ -194,7 +207,8 @@ public final class IntegratedNavigationActivity extends Activity {
         });
 
         // Keep the free navigation visible even when the route form is collapsed.
-        Button fallback = Ui.button(this, "Google Maps dauerhaft kostenlos");
+        Button fallback = Ui.button(this,
+            "Google Maps separat öffnen (Samsung-Splitscreen)");
         fallback.setOnClickListener(v -> {
             String text = RouteTargetRules.clean(destination.getText().toString());
             Intent intent = new Intent(this, SplitCockpitActivity.class);
