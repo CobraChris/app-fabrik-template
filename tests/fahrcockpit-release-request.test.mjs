@@ -81,3 +81,11 @@ test('v21 source pinning rejects any unapproved source branch or commit',()=>{
   assert.throws(()=>validateSource(
     sha,'0'.repeat(40)+'\t'+GOOGLE_SOURCE_REF+'\n','google-sdk-only'));
 });
+
+test('Google-only signing workflow installs its required Android API 36',()=>{
+ const workflow=readFileSync(new URL('../.github/workflows/fahrcockpit-release-candidate.yml',import.meta.url),'utf8');
+ assert.match(workflow,/cmdline-tools\/latest\/bin\/sdkmanager" "platforms;android-36"/);
+ assert.match(workflow,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
+ assert.doesNotMatch(workflow,/-PwithOsmFallback=true/);
+});
+

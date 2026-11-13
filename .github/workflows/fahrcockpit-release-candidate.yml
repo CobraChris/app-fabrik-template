@@ -66,6 +66,8 @@ jobs:
             gradle --no-daemon -p experiments/fahrcockpit \
               :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
           elif [ "$VARIANT" = 'google-sdk-only' ]; then
+            # SDK 7.6.1 requires Android API 36. Runner images can change.
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36"
             gradle --no-daemon -p experiments/fahrcockpit \
               -PwithGoogleNavSdk=true -PgoogleOnly=true \
               :app:testDebugUnitTest :app:lintDebug :app:assembleRelease
