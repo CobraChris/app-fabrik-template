@@ -191,9 +191,9 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         }
         if (navigator == null || closed) return;
         // Google Navigation SDK 7.6.1 uses integer AudioGuidance flags.
-        // This UI-thread call has no billable route request.
+        // Muting speech preserves haptic alerts; no billable route request.
         int mode = NavigationVoicePreferences.isMuted(host)
-            ? Navigator.AudioGuidance.SILENT
+            ? Navigator.AudioGuidance.VIBRATION
             : Navigator.AudioGuidance.VOICE_ALERTS_AND_GUIDANCE
                 | Navigator.AudioGuidance.VIBRATION
                 | Navigator.AudioGuidance.BLUETOOTH_AUDIO;
