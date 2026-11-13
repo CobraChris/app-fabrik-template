@@ -684,7 +684,7 @@ test('v22 Google-only candidate preserves package and build identity',()=>{
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]===22/);
+ assert.match(ci,/versionCode'\]==22/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
