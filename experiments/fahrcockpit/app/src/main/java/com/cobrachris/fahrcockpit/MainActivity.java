@@ -41,7 +41,7 @@ public final class MainActivity extends Activity {
             Ui.dp(this, 22), Ui.dp(this, 40));
         scroll.addView(root);
         setContentView(scroll);
-        if (BuildConfig.VISUAL_PREVIEW && savedInstanceState == null) {
+        if (BuildConfig.VISUAL_PREVIEW) {
             // Launch the native 70/30 screen immediately for a design test.
             // Force the real OSM map, never attempt Google billing or a
             // restricted-key request from the separate .preview package.
@@ -56,20 +56,34 @@ public final class MainActivity extends Activity {
             return insets;
         });
 
-        root.addView(Ui.text(this, BuildConfig.VISUAL_PREVIEW
-            ? "FahrCockpit v21 – Sichttest" : "FahrCockpit", 30, Ui.FG, true));
         if (BuildConfig.VISUAL_PREVIEW) {
-            Ui.section(this, root, "Feste 70/30-Ansicht auf dem Gerät",
-                "Diese unabhängige Vorschau nutzt eine echte OSM-Karte, "
-                + "aber NICHT das Google Navigation SDK. "
-                + "Die originale FahrCockpit v20 bleibt installiert.");
+            root.addView(Ui.text(this, "FahrCockpit v21 – Sichttest", 30, Ui.FG, true));
+            Ui.section(this, root, "Festes 70/30-Cockpit · kein Samsung-Splitscreen",
+                "Echte OSM-Karte mit Spotify-Steuerung und dauerhaft "
+                + "gespeichertem Links-rechts-Umschalter. "
+                + "Die eigentliche Google-Navigation ist in diesem "
+                + "separaten Sichttest bewusst nicht aktiviert.");
             Button showNative = Ui.button(this,
-                "Feste 70/30-Ansicht mit OSM-Karte öffnen");
+                "Festes 70/30-Cockpit öffnen");
             root.addView(showNative);
             showNative.setOnClickListener(v -> startActivity(new Intent(this,
                 IntegratedNavigationActivity.class).putExtra(
                 IntegratedNavigationActivity.EXTRA_FORCE_OSM_TEST,true)));
+            Button showDesign = Ui.button(this,
+                "Interaktive 70/30-Designvorschau öffnen");
+            root.addView(showDesign);
+            showDesign.setOnClickListener(v -> startActivity(new Intent(this,
+                NavigationPreviewActivity.class)));
+            root.addView(Ui.text(this,
+                "Nur Vorschau, keine Freigabe für reale Fahrten. "
+                + "Dein bisheriges FahrCockpit v20 ist eine separate App "
+                + "und bleibt unverändert.",
+                13, Ui.MUTED, false));
+            // Do not display ANY original v20/Samsung multiwindow controls
+            // in the separate visual-preview package.
+            return;
         }
+        root.addView(Ui.text(this, "FahrCockpit", 30, Ui.FG, true));
         root.addView(Ui.text(this,
             "Google-Karte und Spotify haben getrennte Bildschirmbereiche. " +
             "Die bereits vorhandene Google-Demo-Einrichtung kann ohne " +

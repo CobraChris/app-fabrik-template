@@ -581,11 +581,25 @@ test('v21 standalone visual preview uses separate package and never the protecte
  assert.match(gradle,/if \(visualPreview && \(!withOsmFallback \|\| withGoogleNavSdk\)\)/);
  assert.match(gradle,/buildConfigField 'boolean', 'VISUAL_PREVIEW'/);
  assert.match(manifest,/android:label="\$\{appDisplayName\}"/);
- assert.match(main,/BuildConfig\.VISUAL_PREVIEW && savedInstanceState == null/);
+ assert.match(main,/if \(BuildConfig\.VISUAL_PREVIEW\) \{/);
  assert.match(main,/IntegratedNavigationActivity\.EXTRA_FORCE_OSM_TEST, true/);
- assert.match(main,/Feste 70\/30-Ansicht mit OSM-Karte öffnen/);
+ assert.match(main,/Festes 70\/30-Cockpit öffnen/);
  assert.match(osmWorkflow,/visualPreview=true :app:assembleDebug/);
  assert.match(osmWorkflow,/com\.cobrachris\.fahrcockpit\.preview/);
  assert.match(osmWorkflow,/fahrcockpit-v21-visual-preview-debug-only/);
  assert.doesNotMatch(osmWorkflow,/FAHRCOCKPIT_SIGNING_KEYSTORE_BASE64|gh release create/);
+});
+
+test('standalone v21 preview never exposes Samsung split controls and survives activity restoration',()=>{
+ const main=java('MainActivity');
+ const start=main.indexOf('if (BuildConfig.VISUAL_PREVIEW) {', main.indexOf('setContentView(scroll)'));
+ const legacy=main.indexOf('Ui.section(this, root, "Dauerhaft kostenlose Navigation"',start);
+ assert.ok(start>0 && legacy>start);
+ const separate=main.slice(start,legacy);
+ assert.match(separate,/Festes 70\/30-Cockpit · kein Samsung-Splitscreen/);
+ assert.match(separate,/Festes 70\/30-Cockpit öffnen/);
+ assert.match(separate,/return;\s*\}\s*root\.addView\(Ui\.text/);
+ assert.match(separate,/IntegratedNavigationActivity\.EXTRA_FORCE_OSM_TEST,true/);
+ assert.doesNotMatch(separate,/Google Maps \+ Spotify kostenlos starten|startSplitAndMaps\(\)/);
+ assert.doesNotMatch(main,/BuildConfig\.VISUAL_PREVIEW && savedInstanceState == null/);
 });
