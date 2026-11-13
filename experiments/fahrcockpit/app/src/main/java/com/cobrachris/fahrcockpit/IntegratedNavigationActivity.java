@@ -113,11 +113,13 @@ public final class IntegratedNavigationActivity extends Activity {
                 });
             mapPane.addView(navigation, new FrameLayout.LayoutParams(-1, -1));
         } else {
-            TextView placeholder = Ui.text(this,
-                "Google Navigation SDK nicht verfügbar\n\n"
-                + "Diese Fläche ist keine Abbiegenavigation. "
-                + "Die kostenlose Google-Maps-Navigation erreichst du "
-                + "über den Knopf im Cockpit.",
+            TextView placeholder = Ui.text(this, BuildConfig.GOOGLE_ONLY
+                ? "Google Navigation SDK noch nicht eingerichtet. "
+                    + "Bitte den lokalen Schlüssel verwalten."
+                : "Google Navigation SDK nicht verfügbar\n\n"
+                    + "Diese Fläche ist keine Abbiegenavigation. "
+                    + "Die kostenlose Google-Maps-App kann separat "
+                    + "über das alte Cockpit geöffnet werden.",
                 16, Ui.FG, true);
             placeholder.setGravity(Gravity.CENTER);
             placeholder.setPadding(Ui.dp(this, 24), 0, Ui.dp(this, 24), 0);
@@ -519,15 +521,20 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void showProviderFailure(NavigationProviderPolicy.Failure reason) {
+        if (BuildConfig.GOOGLE_ONLY) {
+            // Never fall back to an unrelated map in the signed v21 app.
+            showStatus("Google Navigation SDK nicht nutzbar ("+reason+"). "
+                +"Google-Cloud-Berechtigung, Kontingent und Netzwerk prüfen. "
+                +"Es wird keine Ersatzkarte oder neue kostenpflichtige "
+                +"Routenanfrage gestartet.");
+            return;
+        }
+        // Older unsigned prototypes preserve their original behavior.
         NavigationProviderPolicy.Provider next =
-            NavigationProviderPolicy.fallback(reason, false);
-        // No functional OSM routing engine exists yet. Never show an empty OSM
-        // map as though it could provide road guidance. The fallback button
-        // to the separate original Google Maps app remains always visible.
+            NavigationProviderPolicy.fallback(reason,false);
         if (next == NavigationProviderPolicy.Provider.GOOGLE_MAPS_EXTERNAL) {
-            showStatus("Google-Navigation derzeit nicht nutzbar (" + reason
-                + "). OSM-Ersatznavigation ist noch nicht installiert. "
-                + "Google Maps als separate App über die sichtbare Taste öffnen.");
+            showStatus("Google Navigation SDK derzeit nicht verfügbar ("+reason
+                +"). Kostenlose externe Maps-App nur über den manuellen Knopf.");
         }
     }
 

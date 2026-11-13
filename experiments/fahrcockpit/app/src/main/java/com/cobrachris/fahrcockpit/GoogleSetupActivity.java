@@ -41,7 +41,7 @@ public final class GoogleSetupActivity extends Activity {
         root.addView(Ui.text(this,
             "70 % echte Google-Navigation, 30 % Spotify. "
             + "Die Spotify-Seite ist im Querformat frei wählbar. "
-            + "Keine OSM-Karte und kein Samsung-Splitscreen.",
+            + "Eine einzige integrierte App ohne verschiebbare Trennlinie.",
             15,Ui.MUTED,false));
         Ui.section(this,root,"Einmalige Google-SDK-Einrichtung",
             "Der bereits in Google Cloud auf com.cobrachris.fahrcockpit "

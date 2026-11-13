@@ -643,7 +643,7 @@ test('v21 release configuration fails closed to native Google SDK only',()=>{
  assert.match(gradle,/buildConfigField 'boolean', 'GOOGLE_ONLY'/);
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
  assert.doesNotMatch(ci,/-PwithOsmFallback=true/);
- assert.match(main,/if \(BuildConfig.GOOGLE_ONLY && !GoogleKeyTransfer.isTransfer\(getIntent\(\)\)\)/);
+ assert.match(main,/if \(BuildConfig.GOOGLE_ONLY\) \{/);
  assert.match(main,/\? IntegratedNavigationActivity.class/);
  assert.match(main,/: GoogleSetupActivity.class/);
  assert.match(nav,/if \(BuildConfig.GOOGLE_ONLY\) \{/);
@@ -656,3 +656,21 @@ test('v21 release configuration fails closed to native Google SDK only',()=>{
  assert.doesNotMatch(setup,/OsmRoutingPreviewEngine|SplitCockpitActivity|withOsmFallback/);
  assert.match(manifest,/android:name=".GoogleSetupActivity"/);
 });
+test('v21 Google SDK errors and transferred deep links never expose alternate maps',()=>{
+ const main=java('MainActivity');
+ const nav=java('IntegratedNavigationActivity');
+ const setup=java('GoogleSetupActivity');
+ assert.match(main,/if \(BuildConfig\.GOOGLE_ONLY\) \{/);
+ const start=main.indexOf('if (BuildConfig.GOOGLE_ONLY) {');
+ const legacy=main.indexOf('getWindow().setStatusBarColor',start);
+ assert.ok(start>0&&legacy>start);
+ const nativeGate=main.slice(start,legacy);
+ assert.match(nativeGate,/\? IntegratedNavigationActivity.class/);
+ assert.match(nativeGate,/: GoogleSetupActivity.class/);
+ assert.doesNotMatch(nativeGate,/GoogleKeyTransfer\.isTransfer|SplitCockpitActivity|OsmRoutingPreviewEngine/);
+ assert.match(nav,/if \(BuildConfig\.GOOGLE_ONLY\) \{\s*\/\/ Never fall back/);
+ assert.match(nav,/Es wird keine Ersatzkarte oder neue kostenpflichtige/);
+ assert.match(nav,/Google Navigation SDK noch nicht eingerichtet/);
+ assert.doesNotMatch(setup,/OsmRoutingPreviewEngine|SplitCockpitActivity/);
+});
+

@@ -30,7 +30,7 @@ public final class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        if (BuildConfig.GOOGLE_ONLY && !GoogleKeyTransfer.isTransfer(getIntent())) {
+        if (BuildConfig.GOOGLE_ONLY) {
             // The signed v21 Google edition must not display the old
             // Samsung system split or any OSM/debug-preview screen.
             // The original v20 behavior below remains unchanged for legacy builds.
