@@ -12,6 +12,8 @@ def googleOnly = providers.gradleProperty('googleOnly')
 // Compilable for CI only; approval to activate billable Places is separate.
 def withGooglePlaces = providers.gradleProperty('withGooglePlaces')
     .orElse('false').get().toBoolean()
+if (withGooglePlaces && !withGoogleNavSdk)
+    throw new GradleException('Optional Places integration requires the existing Navigation SDK')
 if (googleOnly && !withGoogleNavSdk)
     throw new GradleException('Google-only release requires withGoogleNavSdk=true')
 // OSM fallback is a separately compiled, free development-only feature.
@@ -88,8 +90,12 @@ dependencies {
         coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.3'
     }
     if (withGooglePlaces) {
-        // Optional New Places API only; never enabled or initialized in v23.
-        implementation 'com.google.android.libraries.places:places:6.0.2'
+        // Navigation SDK already packages com.google.android.gms.maps classes.
+        // Keep only its copy: otherwise optional Places brings duplicate Maps
+        // classes and Android D8 rejects the combined Google-only APK.
+        implementation('com.google.android.libraries.places:places:6.0.2') {
+            exclude group: 'com.google.android.gms', module: 'play-services-maps'
+        }
     }
     if (withOsmFallback) {
         implementation 'org.maplibre.gl:android-sdk:13.6.1'
