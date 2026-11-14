@@ -279,7 +279,12 @@ public final class IntegratedNavigationActivity extends Activity {
                     new android.graphics.Rect(0, 0,
                         destination.getWidth(), destination.getHeight()), true));
             } else if (suggestionPanel != null) {
-                suggestionPanel.setVisibility(View.GONE);
+                // Let the tapped suggestion finish its click before closing
+                // the parent, otherwise Samsung may lose the selected target.
+                handler.postDelayed(() -> {
+                    if (!destination.hasFocus() && suggestionPanel != null)
+                        suggestionPanel.setVisibility(View.GONE);
+                }, 180L);
             }
         });
 
