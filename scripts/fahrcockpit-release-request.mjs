@@ -7,6 +7,8 @@ export const REQUEST = 'requests/fahrcockpit-release.json';
 export const SOURCE_REF = 'refs/heads/feature/fahrcockpit-blitzer-bridge';
 export const GOOGLE_SOURCE_REF =
     'refs/heads/feature/fahrcockpit-v21-google-first-fallback';
+export const GOOGLE_V22_SOURCE_REF =
+    'refs/heads/fix/fahrcockpit-v22-keyboard-insets-layout';
 
 export function validateRequest(r) {
   if (!r || Array.isArray(r) || typeof r !== 'object') throw Error('Not an object');
@@ -33,8 +35,11 @@ export function validateRequest(r) {
     return { sha:r.source_sha, code:r.expected_version_code };
   }
   if (r.variant !== 'google-sdk-only' ||
-      r.expected_version_code < 21)
-    throw Error('Google-only release must explicitly exclude OSM and preview');
+      r.expected_version_code < 21 || r.expected_version_code > 22)
+    throw Error('Google-only release must explicitly exclude OSM and preview; v23+ requires new review');
+  if (r.expected_version_code === 22 &&
+      r.request_id !== '2026-11-13-fahrcockpit-v22-google-only')
+    throw Error('Unapproved v22 release request identity');
   return { sha:r.source_sha, code:r.expected_version_code,
     variant:r.variant };
 }
@@ -48,8 +53,14 @@ export function validatePush(before, after, changed) {
   if (!/^[a-f0-9]{40}$/.test(before) || !/^[a-f0-9]{40}$/.test(after) ||
       changed.trim() !== REQUEST) throw Error('Untrusted push content');
 }
-export function validateSource(sha, remote, variant = 'legacy') {
-  const ref = variant === 'google-sdk-only' ? GOOGLE_SOURCE_REF : SOURCE_REF;
+export function sourceRefFor(variant, code = 21) {
+  if (variant !== 'google-sdk-only') return SOURCE_REF;
+  if (code === 21) return GOOGLE_SOURCE_REF;
+  if (code === 22) return GOOGLE_V22_SOURCE_REF;
+  throw Error('Unapproved Google-only release version');
+}
+export function validateSource(sha, remote, variant = 'legacy', code = 21) {
+  const ref = sourceRefFor(variant, code);
   if (remote.trim() !== sha + '\t' + ref) throw Error('Source HEAD changed');
 }
 
@@ -61,10 +72,9 @@ function run() {
   validatePush(process.env.REQUEST_BEFORE||'',process.env.GITHUB_SHA||'',
       execFileSync('git',['diff','--name-only',process.env.REQUEST_BEFORE,
           process.env.GITHUB_SHA],{encoding:'utf8',timeout:10000}));
-  const verifiedBranch = variant === 'google-sdk-only'
-    ? GOOGLE_SOURCE_REF : SOURCE_REF;
+  const verifiedBranch = sourceRefFor(variant,code);
   validateSource(sha,execFileSync('git',['ls-remote','origin',verifiedBranch],
-      {encoding:'utf8',timeout:20000}),variant);
+      {encoding:'utf8',timeout:20000}),variant,code);
   if (!process.env.GITHUB_OUTPUT) throw Error('Missing output');
   appendFileSync(process.env.GITHUB_OUTPUT,'sha='+sha+'\ncode='+code
     +'\nvariant='+(variant || 'legacy')+'\n');
