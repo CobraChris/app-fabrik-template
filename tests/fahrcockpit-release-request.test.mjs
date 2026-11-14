@@ -125,13 +125,13 @@ test('v23 accepts only the one already-tested source SHA and only approved Googl
     {sha:reviewed,code:23,variant:'google-sdk-only'});
   assert.equal(sourceRefFor('google-sdk-only',23),GOOGLE_V23_SOURCE_REF);
   assert.doesNotThrow(()=>validateSource(reviewed,
-    reviewed+'\\t'+GOOGLE_V23_SOURCE_REF+'\\n','google-sdk-only',23));
+    reviewed+'\t'+GOOGLE_V23_SOURCE_REF+'\n','google-sdk-only',23));
   assert.throws(()=>validateSource(reviewed,
-    reviewed+'\\t'+GOOGLE_V22_SOURCE_REF+'\\n','google-sdk-only',23));
+    reviewed+'\t'+GOOGLE_V22_SOURCE_REF+'\n','google-sdk-only',23));
   assert.throws(()=>validateSource(reviewed,
-    reviewed+'\\t'+GOOGLE_V23_SOURCE_REF+'\\n','google-sdk-only',22));
+    reviewed+'\t'+GOOGLE_V23_SOURCE_REF+'\n','google-sdk-only',22));
   assert.throws(()=>validateSource(reviewed,
-    '0'.repeat(40)+'\\t'+GOOGLE_V23_SOURCE_REF+'\\n','google-sdk-only',23));
+    '0'.repeat(40)+'\t'+GOOGLE_V23_SOURCE_REF+'\n','google-sdk-only',23));
   assert.throws(()=>validateRequest({...request23,
     source_sha:'0'.repeat(40)}));
   assert.throws(()=>validateRequest({...request23,
