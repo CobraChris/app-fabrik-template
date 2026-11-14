@@ -5,7 +5,7 @@ plugins { id 'com.android.application' }
 // and a restricted, user-approved key are required for live routing.
 def withGoogleNavSdk = providers.gradleProperty('withGoogleNavSdk')
     .orElse('false').get().toBoolean()
-// Official v22 candidate: EXACTLY Google Navigation SDK, no OSM module and
+// Official v23 development candidate: EXACTLY Google Navigation SDK, no OSM module and
 // no alternative debug preview package. The release gate must pass this flag.
 def googleOnly = providers.gradleProperty('googleOnly')
     .orElse('false').get().toBoolean()
@@ -42,8 +42,8 @@ android {
                 ? 'FahrCockpit' : 'FahrCockpit (Test)')]
         minSdk 30
         targetSdk withGoogleNavSdk ? 36 : 35
-        versionCode 22
-        versionName '0.9.20-beta'
+        versionCode 23
+        versionName '0.9.21-beta'
         buildConfigField 'String', 'NAVSDK_API_KEY', '"' + googleNavKey + '"'
         buildConfigField 'boolean', 'VISUAL_PREVIEW', visualPreview.toString()
         buildConfigField 'boolean', 'GOOGLE_ONLY', googleOnly.toString()
