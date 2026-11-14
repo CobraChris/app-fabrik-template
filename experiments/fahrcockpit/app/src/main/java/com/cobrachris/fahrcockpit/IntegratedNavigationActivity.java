@@ -151,11 +151,17 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Hier ist kein Google-SDK enthalten.",
                 13, Ui.WARN, true));
         }
+        // Compact one-touch control directly on the Google map, not another
+        // full-width Spotify-side button. Leave native compass/guidance visible.
         voiceButton = Ui.button(this,
-            NavigationVoicePreferences.buttonLabel(
-                NavigationVoicePreferences.isMuted(this)));
-        voiceButton.setContentDescription("Google-Navigationsansagen an- oder ausschalten");
-        // Keep this one-touch mute control above the scrollable Spotify section.
+            NavigationVoicePreferences.isMuted(this) ? "🔇" : "🔊");
+        voiceButton.setTextSize(22);
+        voiceButton.setMinWidth(Ui.dp(this, 50));
+        voiceButton.setMinHeight(Ui.dp(this, 50));
+        voiceButton.setPadding(0, 0, 0, 0);
+        voiceButton.setBackground(Ui.background(this, 0xe6222730, 12));
+        voiceButton.setElevation(Ui.dp(this, 5));
+        updateVoiceButton();
         voiceButton.setOnClickListener(v -> {
             boolean muted = !NavigationVoicePreferences.isMuted(this);
             if (!NavigationVoicePreferences.save(this, muted)) {
@@ -163,9 +169,13 @@ public final class IntegratedNavigationActivity extends Activity {
                 return;
             }
             if (engine != null) engine.setVoiceMuted(muted);
-            voiceButton.setText(NavigationVoicePreferences.buttonLabel(muted));
+            updateVoiceButton();
         });
-        panel.addView(voiceButton);
+        FrameLayout.LayoutParams voicePosition = new FrameLayout.LayoutParams(
+            Ui.dp(this, 50), Ui.dp(this, 50),
+            Gravity.END | Gravity.CENTER_VERTICAL);
+        voicePosition.rightMargin = Ui.dp(this, 14);
+        mapPane.addView(voiceButton, voicePosition);
 
         Button sideToggle = Ui.button(this,
             landscape ? (spotifyLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
@@ -619,6 +629,15 @@ public final class IntegratedNavigationActivity extends Activity {
             elapsed.setText(TrackProgressRules.time(state.positionMs));
             duration.setText(TrackProgressRules.time(state.durationMs));
         }
+    }
+
+    private void updateVoiceButton() {
+        if (voiceButton == null) return;
+        boolean muted = NavigationVoicePreferences.isMuted(this);
+        voiceButton.setText(muted ? "🔇" : "🔊");
+        voiceButton.setContentDescription(muted
+            ? "Google-Navigationsansagen einschalten"
+            : "Google-Navigationsansagen ausschalten");
     }
 
     private void updateScreenAwake(boolean routeActive) {
