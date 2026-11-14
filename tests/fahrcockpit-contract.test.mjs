@@ -252,7 +252,10 @@ test('v20 integrated native layout is a real fixed 70/30 shell with existing Spo
  assert.match(shell,/NavigationDestinationResolver\.resolve/);
  assert.match(shell,/engine\.startConfirmedRoute\(lat, lng, name\)/);
  assert.match(shell,/engine != null && engine\.configured\(\)/);
- assert.match(shell,/getSharedPreferences\(ROUTES_PREFS, MODE_PRIVATE\)/);
+ assert.match(shell,/DestinationLibrary\.favorites\(this\)/);
+ const library=java('DestinationLibrary');
+ assert.match(library,/fahrcockpit_manual_routes_v1/);
+ assert.match(library,/getString\("target_" \+ i/);
  assert.match(shell,/stopGuidanceAndClearRoute\(\)/);
  assert.match(shell,/window|WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE/);
  assert.match(shell,/Keine|noch keine|nicht aktiviert/i);
@@ -512,7 +515,7 @@ test('v21 BRouter guidance uses official voice hints, validated GPS and local Ge
  assert.doesNotMatch(guide,/GoogleNavigationEngine|NAVSDK_API_KEY/);
 });
 
-test('v22 original App icon selects fixed Google 70/30 only with locally restricted SDK key',()=>{
+test('v23 original App icon selects fixed Google 70/30 only with locally restricted SDK key',()=>{
  const main=java('MainActivity');
  const gradle=read('app/build.gradle');
  const start=main.indexOf('private boolean restrictedGoogleSdkAvailable()');
@@ -524,8 +527,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 22/);
- assert.match(gradle,/versionName '0\.9\.20-beta'/);
+ assert.match(gradle,/versionCode 23/);
+ assert.match(gradle,/versionName '0\.9\.21-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -676,15 +679,15 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 
 
 
-test('v22 Google-only candidate preserves package and build identity',()=>{
+test('v23 Google-only candidate preserves package and development build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 22/);
- assert.match(gradle,/versionName '0\.9\.20-beta'/);
+ assert.match(gradle,/versionCode 23/);
+ assert.match(gradle,/versionName '0\.9\.21-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==22/);
+ assert.match(ci,/versionCode'\]==23/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -722,4 +725,39 @@ test('v22 fuel handoff requires confirmation before Google route request',()=>{
  assert.match(fuel,/setResult\(RESULT_OK, result\)/);
  assert.match(fuel,/String coordinates = FuelRules\.stationCoordinates\(lat, lng\)/);
  assert.match(fuel,/if \(returnToCockpit\)/);
+});
+
+test('v23 suggestions use no Google Places API or secrets',()=>{
+ const rules=java('DestinationSuggestionRules');
+ const address=java('AndroidAddressSuggestions');
+ const library=java('DestinationLibrary');
+ const cockpit=java('IntegratedNavigationActivity');
+ const gradle=read('app/build.gradle');
+ assert.match(rules,/static boolean googlePlacesEnabled\(\)/);
+ assert.match(rules,/return false;/);
+ assert.match(address,/getFromLocationName\(query, 3/);
+ assert.match(cockpit,/DestinationLibrary\.saveFavorite\(this/);
+ assert.match(cockpit,/DestinationLibrary\.deleteFavorite\(this/);
+ assert.match(cockpit,/DestinationLibrary\.remember\(/);
+ assert.match(cockpit,/AndroidAddressSuggestions\.find\(this/);
+ assert.match(cockpit,/GEOCODER_DELAY_MS/);
+ assert.match(library,/fahrcockpit_manual_routes_v1/);
+ assert.doesNotMatch(gradle,/places:[0-9]|places-ktx|com\.google\.android\.libraries\.places/);
+ assert.doesNotMatch(cockpit,/Places\.initialize|PLACE_DETAILS/);
+});
+
+test('v23 moves the speaker toggle onto the map without affecting Spotify',()=>{
+ const cockpit=java('IntegratedNavigationActivity');
+ assert.match(cockpit,/mapPane\.addView\(voiceButton, voiceParams\)/);
+ assert.match(cockpit,/updateVoiceButton\(\)/);
+ assert.doesNotMatch(cockpit,/panel\.addView\(voiceButton\)/);
+ assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
+});
+
+test('v23 keyboard edit mode preserves fixed 70 30 arrangement',()=>{
+ const cockpit=java('IntegratedNavigationActivity');
+ assert.match(cockpit,/updateEditingLayout\(panel, toggleRoutes, routePanel, keyboardVisible\)/);
+ assert.match(cockpit,/root\.addView\(mapPane, mapParams\)/);
+ assert.match(cockpit,/root\.addView\(scroll, controlParams\)/);
+ assert.match(cockpit,/hiddenForKeyboard\.clear\(\)/);
 });
