@@ -10,6 +10,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.inputmethod.InputMethodManager;
+import java.util.ArrayList;
+import java.util.List;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
@@ -33,6 +38,8 @@ public final class IntegratedNavigationActivity extends Activity {
     private static final int LOCATION_REQUEST = 420;
     private static final int FUEL_PICK_REQUEST = 421;
     private static final String STATE_TARGET = "target";
+    private static final String STATE_SELECTED_DISPLAY = "selected_display";
+    private static final String STATE_SELECTED_TARGET = "selected_target";
     private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -42,6 +49,15 @@ public final class IntegratedNavigationActivity extends Activity {
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
     private Button voiceButton;
+    private LinearLayout suggestionPanel;
+    private PlacesAutocompleteBridge placesAutocomplete;
+    private Runnable pendingSuggestions;
+    private int suggestionGeneration;
+    private boolean applyingSuggestion;
+    private String selectedDisplay;
+    private String selectedTarget;
+    private List<DestinationStore.Entry> addressSuggestions = new ArrayList<>();
+    private List<PlacesAutocompleteBridge.Prediction> googleSuggestions = new ArrayList<>();
     private boolean touchingSeek;
     private String chosenTarget;
     private long totalDuration = -1;
@@ -66,7 +82,14 @@ public final class IntegratedNavigationActivity extends Activity {
         chosenTarget = RouteTargetRules.clean(savedInstanceState != null
             ? savedInstanceState.getString(STATE_TARGET)
             : getIntent().getStringExtra(EXTRA_TARGET));
+        if (savedInstanceState != null) {
+            selectedDisplay = RouteTargetRules.clean(
+                savedInstanceState.getString(STATE_SELECTED_DISPLAY));
+            selectedTarget = RouteTargetRules.clean(
+                savedInstanceState.getString(STATE_SELECTED_TARGET));
+        }
         engine = loadEngine();
+        placesAutocomplete = PlacesAutocompleteBridge.approved(this);
 
         boolean landscape = getResources().getConfiguration().orientation
             == Configuration.ORIENTATION_LANDSCAPE;
@@ -236,13 +259,33 @@ public final class IntegratedNavigationActivity extends Activity {
         destination.setHint("Ziel, Adresse oder Koordinaten");
         destination.setText(chosenTarget == null ? "" : chosenTarget);
         routePanel.addView(destination);
+        suggestionPanel = Ui.column(this);
+        suggestionPanel.setVisibility(View.GONE);
+        routePanel.addView(suggestionPanel);
+        destination.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable value) {
+                if (applyingSuggestion) return;
+                selectedDisplay = null;
+                selectedTarget = null;
+                scheduleDestinationSuggestions(value.toString());
+            }
+        });
         destination.setOnFocusChangeListener((view, focused) -> {
             if (focused && routePanel.getVisibility() == View.VISIBLE) {
+                scheduleDestinationSuggestions(destination.getText().toString());
                 scroll.post(() -> destination.requestRectangleOnScreen(
                     new android.graphics.Rect(0, 0,
                         destination.getWidth(), destination.getHeight()), true));
+            } else if (suggestionPanel != null) {
+                suggestionPanel.setVisibility(View.GONE);
             }
         });
+
+        Button saveDestination = Ui.button(this, "☆ Ziel speichern");
+        routePanel.addView(saveDestination);
+        saveDestination.setOnClickListener(v -> saveCurrentDestination());
 
         Button remembered = Ui.button(this, "Gespeicherte Ziele wählen");
         routePanel.addView(remembered);
@@ -693,12 +736,15 @@ public final class IntegratedNavigationActivity extends Activity {
     }
     @Override protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        if (placesAutocomplete != null) placesAutocomplete.reset();
         if (engine != null) engine.onDestroy(isFinishing());
         updateScreenAwake(false);
         super.onDestroy();
     }
     @Override protected void onSaveInstanceState(Bundle bundle) {
         bundle.putString(STATE_TARGET, destination.getText().toString());
+        bundle.putString(STATE_SELECTED_DISPLAY, selectedDisplay);
+        bundle.putString(STATE_SELECTED_TARGET, selectedTarget);
         if (engine != null) engine.onSaveInstanceState(bundle);
         super.onSaveInstanceState(bundle);
     }
