@@ -250,9 +250,9 @@ test('v20 integrated native layout is a real fixed 70/30 shell with existing Spo
  assert.match(shell,/Route in dieser App berechnen/);
  assert.match(shell,/Route berechnen/);
  assert.match(shell,/NavigationDestinationResolver\.resolve/);
- assert.match(shell,/engine\.startConfirmedRoute\(lat, lng, name\)/);
+ assert.match(shell,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
  assert.match(shell,/engine != null && engine\.configured\(\)/);
- assert.match(shell,/getSharedPreferences\(ROUTES_PREFS, MODE_PRIVATE\)/);
+ assert.match(java('DestinationStore'),/getSharedPreferences\(LEGACY, Context.MODE_PRIVATE\)/);
  assert.match(shell,/stopGuidanceAndClearRoute\(\)/);
  assert.match(shell,/window|WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE/);
  assert.match(shell,/Keine|noch keine|nicht aktiviert/i);
@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 22/);
- assert.match(gradle,/versionName '0\.9\.20-beta'/);
+ assert.match(gradle,/versionCode 23/);
+ assert.match(gradle,/versionName '0\.9\.21-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 22/);
- assert.match(gradle,/versionName '0\.9\.20-beta'/);
+ assert.match(gradle,/versionCode 23/);
+ assert.match(gradle,/versionName '0\.9\.21-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==22/);
+ assert.match(ci,/versionCode'\]==23/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -722,4 +722,33 @@ test('v22 fuel handoff requires confirmation before Google route request',()=>{
  assert.match(fuel,/setResult\(RESULT_OK, result\)/);
  assert.match(fuel,/String coordinates = FuelRules\.stationCoordinates\(lat, lng\)/);
  assert.match(fuel,/if \(returnToCockpit\)/);
+});
+
+test('v23 favorites and local address prediction retain v22 navigation without paid Places',()=>{
+  const shell=java('IntegratedNavigationActivity');
+  const store=java('DestinationStore');
+  const bridge=java('PlacesAutocompleteBridge');
+  const gradle=read('app/build.gradle');
+  const rules=java('DestinationMatchRules');
+  const geo=java('AddressSuggestionResolver');
+  const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  assert.match(gradle,/versionCode 23/);
+  assert.match(gradle,/versionName '0\.9\.21-beta'/);
+  assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
+  assert.match(gradle,/WITH_GOOGLE_PLACES/);
+  assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
+  assert.match(shell,/mapPane\.addView\(voiceButton, voicePosition\)/);
+  assert.doesNotMatch(shell,/panel\.addView\(voiceButton\)/);
+  assert.match(shell,/DestinationStore\.recordRecent/);
+  assert.match(shell,/DestinationStore\.saveFavorite/);
+  assert.match(shell,/DestinationStore\.removeFavorite/);
+  assert.match(shell,/AddressSuggestionResolver\.suggest/);
+  assert.match(shell,/postDelayed\(pendingSuggestions, 650L\)/);
+  assert.match(geo,/Geocoder\.GeocodeListener/);
+  assert.match(store,/fahrcockpit_manual_routes_v1/);
+  assert.match(store,/fahrcockpit_destinations_v23/);
+  assert.match(store,/static boolean removeFavorite/);
+  assert.match(rules,/maySuggestOnline/);
+  assert.match(nav,/NavigationRequestBudget\.reserve\(host\)/);
+  assert.doesNotMatch(shell,/Places\.initializeWithNewPlacesApiEnabled/);
 });

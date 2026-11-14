@@ -10,6 +10,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.inputmethod.InputMethodManager;
+import java.util.ArrayList;
+import java.util.List;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
@@ -33,6 +38,8 @@ public final class IntegratedNavigationActivity extends Activity {
     private static final int LOCATION_REQUEST = 420;
     private static final int FUEL_PICK_REQUEST = 421;
     private static final String STATE_TARGET = "target";
+    private static final String STATE_SELECTED_DISPLAY = "selected_display";
+    private static final String STATE_SELECTED_TARGET = "selected_target";
     private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -42,6 +49,15 @@ public final class IntegratedNavigationActivity extends Activity {
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
     private Button voiceButton;
+    private LinearLayout suggestionPanel;
+    private PlacesAutocompleteBridge placesAutocomplete;
+    private Runnable pendingSuggestions;
+    private int suggestionGeneration;
+    private boolean applyingSuggestion;
+    private String selectedDisplay;
+    private String selectedTarget;
+    private List<DestinationStore.Entry> addressSuggestions = new ArrayList<>();
+    private List<PlacesAutocompleteBridge.Prediction> googleSuggestions = new ArrayList<>();
     private boolean touchingSeek;
     private String chosenTarget;
     private long totalDuration = -1;
@@ -66,7 +82,14 @@ public final class IntegratedNavigationActivity extends Activity {
         chosenTarget = RouteTargetRules.clean(savedInstanceState != null
             ? savedInstanceState.getString(STATE_TARGET)
             : getIntent().getStringExtra(EXTRA_TARGET));
+        if (savedInstanceState != null) {
+            selectedDisplay = RouteTargetRules.clean(
+                savedInstanceState.getString(STATE_SELECTED_DISPLAY));
+            selectedTarget = RouteTargetRules.clean(
+                savedInstanceState.getString(STATE_SELECTED_TARGET));
+        }
         engine = loadEngine();
+        placesAutocomplete = PlacesAutocompleteBridge.approved(this);
 
         boolean landscape = getResources().getConfiguration().orientation
             == Configuration.ORIENTATION_LANDSCAPE;
@@ -151,11 +174,17 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Hier ist kein Google-SDK enthalten.",
                 13, Ui.WARN, true));
         }
+        // Compact one-touch control directly on the Google map, not another
+        // full-width Spotify-side button. Leave native compass/guidance visible.
         voiceButton = Ui.button(this,
-            NavigationVoicePreferences.buttonLabel(
-                NavigationVoicePreferences.isMuted(this)));
-        voiceButton.setContentDescription("Google-Navigationsansagen an- oder ausschalten");
-        // Keep this one-touch mute control above the scrollable Spotify section.
+            NavigationVoicePreferences.isMuted(this) ? "🔇" : "🔊");
+        voiceButton.setTextSize(22);
+        voiceButton.setMinWidth(Ui.dp(this, 50));
+        voiceButton.setMinHeight(Ui.dp(this, 50));
+        voiceButton.setPadding(0, 0, 0, 0);
+        voiceButton.setBackground(Ui.background(this, 0xe6222730, 12));
+        voiceButton.setElevation(Ui.dp(this, 5));
+        updateVoiceButton();
         voiceButton.setOnClickListener(v -> {
             boolean muted = !NavigationVoicePreferences.isMuted(this);
             if (!NavigationVoicePreferences.save(this, muted)) {
@@ -163,9 +192,13 @@ public final class IntegratedNavigationActivity extends Activity {
                 return;
             }
             if (engine != null) engine.setVoiceMuted(muted);
-            voiceButton.setText(NavigationVoicePreferences.buttonLabel(muted));
+            updateVoiceButton();
         });
-        panel.addView(voiceButton);
+        FrameLayout.LayoutParams voicePosition = new FrameLayout.LayoutParams(
+            Ui.dp(this, 50), Ui.dp(this, 50),
+            Gravity.END | Gravity.CENTER_VERTICAL);
+        voicePosition.rightMargin = Ui.dp(this, 14);
+        mapPane.addView(voiceButton, voicePosition);
 
         Button sideToggle = Ui.button(this,
             landscape ? (spotifyLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
@@ -226,13 +259,38 @@ public final class IntegratedNavigationActivity extends Activity {
         destination.setHint("Ziel, Adresse oder Koordinaten");
         destination.setText(chosenTarget == null ? "" : chosenTarget);
         routePanel.addView(destination);
+        suggestionPanel = Ui.column(this);
+        suggestionPanel.setVisibility(View.GONE);
+        routePanel.addView(suggestionPanel);
+        destination.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable value) {
+                if (applyingSuggestion) return;
+                selectedDisplay = null;
+                selectedTarget = null;
+                scheduleDestinationSuggestions(value.toString());
+            }
+        });
         destination.setOnFocusChangeListener((view, focused) -> {
             if (focused && routePanel.getVisibility() == View.VISIBLE) {
+                scheduleDestinationSuggestions(destination.getText().toString());
                 scroll.post(() -> destination.requestRectangleOnScreen(
                     new android.graphics.Rect(0, 0,
                         destination.getWidth(), destination.getHeight()), true));
+            } else if (suggestionPanel != null) {
+                // Let the tapped suggestion finish its click before closing
+                // the parent, otherwise Samsung may lose the selected target.
+                handler.postDelayed(() -> {
+                    if (!destination.hasFocus() && suggestionPanel != null)
+                        suggestionPanel.setVisibility(View.GONE);
+                }, 180L);
             }
         });
+
+        Button saveDestination = Ui.button(this, "☆ Ziel speichern");
+        routePanel.addView(saveDestination);
+        saveDestination.setOnClickListener(v -> saveCurrentDestination());
 
         Button remembered = Ui.button(this, "Gespeicherte Ziele wählen");
         routePanel.addView(remembered);
@@ -454,23 +512,236 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
 
-    private void showSavedTargets() {
-        android.content.SharedPreferences prefs =
-            getSharedPreferences(ROUTES_PREFS, MODE_PRIVATE);
-        java.util.ArrayList<String> values = new java.util.ArrayList<>();
-        for (int i = 0; i < 5; i++) {
-            String target = RouteTargetRules.clean(
-                prefs.getString("target_" + i, ""));
-            if (target != null && !values.contains(target)) values.add(target);
-        }
-        if (values.isEmpty()) {
-            showStatus("Keine gespeicherten Ziele · in FahrCockpit v18/v19 merken.");
+    /** Local suggestions display immediately; Android Geocoder runs only after
+     * debounced typing. No billable Places service is enabled in this build.
+     */
+    private void scheduleDestinationSuggestions(String text) {
+        final String query = text == null ? "" : text.trim();
+        final int generation = ++suggestionGeneration;
+        if (pendingSuggestions != null) handler.removeCallbacks(pendingSuggestions);
+        addressSuggestions = new ArrayList<>();
+        googleSuggestions = new ArrayList<>();
+        renderDestinationSuggestions(query);
+        if (!DestinationMatchRules.maySuggestOnline(query)) return;
+        pendingSuggestions = () -> {
+            if (isFinishing() || isDestroyed()) return;
+            if (placesAutocomplete != null) {
+                placesAutocomplete.suggest(query, new PlacesAutocompleteBridge.Predictions() {
+                    @Override public void success(List<PlacesAutocompleteBridge.Prediction> values) {
+                        runOnUiThread(() -> {
+                            if (!suggestionsCurrent(generation, query)) return;
+                            googleSuggestions = values == null ? new ArrayList<>() : values;
+                            renderDestinationSuggestions(query);
+                        });
+                    }
+                    @Override public void failure() {
+                        runOnUiThread(() -> {
+                            if (!suggestionsCurrent(generation, query)) return;
+                            googleSuggestions = new ArrayList<>();
+                            renderDestinationSuggestions(query);
+                        });
+                    }
+                });
+            } else {
+                AddressSuggestionResolver.suggest(this, query, values -> {
+                    if (!suggestionsCurrent(generation, query)) return;
+                    addressSuggestions = values;
+                    renderDestinationSuggestions(query);
+                });
+            }
+        };
+        handler.postDelayed(pendingSuggestions, 650L);
+    }
+
+    private boolean suggestionsCurrent(int generation, String query) {
+        return !isFinishing() && !isDestroyed()
+            && generation == suggestionGeneration && destination.hasFocus()
+            && query.equals(destination.getText().toString().trim());
+    }
+
+    private void renderDestinationSuggestions(String query) {
+        if (suggestionPanel == null) return;
+        suggestionPanel.removeAllViews();
+        if (!destination.hasFocus()) {
+            suggestionPanel.setVisibility(View.GONE);
             return;
         }
-        new AlertDialog.Builder(this).setTitle("Gespeicherte Ziele")
-            .setItems(values.toArray(new String[0]),
-                (dialog, which) -> destination.setText(values.get(which)))
+        List<DestinationStore.Entry> local = DestinationStore.suggestions(this, query, 4);
+        int count = 0;
+        for (DestinationStore.Entry entry : local) {
+            if (count++ >= 4) break;
+            String heading = (entry.favorite ? "⭐ " : "↶ ") + entry.label;
+            String detail = entry.target.equalsIgnoreCase(entry.label)
+                ? "" : "\n" + entry.target;
+            addSuggestionRow(heading + detail,
+                () -> applyDestinationSuggestion(entry.label, entry.target));
+        }
+        int remaining = Math.max(0, 6 - count);
+        if (placesAutocomplete != null) {
+            for (PlacesAutocompleteBridge.Prediction prediction : googleSuggestions) {
+                if (remaining-- <= 0) break;
+                addSuggestionRow("📍 Google: " + prediction.display, () -> {
+                    final int generation = ++suggestionGeneration;
+                    placesAutocomplete.resolve(prediction,
+                        new PlacesAutocompleteBridge.Selection() {
+                        @Override public void success(String label, String target) {
+                            runOnUiThread(() -> {
+                                if (generation == suggestionGeneration)
+                                    applyDestinationSuggestion(label, target);
+                            });
+                        }
+                        @Override public void failure() {
+                            runOnUiThread(() -> showStatus(
+                                "Google-Ort konnte nicht geladen werden. Bitte Adresse eintippen."));
+                        }
+                    });
+                });
+            }
+        } else {
+            for (DestinationStore.Entry entry : addressSuggestions) {
+                if (remaining-- <= 0) break;
+                boolean duplicate = false;
+                for (DestinationStore.Entry stored : local)
+                    if (DestinationMatchRules.sameTarget(stored.target, entry.target))
+                        duplicate = true;
+                if (duplicate) continue;
+                addSuggestionRow("📍 " + entry.label,
+                    () -> applyDestinationSuggestion(entry.label, entry.target));
+            }
+        }
+        suggestionPanel.setVisibility(suggestionPanel.getChildCount() == 0
+            ? View.GONE : View.VISIBLE);
+    }
+
+    private void addSuggestionRow(String label, Runnable select) {
+        Button item = Ui.button(this, label);
+        item.setTextSize(12);
+        item.setMaxLines(2);
+        item.setContentDescription(label);
+        item.setOnClickListener(v -> select.run());
+        suggestionPanel.addView(item);
+    }
+
+    private void applyDestinationSuggestion(String label, String target) {
+        String display = RouteTargetRules.clean(label);
+        String actual = RouteTargetRules.clean(target);
+        if (display == null || actual == null) return;
+        suggestionGeneration++;
+        if (pendingSuggestions != null) handler.removeCallbacks(pendingSuggestions);
+        applyingSuggestion = true;
+        destination.setText(display);
+        destination.setSelection(display.length());
+        applyingSuggestion = false;
+        selectedDisplay = display;
+        selectedTarget = actual;
+        suggestionPanel.removeAllViews();
+        suggestionPanel.setVisibility(View.GONE);
+        InputMethodManager keyboard = (InputMethodManager)
+            getSystemService(INPUT_METHOD_SERVICE);
+        if (keyboard != null)
+            keyboard.hideSoftInputFromWindow(destination.getWindowToken(), 0);
+        destination.clearFocus();
+    }
+
+    private String selectedNavigationTarget() {
+        String text = RouteTargetRules.clean(destination.getText().toString());
+        return text != null && text.equals(selectedDisplay) && selectedTarget != null
+            ? selectedTarget : text;
+    }
+
+    private void saveCurrentDestination() {
+        String display = RouteTargetRules.clean(destination.getText().toString());
+        String target = selectedNavigationTarget();
+        if (display == null || target == null) {
+            destination.setError("Bitte zuerst ein Ziel eingeben oder auswählen.");
+            return;
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("Ziel als Favorit speichern")
+            .setItems(new String[]{"🏠 Zuhause", "💼 Arbeit", "☆ Eigenen Namen vergeben"},
+                (dialog, which) -> {
+                    if (which < 2) {
+                        saveNamedDestination(which == 0 ? "Zuhause" : "Arbeit", target);
+                    } else {
+                        editFavoriteName(display, target);
+                    }
+                })
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
+            .show();
+    }
+
+    private void editFavoriteName(String currentLabel, String target) {
+        EditText field = new EditText(this);
+        field.setSingleLine(true);
+        field.setText(currentLabel);
+        field.setSelectAllOnFocus(true);
+        new AlertDialog.Builder(this)
+            .setTitle("Name für gespeichertes Ziel")
+            .setView(field)
+            .setNegativeButton("Abbrechen", (dialog, which) -> {})
+            .setPositiveButton("Speichern", (dialog, which) ->
+                saveNamedDestination(field.getText().toString(), target))
+            .show();
+    }
+
+    private void saveNamedDestination(String label, String target) {
+        boolean saved = DestinationStore.saveFavorite(this, label, target);
+        showStatus(saved ? "Ziel als Favorit gespeichert: " + label
+            : "Ziel konnte nicht gespeichert werden.");
+    }
+
+    private void showSavedTargets() {
+        List<DestinationStore.Entry> entries = DestinationStore.suggestions(this, "", 40);
+        if (entries.isEmpty()) {
+            showStatus("Keine Ziele gespeichert. Jetzt über ☆ Ziel speichern anlegen.");
+            return;
+        }
+        String[] labels = new String[entries.size()];
+        for (int i = 0; i < entries.size(); i++) {
+            DestinationStore.Entry item = entries.get(i);
+            labels[i] = (item.favorite ? "⭐ " : "↶ ") + item.label;
+        }
+        new AlertDialog.Builder(this).setTitle("Gespeicherte und letzte Ziele")
+            .setItems(labels, (dialog, which) ->
+                applyDestinationSuggestion(entries.get(which).label,
+                    entries.get(which).target))
+            .setNeutralButton("Favoriten verwalten", (dialog, which) ->
+                showManageFavorites())
+            .setNegativeButton("Abbrechen", (dialog, which) -> {})
+            .show();
+    }
+
+    private void showManageFavorites() {
+        List<DestinationStore.Entry> entries = DestinationStore.favorites(this);
+        if (entries.isEmpty()) {
+            showStatus("Noch keine neuen Favoriten. Alte v18/v19-Ziele bleiben lesbar.");
+            return;
+        }
+        String[] labels = new String[entries.size()];
+        for (int i = 0; i < entries.size(); i++) labels[i] = entries.get(i).label;
+        new AlertDialog.Builder(this).setTitle("Favoriten bearbeiten oder löschen")
+            .setItems(labels, (dialog, which) -> {
+                DestinationStore.Entry selected = entries.get(which);
+                new AlertDialog.Builder(this)
+                    .setTitle(selected.label)
+                    .setMessage(selected.target)
+                    .setPositiveButton("Umbenennen", (d, n) ->
+                        editFavoriteName(selected.label, selected.target))
+                    .setNegativeButton("Löschen", (d, n) -> {
+                        new AlertDialog.Builder(this)
+                            .setTitle("Favorit löschen?")
+                            .setMessage(selected.label)
+                            .setNegativeButton("Abbrechen", (d2, n2) -> {})
+                            .setPositiveButton("Löschen", (d2, n2) ->
+                                showStatus(DestinationStore.removeFavorite(this, selected.target)
+                                    ? "Favorit gelöscht."
+                                    : "Favorit konnte nicht gelöscht werden."))
+                            .show();
+                    })
+                    .setNeutralButton("Abbrechen", (d, n) -> {})
+                    .show();
+            })
+            .setNegativeButton("Schließen", (dialog, which) -> {})
             .show();
     }
 
@@ -488,8 +759,8 @@ public final class IntegratedNavigationActivity extends Activity {
         String name = RouteTargetRules.clean(
             data.getStringExtra(FuelActivity.RESULT_NAME));
         if (name == null) name = "Tankstelle";
-        chosenTarget = coords;
-        destination.setText(coords);
+        chosenTarget = name;
+        applyDestinationSuggestion(name, coords);
         if (engine == null || !engine.ready()) {
             showStatus("Tankstelle übernommen. Navigation noch nicht bereit.");
             return;
@@ -504,8 +775,10 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Google-Navigation-SDK-Quote.")
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
             .setPositiveButton("Route berechnen", (dialog, which) -> {
-                if (engine != null && engine.ready())
+                if (engine != null && engine.ready()) {
+                    DestinationStore.recordRecent(this, chosenName, coords);
                     engine.startConfirmedRoute(lat, lng, chosenName);
+                }
             })
             .show();
     }
@@ -518,12 +791,13 @@ public final class IntegratedNavigationActivity extends Activity {
                     + "Die kostenlose Google-Maps-App bleibt verfügbar.");
             return;
         }
-        String target = RouteTargetRules.clean(destination.getText().toString());
-        if (target == null) {
+        String display = RouteTargetRules.clean(destination.getText().toString());
+        String target = selectedNavigationTarget();
+        if (display == null || target == null) {
             destination.setError("Bitte ein gültiges Ziel eingeben.");
             return;
         }
-        chosenTarget = target;
+        chosenTarget = display;
         showStatus(isOsmPreview()
             ? "Ziel wird ermittelt – noch keine Offline-Routenberechnung."
             : "Ziel wird ermittelt – noch keine Google-SDK-Routenanfrage.");
@@ -531,6 +805,8 @@ public final class IntegratedNavigationActivity extends Activity {
             new NavigationDestinationResolver.Callback() {
             @Override public void resolved(double lat, double lng, String name) {
                 if (isFinishing() || isDestroyed()) return;
+                final String readable = display.equals(selectedDisplay)
+                    ? display : name;
                 String coords = IntegratedNavigationRules.displayCoordinates(lat,lng);
                 if (coords == null) {
                     showStatus("Ortssuche hat ungültige Koordinaten geliefert.");
@@ -556,7 +832,9 @@ public final class IntegratedNavigationActivity extends Activity {
                     .setPositiveButton(osm ? "Straßenroute planen"
                         : "Route berechnen", (d,which) -> {
                         if (engine != null && engine.ready()) {
-                            engine.startConfirmedRoute(lat, lng, name);
+                            DestinationStore.recordRecent(
+                                IntegratedNavigationActivity.this, readable, coords);
+                            engine.startConfirmedRoute(lat, lng, readable);
                         }
                     })
                     .show();
@@ -621,6 +899,15 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
 
+    private void updateVoiceButton() {
+        if (voiceButton == null) return;
+        boolean muted = NavigationVoicePreferences.isMuted(this);
+        voiceButton.setText(muted ? "🔇" : "🔊");
+        voiceButton.setContentDescription(muted
+            ? "Google-Navigationsansagen einschalten"
+            : "Google-Navigationsansagen ausschalten");
+    }
+
     private void updateScreenAwake(boolean routeActive) {
         if (routeActive) {
             // Only an active route keeps the display awake. It cannot defeat
@@ -674,12 +961,15 @@ public final class IntegratedNavigationActivity extends Activity {
     }
     @Override protected void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        if (placesAutocomplete != null) placesAutocomplete.reset();
         if (engine != null) engine.onDestroy(isFinishing());
         updateScreenAwake(false);
         super.onDestroy();
     }
     @Override protected void onSaveInstanceState(Bundle bundle) {
         bundle.putString(STATE_TARGET, destination.getText().toString());
+        bundle.putString(STATE_SELECTED_DISPLAY, selectedDisplay);
+        bundle.putString(STATE_SELECTED_TARGET, selectedTarget);
         if (engine != null) engine.onSaveInstanceState(bundle);
         super.onSaveInstanceState(bundle);
     }

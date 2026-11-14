@@ -9,6 +9,11 @@ def withGoogleNavSdk = providers.gradleProperty('withGoogleNavSdk')
 // no alternative debug preview package. The release gate must pass this flag.
 def googleOnly = providers.gradleProperty('googleOnly')
     .orElse('false').get().toBoolean()
+// Compilable for CI only; approval to activate billable Places is separate.
+def withGooglePlaces = providers.gradleProperty('withGooglePlaces')
+    .orElse('false').get().toBoolean()
+if (withGooglePlaces && !withGoogleNavSdk)
+    throw new GradleException('Optional Places integration requires the existing Navigation SDK')
 if (googleOnly && !withGoogleNavSdk)
     throw new GradleException('Google-only release requires withGoogleNavSdk=true')
 // OSM fallback is a separately compiled, free development-only feature.
@@ -33,7 +38,7 @@ if (!withGoogleNavSdk && googleNavKey) {
 
 android {
     namespace 'com.cobrachris.fahrcockpit'
-    compileSdk = (withGoogleNavSdk || withOsmFallback) ? 36 : 35
+    compileSdk = (withGoogleNavSdk || withGooglePlaces || withOsmFallback) ? 36 : 35
     defaultConfig {
         applicationId 'com.cobrachris.fahrcockpit'
         if (visualPreview) applicationIdSuffix '.preview'
@@ -42,11 +47,14 @@ android {
                 ? 'FahrCockpit' : 'FahrCockpit (Test)')]
         minSdk 30
         targetSdk withGoogleNavSdk ? 36 : 35
-        versionCode 22
-        versionName '0.9.20-beta'
+        versionCode 23
+        versionName '0.9.21-beta'
         buildConfigField 'String', 'NAVSDK_API_KEY', '"' + googleNavKey + '"'
         buildConfigField 'boolean', 'VISUAL_PREVIEW', visualPreview.toString()
         buildConfigField 'boolean', 'GOOGLE_ONLY', googleOnly.toString()
+        buildConfigField 'boolean', 'WITH_GOOGLE_PLACES', withGooglePlaces.toString()
+        // Production v23 must not activate a new billable service.
+        buildConfigField 'boolean', 'GOOGLE_PLACES_ACTIVATED', 'false'
         if (withGoogleNavSdk) multiDexEnabled true
     }
     buildFeatures {
@@ -56,6 +64,7 @@ android {
     sourceSets {
         main {
             if (withGoogleNavSdk) java.srcDir 'src/navsdk/java'
+            if (withGooglePlaces) java.srcDir 'src/places/java'
             if (withOsmFallback) {
                 java.srcDir 'src/osm/java'
                 aidl.srcDir 'src/osm/aidl'
@@ -79,6 +88,14 @@ dependencies {
     if (withGoogleNavSdk) {
         implementation 'com.google.android.libraries.navigation:navigation:7.6.1'
         coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.0.3'
+    }
+    if (withGooglePlaces) {
+        // Navigation SDK already packages com.google.android.gms.maps classes.
+        // Keep only its copy: otherwise optional Places brings duplicate Maps
+        // classes and Android D8 rejects the combined Google-only APK.
+        implementation('com.google.android.libraries.places:places:6.0.2') {
+            exclude group: 'com.google.android.gms', module: 'play-services-maps'
+        }
     }
     if (withOsmFallback) {
         implementation 'org.maplibre.gl:android-sdk:13.6.1'
