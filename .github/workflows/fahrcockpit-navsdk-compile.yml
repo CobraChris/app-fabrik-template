@@ -2,7 +2,7 @@ name: FahrCockpit – optionale Google Navigation SDK Kompilierung (OHNE Billing
 
 on:
   push:
-    branches: [feature/fahrcockpit-v20-integrated-navigation-gated, feature/fahrcockpit-blitzer-bridge, feature/fahrcockpit-v21-google-first-fallback, fix/fahrcockpit-v22-keyboard-insets-layout]
+    branches: [feature/fahrcockpit-v20-integrated-navigation-gated, feature/fahrcockpit-blitzer-bridge, feature/fahrcockpit-v21-google-first-fallback, fix/fahrcockpit-v22-keyboard-insets-layout, feature/fahrcockpit-v23-destinations-places-ui]
     paths:
       - 'experiments/fahrcockpit/**'
       - 'tests/fahrcockpit-contract.test.mjs'
@@ -75,6 +75,17 @@ jobs:
           set -euo pipefail
           gradle --no-daemon -p experiments/fahrcockpit -PwithGoogleNavSdk=true -PgoogleOnly=true \
             :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease
+      - name: Optionalen Google Places Code OHNE Aktivierung kompilieren
+        shell: bash
+        env:
+          FAHRCOCKPIT_NAV_SDK_KEY: ''
+        run: |
+          set -euo pipefail
+          # New Places SDK is linked only in this CI compile variant.
+          # The feature gate remains hard-false; no Places API requests.
+          gradle --no-daemon -p experiments/fahrcockpit \
+            -PwithGoogleNavSdk=true -PgoogleOnly=true -PwithGooglePlaces=true \
+            :app:testDebugUnitTest :app:assembleDebug
       - name: Verhindern, dass SDK-Schluessel im Repo steht
         shell: bash
         run: |
@@ -92,7 +103,7 @@ jobs:
           p='experiments/fahrcockpit/app/build/outputs/apk/release/output-metadata.json'
           with open(p,encoding='utf-8') as f: meta=json.load(f)
           assert meta['applicationId']=='com.cobrachris.fahrcockpit'
-          assert meta['elements'][0]['versionCode']==22
+          assert meta['elements'][0]['versionCode']==23
           assert meta['elements'][0]['outputFile']=='app-release-unsigned.apk'
-          print('Verified: Google-only v22 original package, unsigned, no API key.')
+          print('Verified: Google-only v23 original package, unsigned, no API key.')
           PY
