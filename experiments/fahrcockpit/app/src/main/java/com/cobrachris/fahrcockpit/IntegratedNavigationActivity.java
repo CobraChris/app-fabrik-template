@@ -754,8 +754,8 @@ public final class IntegratedNavigationActivity extends Activity {
         String name = RouteTargetRules.clean(
             data.getStringExtra(FuelActivity.RESULT_NAME));
         if (name == null) name = "Tankstelle";
-        chosenTarget = coords;
-        destination.setText(coords);
+        chosenTarget = name;
+        applyDestinationSuggestion(name, coords);
         if (engine == null || !engine.ready()) {
             showStatus("Tankstelle übernommen. Navigation noch nicht bereit.");
             return;
@@ -770,8 +770,10 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Google-Navigation-SDK-Quote.")
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
             .setPositiveButton("Route berechnen", (dialog, which) -> {
-                if (engine != null && engine.ready())
+                if (engine != null && engine.ready()) {
+                    DestinationStore.recordRecent(this, chosenName, coords);
                     engine.startConfirmedRoute(lat, lng, chosenName);
+                }
             })
             .show();
     }
@@ -784,12 +786,13 @@ public final class IntegratedNavigationActivity extends Activity {
                     + "Die kostenlose Google-Maps-App bleibt verfügbar.");
             return;
         }
-        String target = RouteTargetRules.clean(destination.getText().toString());
-        if (target == null) {
+        String display = RouteTargetRules.clean(destination.getText().toString());
+        String target = selectedNavigationTarget();
+        if (display == null || target == null) {
             destination.setError("Bitte ein gültiges Ziel eingeben.");
             return;
         }
-        chosenTarget = target;
+        chosenTarget = display;
         showStatus(isOsmPreview()
             ? "Ziel wird ermittelt – noch keine Offline-Routenberechnung."
             : "Ziel wird ermittelt – noch keine Google-SDK-Routenanfrage.");
@@ -797,6 +800,8 @@ public final class IntegratedNavigationActivity extends Activity {
             new NavigationDestinationResolver.Callback() {
             @Override public void resolved(double lat, double lng, String name) {
                 if (isFinishing() || isDestroyed()) return;
+                final String readable = display.equals(selectedDisplay)
+                    ? display : name;
                 String coords = IntegratedNavigationRules.displayCoordinates(lat,lng);
                 if (coords == null) {
                     showStatus("Ortssuche hat ungültige Koordinaten geliefert.");
@@ -822,7 +827,9 @@ public final class IntegratedNavigationActivity extends Activity {
                     .setPositiveButton(osm ? "Straßenroute planen"
                         : "Route berechnen", (d,which) -> {
                         if (engine != null && engine.ready()) {
-                            engine.startConfirmedRoute(lat, lng, name);
+                            DestinationStore.recordRecent(
+                                IntegratedNavigationActivity.this, readable, coords);
+                            engine.startConfirmedRoute(lat, lng, readable);
                         }
                     })
                     .show();
