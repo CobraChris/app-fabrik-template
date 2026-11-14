@@ -9,6 +9,11 @@ export const GOOGLE_SOURCE_REF =
     'refs/heads/feature/fahrcockpit-v21-google-first-fallback';
 export const GOOGLE_V22_SOURCE_REF =
     'refs/heads/fix/fahrcockpit-v22-keyboard-insets-layout';
+export const GOOGLE_V23_SOURCE_REF =
+    'refs/heads/feature/fahrcockpit-v23-destinations-places-ui';
+// Independently reviewed and successfully tested Google-only v23 candidate.
+// Any source change requires a new separate security review and release approval.
+export const GOOGLE_V23_APPROVED_SHA = '151c382a6afad6890500c8be5d6b8bf2cb8f3f1a';
 
 export function validateRequest(r) {
   if (!r || Array.isArray(r) || typeof r !== 'object') throw Error('Not an object');
@@ -35,11 +40,15 @@ export function validateRequest(r) {
     return { sha:r.source_sha, code:r.expected_version_code };
   }
   if (r.variant !== 'google-sdk-only' ||
-      r.expected_version_code < 21 || r.expected_version_code > 22)
+      r.expected_version_code < 21 || r.expected_version_code > 23)
     throw Error('Google-only release must explicitly exclude OSM and preview; v23+ requires new review');
   if (r.expected_version_code === 22 &&
       r.request_id !== '2026-11-13-fahrcockpit-v22-google-only')
     throw Error('Unapproved v22 release request identity');
+  if (r.expected_version_code === 23 &&
+      (r.request_id !== '2026-11-14-fahrcockpit-v23-google-only' ||
+       r.source_sha !== GOOGLE_V23_APPROVED_SHA))
+    throw Error('Unapproved v23 release identity or reviewed source SHA');
   return { sha:r.source_sha, code:r.expected_version_code,
     variant:r.variant };
 }
@@ -57,6 +66,7 @@ export function sourceRefFor(variant, code = 21) {
   if (variant !== 'google-sdk-only') return SOURCE_REF;
   if (code === 21) return GOOGLE_SOURCE_REF;
   if (code === 22) return GOOGLE_V22_SOURCE_REF;
+  if (code === 23) return GOOGLE_V23_SOURCE_REF;
   throw Error('Unapproved Google-only release version');
 }
 export function validateSource(sha, remote, variant = 'legacy', code = 21) {
