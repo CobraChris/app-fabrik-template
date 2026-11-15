@@ -14,6 +14,10 @@ export const GOOGLE_V23_SOURCE_REF =
 // Independently reviewed and successfully tested Google-only v23 candidate.
 // Any source change requires a new separate security review and release approval.
 export const GOOGLE_V23_APPROVED_SHA = '151c382a6afad6890500c8be5d6b8bf2cb8f3f1a';
+export const GOOGLE_V24_SOURCE_REF =
+    'refs/heads/feature/fahrcockpit-v24-compact-navigation-ui';
+// Explicit security review, pinned source: all changes require new review.
+export const GOOGLE_V24_APPROVED_SHA = '61c73d12778f42d7481eef8a5eeabe7f2bf477a3';
 
 export function validateRequest(r) {
   if (!r || Array.isArray(r) || typeof r !== 'object') throw Error('Not an object');
@@ -40,7 +44,7 @@ export function validateRequest(r) {
     return { sha:r.source_sha, code:r.expected_version_code };
   }
   if (r.variant !== 'google-sdk-only' ||
-      r.expected_version_code < 21 || r.expected_version_code > 23)
+      r.expected_version_code < 21 || r.expected_version_code > 24)
     throw Error('Google-only release must explicitly exclude OSM and preview; v23+ requires new review');
   if (r.expected_version_code === 22 &&
       r.request_id !== '2026-11-13-fahrcockpit-v22-google-only')
@@ -49,6 +53,10 @@ export function validateRequest(r) {
       (r.request_id !== '2026-11-14-fahrcockpit-v23-google-only' ||
        r.source_sha !== GOOGLE_V23_APPROVED_SHA))
     throw Error('Unapproved v23 release identity or reviewed source SHA');
+  if (r.expected_version_code === 24 &&
+      (r.request_id !== '2026-11-15-fahrcockpit-v24-google-only' ||
+       r.source_sha !== GOOGLE_V24_APPROVED_SHA))
+    throw Error('Unapproved v24 release identity or reviewed source SHA');
   return { sha:r.source_sha, code:r.expected_version_code,
     variant:r.variant };
 }
@@ -67,6 +75,7 @@ export function sourceRefFor(variant, code = 21) {
   if (code === 21) return GOOGLE_SOURCE_REF;
   if (code === 22) return GOOGLE_V22_SOURCE_REF;
   if (code === 23) return GOOGLE_V23_SOURCE_REF;
+  if (code === 24) return GOOGLE_V24_SOURCE_REF;
   throw Error('Unapproved Google-only release version');
 }
 export function validateSource(sha, remote, variant = 'legacy', code = 21) {
