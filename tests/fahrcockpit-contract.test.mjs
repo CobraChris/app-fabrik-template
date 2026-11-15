@@ -247,7 +247,7 @@ test('v20 integrated native layout is a real fixed 70/30 shell with existing Spo
  assert.match(shell,/FuelActivity.class/);
  assert.match(shell,/my\.saphelink/);
  assert.match(shell,/SplitCockpitActivity.class/);
- assert.match(shell,/Route in dieser App berechnen/);
+ assert.match(shell,/Button route = Ui.button/);
  assert.match(shell,/Route berechnen/);
  assert.match(shell,/NavigationDestinationResolver\.resolve/);
  assert.match(shell,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
@@ -297,7 +297,7 @@ test('v20 SDK is not in the default signed variant and cannot route without expl
 test('v20 keeps primary Spotify controls visible before optional route form in 30 percent pane',()=>{
  const shell=java('IntegratedNavigationActivity');
  assert.match(shell,/routePanel\.setVisibility\(View\.GONE\)/);
- assert.match(shell,/Button toggleRoutes = Ui\.button\(this, "📍 Ziel \/ Route"\)/);
+ assert.match(shell,/toggleRoutes = Ui\.button\(this, "📍 Ziel \/ Route"\)/);
  assert.match(shell,/toggleRoutes\.setOnClickListener/);
  assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(routePanel);'));
  assert.ok(shell.indexOf('panel.addView(skip);') < shell.indexOf('panel.addView(routePanel);'));
@@ -599,8 +599,8 @@ test('v21 landscape still 70/30 while portrait keeps Spotify usable; OSM centers
  const policy=java('CockpitLayoutRules');
  const center=java('MapCenterRules');
  const osm=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmRoutingPreviewEngine.java');
- assert.match(policy,/PORTRAIT_MAP_WEIGHT = 9/);
- assert.match(policy,/PORTRAIT_CONTROLS_WEIGHT = 11/);
+ assert.match(policy,/PORTRAIT_MAP_WEIGHT = 12/);
+ assert.match(policy,/PORTRAIT_CONTROLS_WEIGHT = 8/);
  assert.match(policy,/IntegratedNavigationRules.MAP_WEIGHT/);
  assert.match(policy,/IntegratedNavigationRules.CONTROLS_WEIGHT/);
  assert.match(screen,/CockpitLayoutRules.mapWeight\(false\)/);
