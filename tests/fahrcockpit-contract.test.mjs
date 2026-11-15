@@ -247,7 +247,7 @@ test('v20 integrated native layout is a real fixed 70/30 shell with existing Spo
  assert.match(shell,/FuelActivity.class/);
  assert.match(shell,/my\.saphelink/);
  assert.match(shell,/SplitCockpitActivity.class/);
- assert.match(shell,/Route in dieser App berechnen/);
+ assert.match(shell,/Button route = Ui.button/);
  assert.match(shell,/Route berechnen/);
  assert.match(shell,/NavigationDestinationResolver\.resolve/);
  assert.match(shell,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
@@ -297,7 +297,7 @@ test('v20 SDK is not in the default signed variant and cannot route without expl
 test('v20 keeps primary Spotify controls visible before optional route form in 30 percent pane',()=>{
  const shell=java('IntegratedNavigationActivity');
  assert.match(shell,/routePanel\.setVisibility\(View\.GONE\)/);
- assert.match(shell,/Button toggleRoutes = Ui\.button\(this, "📍 Ziel \/ Route"\)/);
+ assert.match(shell,/toggleRoutes = Ui\.button\(this, "📍 Ziel \/ Route"\)/);
  assert.match(shell,/toggleRoutes\.setOnClickListener/);
  assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(routePanel);'));
  assert.ok(shell.indexOf('panel.addView(skip);') < shell.indexOf('panel.addView(routePanel);'));
@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 23/);
- assert.match(gradle,/versionName '0\.9\.21-beta'/);
+ assert.match(gradle,/versionCode 24/);
+ assert.match(gradle,/versionName '0\.9\.22-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -599,8 +599,8 @@ test('v21 landscape still 70/30 while portrait keeps Spotify usable; OSM centers
  const policy=java('CockpitLayoutRules');
  const center=java('MapCenterRules');
  const osm=read('app/src/osm/java/com/cobrachris/fahrcockpit/OsmRoutingPreviewEngine.java');
- assert.match(policy,/PORTRAIT_MAP_WEIGHT = 9/);
- assert.match(policy,/PORTRAIT_CONTROLS_WEIGHT = 11/);
+ assert.match(policy,/PORTRAIT_MAP_WEIGHT = 12/);
+ assert.match(policy,/PORTRAIT_CONTROLS_WEIGHT = 8/);
  assert.match(policy,/IntegratedNavigationRules.MAP_WEIGHT/);
  assert.match(policy,/IntegratedNavigationRules.CONTROLS_WEIGHT/);
  assert.match(screen,/CockpitLayoutRules.mapWeight\(false\)/);
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 23/);
- assert.match(gradle,/versionName '0\.9\.21-beta'/);
+ assert.match(gradle,/versionCode 24/);
+ assert.match(gradle,/versionName '0\.9\.22-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==23/);
+ assert.match(ci,/versionCode'\]==24/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -732,8 +732,8 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 23/);
-  assert.match(gradle,/versionName '0\.9\.21-beta'/);
+  assert.match(gradle,/versionCode 24/);
+  assert.match(gradle,/versionName '0\.9\.22-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
@@ -751,4 +751,66 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   assert.match(rules,/maySuggestOnline/);
   assert.match(nav,/NavigationRequestBudget\.reserve\(host\)/);
   assert.doesNotMatch(shell,/Places\.initializeWithNewPlacesApiEnabled/);
+});
+
+
+test('v24 speaker is monochrome icon-only, never a Samsung emoji or text button',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const icon=java('NavigationAudioIcon');
+  const voices=java('NavigationVoicePreferences');
+  assert.match(cockpit,/new ImageButton\(this\)/);
+  assert.match(cockpit,/voiceButton\.setImageDrawable\(new NavigationAudioIcon\(muted\)\)/);
+  assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
+  assert.match(cockpit,/mapPane\.addView\(voiceButton, voicePosition\)/);
+  assert.doesNotMatch(cockpit,/voiceButton\.setText\(/);
+  assert.doesNotMatch(icon,/\uD83D\uDD0A|\uD83D\uDD07|Emoji/);
+  assert.match(icon,/if \(muted\)/);
+  assert.match(icon,/waves\.lineTo\(20\.8f, 20\.8f\)/);
+  assert.match(icon,/canvas\.drawPath\(waves, paint\)/);
+  assert.doesNotMatch(voices,/SpotifyMedia/);
+});
+
+test('v24 custom favorite editor keeps a nickname separate from actual route target',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const store=java('DestinationStore');
+  const match=java('DestinationMatchRules');
+  assert.match(cockpit,/showFavoriteEditor\(null, "", target\)/);
+  assert.match(cockpit,/Name des Ziels/);
+  assert.match(cockpit,/Adresse oder Koordinaten/);
+  assert.match(cockpit,/z\. B\. Tante Emma oder Onkel Klaus/);
+  assert.match(cockpit,/DestinationStore\.updateFavorite\(this, previousTarget, label, target\)/);
+  assert.match(cockpit,/applyDestinationSuggestion\(label, target\)/);
+  assert.match(cockpit,/selectedNavigationTarget\(\)/);
+  assert.match(store,/static boolean updateFavorite\(/);
+  assert.match(store,/if \(original == -1\) return false/);
+  assert.match(store,/return write\(context, "fav_", FAVORITES, entries\)/);
+  assert.match(match,/sameTarget\(/);
+});
+
+test('v24 route menu collapses during active guidance while remaining reversible',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/onGuidanceStateChanged\(boolean active\)/);
+  assert.match(cockpit,/if \(active\) collapseDestinationMenu\(\)/);
+  assert.match(cockpit,/private void collapseDestinationMenu\(\)/);
+  assert.match(cockpit,/routePanel\.setVisibility\(View\.GONE\)/);
+  assert.match(cockpit,/toggleRoutes\.setOnClickListener/);
+  assert.match(cockpit,/destinationActions\.addView\(remembered/);
+  assert.match(cockpit,/destinationActions\.addView\(saveDestination/);
+  assert.match(cockpit,/setPositiveButton\(osm \? "Straßenroute planen"/);
+  assert.match(cockpit,/Nur nach Freigabe der Abrechnung fortfahren/);
+});
+
+test('v24 portrait gives Google ETA extra room, landscape remains 70/30',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const layout=java('CockpitLayoutRules');
+  const split=java('IntegratedNavigationRules');
+  assert.match(layout,/PORTRAIT_MAP_WEIGHT = 12/);
+  assert.match(layout,/PORTRAIT_CONTROLS_WEIGHT = 8/);
+  assert.match(split,/MAP_WEIGHT = 7/);
+  assert.match(split,/CONTROLS_WEIGHT = 3/);
+  assert.match(cockpit,/CockpitLayoutRules\.mapWeight\(false\)/);
+  assert.match(cockpit,/CockpitLayoutRules\.controlsWeight\(false\)/);
+  assert.match(cockpit,/CockpitLayoutRules\.safeBottomInset\(bars\.bottom, keyboard\.bottom\)/);
+  assert.doesNotMatch(cockpit,/Google: Das SDK benötigt aktives Cloud Billing/);
 });

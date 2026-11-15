@@ -22,6 +22,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -48,7 +49,10 @@ public final class IntegratedNavigationActivity extends Activity {
     private EditText destination;
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
-    private Button voiceButton;
+    private ImageButton voiceButton;
+    private Button toggleRoutes;
+    private LinearLayout routePanel;
+    private ScrollView controlsScroll;
     private LinearLayout suggestionPanel;
     private PlacesAutocompleteBridge placesAutocomplete;
     private Runnable pendingSuggestions;
@@ -108,6 +112,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 CockpitLayoutRules.mapWeight(false));
         // Add the map and Spotify panes in the chosen order below.
         ScrollView scroll = new ScrollView(this);
+        controlsScroll = scroll;
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(Ui.PANEL);
         LinearLayout.LayoutParams controlParams = landscape
@@ -140,7 +145,10 @@ public final class IntegratedNavigationActivity extends Activity {
                         runOnUiThread(() -> showProviderFailure(reason));
                     }
                     @Override public void onGuidanceStateChanged(boolean active) {
-                        runOnUiThread(() -> updateScreenAwake(active));
+                        runOnUiThread(() -> {
+                            updateScreenAwake(active);
+                            if (active) collapseDestinationMenu();
+                        });
                     }
                 });
             mapPane.addView(navigation, new FrameLayout.LayoutParams(-1, -1));
@@ -174,16 +182,14 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Hier ist kein Google-SDK enthalten.",
                 13, Ui.WARN, true));
         }
-        // Compact one-touch control directly on the Google map, not another
-        // full-width Spotify-side button. Leave native compass/guidance visible.
-        voiceButton = Ui.button(this,
-            NavigationVoicePreferences.isMuted(this) ? "🔇" : "🔊");
-        voiceButton.setTextSize(22);
-        voiceButton.setMinWidth(Ui.dp(this, 50));
-        voiceButton.setMinHeight(Ui.dp(this, 50));
-        voiceButton.setPadding(0, 0, 0, 0);
-        voiceButton.setBackground(Ui.background(this, 0xe6222730, 12));
+        // Icon-only speaker control: custom monochrome Drawable instead of
+        // Samsung color emoji (which mixed a mute slash with colored waves).
+        voiceButton = new ImageButton(this);
+        voiceButton.setPadding(Ui.dp(this, 11), Ui.dp(this, 11),
+            Ui.dp(this, 11), Ui.dp(this, 11));
+        voiceButton.setBackground(Ui.background(this, 0xee222730, 24));
         voiceButton.setElevation(Ui.dp(this, 5));
+        voiceButton.setFocusable(true);
         updateVoiceButton();
         voiceButton.setOnClickListener(v -> {
             boolean muted = !NavigationVoicePreferences.isMuted(this);
@@ -195,8 +201,8 @@ public final class IntegratedNavigationActivity extends Activity {
             updateVoiceButton();
         });
         FrameLayout.LayoutParams voicePosition = new FrameLayout.LayoutParams(
-            Ui.dp(this, 50), Ui.dp(this, 50),
-            Gravity.END | Gravity.CENTER_VERTICAL);
+            Ui.dp(this, 48), Ui.dp(this, 48), Gravity.END | Gravity.CENTER_VERTICAL);
+        // Mid-right avoids Google's top turn banner and bottom ETA card.
         voicePosition.rightMargin = Ui.dp(this, 14);
         mapPane.addView(voiceButton, voicePosition);
 
@@ -246,7 +252,7 @@ public final class IntegratedNavigationActivity extends Activity {
 
         // Route creation is intentionally collapsed during driving; Spotify
         // stays visible in the limited 30 % panel without manual searching.
-        LinearLayout routePanel = Ui.column(this);
+        routePanel = Ui.column(this);
         routePanel.setVisibility(View.GONE);
         destination = new EditText(this);
         destination.setSingleLine(true);
@@ -288,17 +294,27 @@ public final class IntegratedNavigationActivity extends Activity {
             }
         });
 
-        Button saveDestination = Ui.button(this, "☆ Ziel speichern");
-        routePanel.addView(saveDestination);
+        // Two primary destination actions on one line instead of two large
+        // full-width buttons: all actions remain accessible.
+        LinearLayout destinationActions = Ui.row(this);
+        Button saveDestination = Ui.button(this, "☆ Speichern");
+        saveDestination.setTextSize(12);
+        saveDestination.setMinHeight(Ui.dp(this, 42));
+        destinationActions.addView(saveDestination,
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 44), 1f));
         saveDestination.setOnClickListener(v -> saveCurrentDestination());
 
-        Button remembered = Ui.button(this, "Gespeicherte Ziele wählen");
-        routePanel.addView(remembered);
+        Button remembered = Ui.button(this, "★ Meine Ziele");
+        remembered.setTextSize(12);
+        remembered.setMinHeight(Ui.dp(this, 42));
+        destinationActions.addView(remembered,
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 44), 1f));
         remembered.setOnClickListener(v -> showSavedTargets());
+        routePanel.addView(destinationActions);
 
         Button route = Ui.button(this, isOsmPreview()
             ? "OSM-Abbiegeführung zum Testen planen"
-            : "Route in dieser App berechnen");
+            : "Route berechnen");
         routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
         route.setOnClickListener(v -> resolveAndConfirmRoute());
@@ -385,13 +401,13 @@ public final class IntegratedNavigationActivity extends Activity {
         if (!BuildConfig.GOOGLE_ONLY) {
             panel.addView(fallback); // Legacy external Samsung split only.
         }
-        Button toggleRoutes = Ui.button(this, "📍 Ziel / Route");
+        toggleRoutes = Ui.button(this, "📍 Ziel / Route");
         panel.addView(toggleRoutes);
         panel.addView(routePanel);
         toggleRoutes.setOnClickListener(v -> {
             boolean open = routePanel.getVisibility() != View.VISIBLE;
             routePanel.setVisibility(open ? View.VISIBLE : View.GONE);
-            toggleRoutes.setText(open ? "Zielmenü schließen" : "📍 Ziel / Route");
+            toggleRoutes.setText(open ? "▲ Zielmenü schließen" : "📍 Ziel / Route");
             if (open) scroll.post(() -> scroll.smoothScrollTo(0,
                 routePanel.getTop()));
         });
@@ -412,14 +428,14 @@ public final class IntegratedNavigationActivity extends Activity {
                 startActivity(launch);
             }
         });
-        panel.addView(Ui.text(this, isOsmPreview()
-            ? "OSM: Die Karte lädt OpenFreeMap. BRouter kann offline eine "
-                + "Straßenroute berechnen, wenn die regionalen Daten vorhanden sind. "
-                + "GPS-Abbiegehinweise und Android-Sprachausgabe im Entwicklungstest. "
-                + "Nicht als Fahrnavigation verwenden, bis reale Tests bestanden sind."
-            : "Google: Das SDK benötigt aktives Cloud Billing. "
-                + "Eine kostenrelevante Route wird nur nach Bestätigung gestartet.",
-            11, Ui.MUTED, false));
+        // The Google billing disclaimer is already included in the explicit
+        // route-confirmation dialog. Do not permanently occupy the tiny
+        // Spotify viewport with redundant small-print during guidance.
+        if (isOsmPreview()) {
+            panel.addView(Ui.text(this,
+                "OSM-Entwicklungstest: nicht als Fahrnavigation verwenden.",
+                11, Ui.MUTED, false));
+        }
         setContentView(root);
         // Keep interactive content away from Android's navigation/status bars
         // and the IME. While typing a destination, temporarily hide the map;
@@ -663,25 +679,73 @@ public final class IntegratedNavigationActivity extends Activity {
                     if (which < 2) {
                         saveNamedDestination(which == 0 ? "Zuhause" : "Arbeit", target);
                     } else {
-                        editFavoriteName(display, target);
+                        showFavoriteEditor(null, "", target);
                     }
                 })
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
             .show();
     }
 
-    private void editFavoriteName(String currentLabel, String target) {
-        EditText field = new EditText(this);
-        field.setSingleLine(true);
-        field.setText(currentLabel);
-        field.setSelectAllOnFocus(true);
-        new AlertDialog.Builder(this)
-            .setTitle("Name für gespeichertes Ziel")
-            .setView(field)
-            .setNegativeButton("Abbrechen", (dialog, which) -> {})
-            .setPositiveButton("Speichern", (dialog, which) ->
-                saveNamedDestination(field.getText().toString(), target))
-            .show();
+    /**
+     * Name and real navigation destination are deliberately separate fields:
+     * "Tante Emma" is displayed, while the street/coordinates are routed to.
+     * Editing an existing favorite is one atomic preferences write; canceling
+     * or invalid input never deletes the previous entry.
+     */
+    private void showFavoriteEditor(String previousTarget, String currentLabel,
+                                    String currentAddress) {
+        LinearLayout form = Ui.column(this);
+        int padding = Ui.dp(this, 20);
+        form.setPadding(padding, Ui.dp(this, 8), padding, 0);
+        form.addView(Ui.text(this, "Name des Ziels", 14, Ui.FG, true));
+        EditText name = new EditText(this);
+        name.setSingleLine(true);
+        name.setHint("z. B. Tante Emma oder Onkel Klaus");
+        name.setText(currentLabel);
+        form.addView(name);
+        form.addView(Ui.text(this, "Adresse oder Koordinaten", 14, Ui.FG, true));
+        EditText address = new EditText(this);
+        address.setSingleLine(true);
+        address.setHint("Straße, Hausnummer, Ort");
+        address.setText(currentAddress);
+        form.addView(address);
+        AlertDialog editor = new AlertDialog.Builder(this)
+            .setTitle(previousTarget == null ? "Eigenes Ziel speichern"
+                : "Favorit bearbeiten")
+            .setView(form)
+            .setNegativeButton("Abbrechen", null)
+            .setPositiveButton("Speichern", null)
+            .create();
+        editor.setOnShowListener(ignored -> editor.getButton(
+            AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String label = DestinationMatchRules.label(name.getText().toString());
+            String target = RouteTargetRules.clean(address.getText().toString());
+            if (label == null) {
+                name.setError("Bitte einen Namen eingeben.");
+                return;
+            }
+            if (target == null) {
+                address.setError("Bitte eine gültige Adresse eingeben.");
+                return;
+            }
+            boolean updated = previousTarget == null
+                ? DestinationStore.saveFavorite(this, label, target)
+                : DestinationStore.updateFavorite(this, previousTarget, label, target);
+            if (!updated) {
+                showStatus("Favorit nicht gespeichert. Name oder Ziel bereits vergeben?");
+                return;
+            }
+            // Keep name and address associated in the current navigation field.
+            if (previousTarget != null && selectedTarget != null &&
+                    DestinationMatchRules.sameTarget(previousTarget, selectedTarget)) {
+                applyDestinationSuggestion(label, target);
+            } else if (previousTarget == null) {
+                applyDestinationSuggestion(label, target);
+            }
+            showStatus("Favorit gespeichert: " + label);
+            editor.dismiss();
+        }));
+        editor.show();
     }
 
     private void saveNamedDestination(String label, String target) {
@@ -699,7 +763,9 @@ public final class IntegratedNavigationActivity extends Activity {
         String[] labels = new String[entries.size()];
         for (int i = 0; i < entries.size(); i++) {
             DestinationStore.Entry item = entries.get(i);
-            labels[i] = (item.favorite ? "⭐ " : "↶ ") + item.label;
+            // Private custom labels are the visible names; the underlying
+            // address is passed on selection and remains editable in Manage.
+            labels[i] = (item.favorite ? "★ " : "↶ ") + item.label;
         }
         new AlertDialog.Builder(this).setTitle("Gespeicherte und letzte Ziele")
             .setItems(labels, (dialog, which) ->
@@ -724,9 +790,10 @@ public final class IntegratedNavigationActivity extends Activity {
                 DestinationStore.Entry selected = entries.get(which);
                 new AlertDialog.Builder(this)
                     .setTitle(selected.label)
-                    .setMessage(selected.target)
-                    .setPositiveButton("Umbenennen", (d, n) ->
-                        editFavoriteName(selected.label, selected.target))
+                    .setMessage("Hinterlegte Adresse: " + selected.target)
+                    .setPositiveButton("Bearbeiten", (d, n) ->
+                        showFavoriteEditor(selected.target, selected.label,
+                            selected.target))
                     .setNegativeButton("Löschen", (d, n) -> {
                         new AlertDialog.Builder(this)
                             .setTitle("Favorit löschen?")
@@ -778,6 +845,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 if (engine != null && engine.ready()) {
                     DestinationStore.recordRecent(this, chosenName, coords);
                     engine.startConfirmedRoute(lat, lng, chosenName);
+                    collapseDestinationMenu();
                 }
             })
             .show();
@@ -835,6 +903,7 @@ public final class IntegratedNavigationActivity extends Activity {
                             DestinationStore.recordRecent(
                                 IntegratedNavigationActivity.this, readable, coords);
                             engine.startConfirmedRoute(lat, lng, readable);
+                            collapseDestinationMenu();
                         }
                     })
                     .show();
@@ -902,10 +971,20 @@ public final class IntegratedNavigationActivity extends Activity {
     private void updateVoiceButton() {
         if (voiceButton == null) return;
         boolean muted = NavigationVoicePreferences.isMuted(this);
-        voiceButton.setText(muted ? "🔇" : "🔊");
+        voiceButton.setImageDrawable(new NavigationAudioIcon(muted));
         voiceButton.setContentDescription(muted
-            ? "Google-Navigationsansagen einschalten"
-            : "Google-Navigationsansagen ausschalten");
+            ? "Navigationsansagen aus. Zum Einschalten tippen."
+            : "Navigationsansagen an. Zum Ausschalten tippen.");
+        voiceButton.setSelected(muted);
+    }
+
+    private void collapseDestinationMenu() {
+        if (routePanel == null || routePanel.getVisibility() != View.VISIBLE)
+            return;
+        routePanel.setVisibility(View.GONE);
+        if (toggleRoutes != null) toggleRoutes.setText("📍 Ziel / Route");
+        if (controlsScroll != null)
+            controlsScroll.post(() -> controlsScroll.smoothScrollTo(0, 0));
     }
 
     private void updateScreenAwake(boolean routeActive) {

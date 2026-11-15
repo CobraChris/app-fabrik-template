@@ -6,8 +6,10 @@ package com.cobrachris.fahrcockpit;
  * These weights affect only the native same-Activity layout.
  */
 final class CockpitLayoutRules {
-    static final int PORTRAIT_MAP_WEIGHT = 9;
-    static final int PORTRAIT_CONTROLS_WEIGHT = 11;
+    // Google turn banner and trip-progress footer need more vertical room.
+    // Portrait controls remain scrollable; landscape stays exact 70/30.
+    static final int PORTRAIT_MAP_WEIGHT = 12;
+    static final int PORTRAIT_CONTROLS_WEIGHT = 8;
     private CockpitLayoutRules() {}
 
     static int mapWeight(boolean landscape) {

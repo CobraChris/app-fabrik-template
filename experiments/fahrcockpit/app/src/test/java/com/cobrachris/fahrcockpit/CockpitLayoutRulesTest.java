@@ -9,8 +9,8 @@ public final class CockpitLayoutRulesTest {
         assertEquals(3, CockpitLayoutRules.controlsWeight(true));
     }
     @Test public void portraitReservesRoomForSpotify() {
-        assertEquals(9, CockpitLayoutRules.mapWeight(false));
-        assertEquals(11, CockpitLayoutRules.controlsWeight(false));
+        assertEquals(12, CockpitLayoutRules.mapWeight(false));
+        assertEquals(8, CockpitLayoutRules.controlsWeight(false));
         assertEquals(20, CockpitLayoutRules.mapWeight(false)
             + CockpitLayoutRules.controlsWeight(false));
     }
