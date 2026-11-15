@@ -201,9 +201,8 @@ public final class IntegratedNavigationActivity extends Activity {
             updateVoiceButton();
         });
         FrameLayout.LayoutParams voicePosition = new FrameLayout.LayoutParams(
-            Ui.dp(this, 48), Ui.dp(this, 48), Gravity.TOP | Gravity.END);
-        // Top right below the Google route banner; far above ETA/footer.
-        voicePosition.topMargin = Ui.dp(this, 112);
+            Ui.dp(this, 48), Ui.dp(this, 48), Gravity.END | Gravity.CENTER_VERTICAL);
+        // Mid-right avoids Google's top turn banner and bottom ETA card.
         voicePosition.rightMargin = Ui.dp(this, 14);
         mapPane.addView(voiceButton, voicePosition);
 
