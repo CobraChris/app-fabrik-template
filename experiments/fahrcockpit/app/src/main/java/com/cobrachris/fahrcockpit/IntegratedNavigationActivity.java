@@ -680,25 +680,73 @@ public final class IntegratedNavigationActivity extends Activity {
                     if (which < 2) {
                         saveNamedDestination(which == 0 ? "Zuhause" : "Arbeit", target);
                     } else {
-                        editFavoriteName(display, target);
+                        showFavoriteEditor(null, "", target);
                     }
                 })
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
             .show();
     }
 
-    private void editFavoriteName(String currentLabel, String target) {
-        EditText field = new EditText(this);
-        field.setSingleLine(true);
-        field.setText(currentLabel);
-        field.setSelectAllOnFocus(true);
-        new AlertDialog.Builder(this)
-            .setTitle("Name für gespeichertes Ziel")
-            .setView(field)
-            .setNegativeButton("Abbrechen", (dialog, which) -> {})
-            .setPositiveButton("Speichern", (dialog, which) ->
-                saveNamedDestination(field.getText().toString(), target))
-            .show();
+    /**
+     * Name and real navigation destination are deliberately separate fields:
+     * "Tante Emma" is displayed, while the street/coordinates are routed to.
+     * Editing an existing favorite is one atomic preferences write; canceling
+     * or invalid input never deletes the previous entry.
+     */
+    private void showFavoriteEditor(String previousTarget, String currentLabel,
+                                    String currentAddress) {
+        LinearLayout form = Ui.column(this);
+        int padding = Ui.dp(this, 20);
+        form.setPadding(padding, Ui.dp(this, 8), padding, 0);
+        form.addView(Ui.text(this, "Name des Ziels", 14, Ui.FG, true));
+        EditText name = new EditText(this);
+        name.setSingleLine(true);
+        name.setHint("z. B. Tante Emma oder Onkel Klaus");
+        name.setText(currentLabel);
+        form.addView(name);
+        form.addView(Ui.text(this, "Adresse oder Koordinaten", 14, Ui.FG, true));
+        EditText address = new EditText(this);
+        address.setSingleLine(true);
+        address.setHint("Straße, Hausnummer, Ort");
+        address.setText(currentAddress);
+        form.addView(address);
+        AlertDialog editor = new AlertDialog.Builder(this)
+            .setTitle(previousTarget == null ? "Eigenes Ziel speichern"
+                : "Favorit bearbeiten")
+            .setView(form)
+            .setNegativeButton("Abbrechen", null)
+            .setPositiveButton("Speichern", null)
+            .create();
+        editor.setOnShowListener(ignored -> editor.getButton(
+            AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String label = DestinationMatchRules.label(name.getText().toString());
+            String target = RouteTargetRules.clean(address.getText().toString());
+            if (label == null) {
+                name.setError("Bitte einen Namen eingeben.");
+                return;
+            }
+            if (target == null) {
+                address.setError("Bitte eine gültige Adresse eingeben.");
+                return;
+            }
+            boolean updated = previousTarget == null
+                ? DestinationStore.saveFavorite(this, label, target)
+                : DestinationStore.updateFavorite(this, previousTarget, label, target);
+            if (!updated) {
+                showStatus("Favorit nicht gespeichert. Name oder Ziel bereits vergeben?");
+                return;
+            }
+            // Keep name and address associated in the current navigation field.
+            if (previousTarget != null && selectedTarget != null &&
+                    DestinationMatchRules.sameTarget(previousTarget, selectedTarget)) {
+                applyDestinationSuggestion(label, target);
+            } else if (previousTarget == null) {
+                applyDestinationSuggestion(label, target);
+            }
+            showStatus("Favorit gespeichert: " + label);
+            editor.dismiss();
+        }));
+        editor.show();
     }
 
     private void saveNamedDestination(String label, String target) {
@@ -716,7 +764,9 @@ public final class IntegratedNavigationActivity extends Activity {
         String[] labels = new String[entries.size()];
         for (int i = 0; i < entries.size(); i++) {
             DestinationStore.Entry item = entries.get(i);
-            labels[i] = (item.favorite ? "⭐ " : "↶ ") + item.label;
+            // Private custom labels are the visible names; the underlying
+            // address is passed on selection and remains editable in Manage.
+            labels[i] = (item.favorite ? "★ " : "↶ ") + item.label;
         }
         new AlertDialog.Builder(this).setTitle("Gespeicherte und letzte Ziele")
             .setItems(labels, (dialog, which) ->
@@ -741,9 +791,10 @@ public final class IntegratedNavigationActivity extends Activity {
                 DestinationStore.Entry selected = entries.get(which);
                 new AlertDialog.Builder(this)
                     .setTitle(selected.label)
-                    .setMessage(selected.target)
-                    .setPositiveButton("Umbenennen", (d, n) ->
-                        editFavoriteName(selected.label, selected.target))
+                    .setMessage("Hinterlegte Adresse: " + selected.target)
+                    .setPositiveButton("Bearbeiten", (d, n) ->
+                        showFavoriteEditor(selected.target, selected.label,
+                            selected.target))
                     .setNegativeButton("Löschen", (d, n) -> {
                         new AlertDialog.Builder(this)
                             .setTitle("Favorit löschen?")
