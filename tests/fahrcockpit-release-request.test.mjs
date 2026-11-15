@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA}
+import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA}
   from '../scripts/fahrcockpit-release-request.mjs';
 const sha='e6da2f64b027848d001b0f8f6158c5d5768171b0';
 const request={schema:1,intent:'fahrcockpit-signed-beta',request_id:'2026-11-07-signed-fahr',
@@ -143,4 +143,34 @@ test('v23 accepts only the one already-tested source SHA and only approved Googl
   assert.throws(()=>validateRequest({...request23,
     variant:'google-osm-integrated'}));
   assert.throws(()=>validateRequest({...request23,extra:true}));
+});
+
+test('v24 Google-only release requires exact reviewed commit, branch and request',()=>{
+  const pinned='61c73d12778f42d7481eef8a5eeabe7f2bf477a3';
+  const request24={schema:2,intent:'fahrcockpit-signed-beta',
+    request_id:'2026-11-15-fahrcockpit-v24-google-only',
+    source_sha:pinned,expected_version_code:24,variant:'google-sdk-only'};
+  assert.equal(GOOGLE_V24_APPROVED_SHA,pinned);
+  assert.equal(GOOGLE_V24_SOURCE_REF,
+    'refs/heads/feature/fahrcockpit-v24-compact-navigation-ui');
+  assert.deepEqual(validateRequest(request24),
+    {sha:pinned,code:24,variant:'google-sdk-only'});
+  assert.equal(sourceRefFor('google-sdk-only',24),GOOGLE_V24_SOURCE_REF);
+  assert.doesNotThrow(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V24_SOURCE_REF+'\n','google-sdk-only',24));
+  assert.throws(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V23_SOURCE_REF+'\n','google-sdk-only',24));
+  assert.throws(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V24_SOURCE_REF+'\n','google-sdk-only',23));
+  assert.throws(()=>validateSource(pinned,
+    '0'.repeat(40)+'\t'+GOOGLE_V24_SOURCE_REF+'\n','google-sdk-only',24));
+  assert.throws(()=>validateRequest({...request24,source_sha:'0'.repeat(40)}));
+  assert.throws(()=>validateRequest({...request24,
+    request_id:'2026-11-15-fahrcockpit-v24-unreviewed'}));
+  assert.throws(()=>validateRequest({...request24,expected_version_code:25}));
+  assert.throws(()=>validateRequest({...request24,variant:'legacy'}));
+  assert.throws(()=>validateRequest({...request24,variant:'google-osm-integrated'}));
+  assert.throws(()=>validateRequest({...request24,variant:'google-places-activated'}));
+  assert.throws(()=>validateRequest({...request24,extra:true}));
+  assert.throws(()=>validateRequest({...request24,schema:1}));
 });
