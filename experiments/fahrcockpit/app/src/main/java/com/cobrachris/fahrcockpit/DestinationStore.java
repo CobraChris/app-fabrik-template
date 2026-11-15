@@ -96,6 +96,33 @@ final class DestinationStore {
         return write(context, "fav_", FAVORITES, list);
     }
 
+    /**
+     * Rename and/or relocate a favorite in one committed transaction.
+     * Reject accidental collisions instead of silently overwriting another
+     * custom destination. A failure leaves the old entry intact.
+     */
+    static boolean updateFavorite(Context context, String oldTarget,
+                                  String newLabel, String newAddress) {
+        String target = RouteTargetRules.clean(newAddress);
+        String title = DestinationMatchRules.label(newLabel);
+        if (target == null || title == null) return false;
+        List<Entry> entries = favorites(context);
+        int original = -1;
+        for (int i = 0; i < entries.size(); i++) {
+            Entry current = entries.get(i);
+            if (DestinationMatchRules.sameTarget(current.target, oldTarget)) {
+                original = i;
+            } else if (DestinationMatchRules.sameTarget(current.target, target)
+                    || current.label.equalsIgnoreCase(title)) {
+                return false;
+            }
+        }
+        if (original == -1) return false;
+        entries.remove(original);
+        entries.add(0, new Entry(title, target, true));
+        return write(context, "fav_", FAVORITES, entries);
+    }
+
     static boolean removeFavorite(Context context, String target) {
         List<Entry> list = favorites(context);
         if (!list.removeIf(item -> DestinationMatchRules.sameTarget(item.target, target)))
