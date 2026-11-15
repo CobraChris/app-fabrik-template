@@ -22,6 +22,7 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -48,7 +49,10 @@ public final class IntegratedNavigationActivity extends Activity {
     private EditText destination;
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
-    private Button voiceButton;
+    private ImageButton voiceButton;
+    private Button toggleRoutes;
+    private LinearLayout routePanel;
+    private ScrollView controlsScroll;
     private LinearLayout suggestionPanel;
     private PlacesAutocompleteBridge placesAutocomplete;
     private Runnable pendingSuggestions;
@@ -108,6 +112,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 CockpitLayoutRules.mapWeight(false));
         // Add the map and Spotify panes in the chosen order below.
         ScrollView scroll = new ScrollView(this);
+        controlsScroll = scroll;
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(Ui.PANEL);
         LinearLayout.LayoutParams controlParams = landscape
@@ -140,7 +145,10 @@ public final class IntegratedNavigationActivity extends Activity {
                         runOnUiThread(() -> showProviderFailure(reason));
                     }
                     @Override public void onGuidanceStateChanged(boolean active) {
-                        runOnUiThread(() -> updateScreenAwake(active));
+                        runOnUiThread(() -> {
+                            updateScreenAwake(active);
+                            if (active) collapseDestinationMenu();
+                        });
                     }
                 });
             mapPane.addView(navigation, new FrameLayout.LayoutParams(-1, -1));
@@ -174,16 +182,14 @@ public final class IntegratedNavigationActivity extends Activity {
                 + "Hier ist kein Google-SDK enthalten.",
                 13, Ui.WARN, true));
         }
-        // Compact one-touch control directly on the Google map, not another
-        // full-width Spotify-side button. Leave native compass/guidance visible.
-        voiceButton = Ui.button(this,
-            NavigationVoicePreferences.isMuted(this) ? "🔇" : "🔊");
-        voiceButton.setTextSize(22);
-        voiceButton.setMinWidth(Ui.dp(this, 50));
-        voiceButton.setMinHeight(Ui.dp(this, 50));
-        voiceButton.setPadding(0, 0, 0, 0);
-        voiceButton.setBackground(Ui.background(this, 0xe6222730, 12));
+        // Icon-only speaker control: custom monochrome Drawable instead of
+        // Samsung color emoji (which mixed a mute slash with colored waves).
+        voiceButton = new ImageButton(this);
+        voiceButton.setPadding(Ui.dp(this, 11), Ui.dp(this, 11),
+            Ui.dp(this, 11), Ui.dp(this, 11));
+        voiceButton.setBackground(Ui.background(this, 0xee222730, 24));
         voiceButton.setElevation(Ui.dp(this, 5));
+        voiceButton.setFocusable(true);
         updateVoiceButton();
         voiceButton.setOnClickListener(v -> {
             boolean muted = !NavigationVoicePreferences.isMuted(this);
@@ -195,8 +201,9 @@ public final class IntegratedNavigationActivity extends Activity {
             updateVoiceButton();
         });
         FrameLayout.LayoutParams voicePosition = new FrameLayout.LayoutParams(
-            Ui.dp(this, 50), Ui.dp(this, 50),
-            Gravity.END | Gravity.CENTER_VERTICAL);
+            Ui.dp(this, 48), Ui.dp(this, 48), Gravity.TOP | Gravity.END);
+        // Top right below the Google route banner; far above ETA/footer.
+        voicePosition.topMargin = Ui.dp(this, 112);
         voicePosition.rightMargin = Ui.dp(this, 14);
         mapPane.addView(voiceButton, voicePosition);
 
@@ -246,7 +253,7 @@ public final class IntegratedNavigationActivity extends Activity {
 
         // Route creation is intentionally collapsed during driving; Spotify
         // stays visible in the limited 30 % panel without manual searching.
-        LinearLayout routePanel = Ui.column(this);
+        routePanel = Ui.column(this);
         routePanel.setVisibility(View.GONE);
         destination = new EditText(this);
         destination.setSingleLine(true);
@@ -288,17 +295,27 @@ public final class IntegratedNavigationActivity extends Activity {
             }
         });
 
-        Button saveDestination = Ui.button(this, "☆ Ziel speichern");
-        routePanel.addView(saveDestination);
+        // Two primary destination actions on one line instead of two large
+        // full-width buttons: all actions remain accessible.
+        LinearLayout destinationActions = Ui.row(this);
+        Button saveDestination = Ui.button(this, "☆ Speichern");
+        saveDestination.setTextSize(12);
+        saveDestination.setMinHeight(Ui.dp(this, 42));
+        destinationActions.addView(saveDestination,
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 44), 1f));
         saveDestination.setOnClickListener(v -> saveCurrentDestination());
 
-        Button remembered = Ui.button(this, "Gespeicherte Ziele wählen");
-        routePanel.addView(remembered);
+        Button remembered = Ui.button(this, "★ Meine Ziele");
+        remembered.setTextSize(12);
+        remembered.setMinHeight(Ui.dp(this, 42));
+        destinationActions.addView(remembered,
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 44), 1f));
         remembered.setOnClickListener(v -> showSavedTargets());
+        routePanel.addView(destinationActions);
 
         Button route = Ui.button(this, isOsmPreview()
             ? "OSM-Abbiegeführung zum Testen planen"
-            : "Route in dieser App berechnen");
+            : "Route berechnen");
         routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
         route.setOnClickListener(v -> resolveAndConfirmRoute());
@@ -385,13 +402,13 @@ public final class IntegratedNavigationActivity extends Activity {
         if (!BuildConfig.GOOGLE_ONLY) {
             panel.addView(fallback); // Legacy external Samsung split only.
         }
-        Button toggleRoutes = Ui.button(this, "📍 Ziel / Route");
+        toggleRoutes = Ui.button(this, "📍 Ziel / Route");
         panel.addView(toggleRoutes);
         panel.addView(routePanel);
         toggleRoutes.setOnClickListener(v -> {
             boolean open = routePanel.getVisibility() != View.VISIBLE;
             routePanel.setVisibility(open ? View.VISIBLE : View.GONE);
-            toggleRoutes.setText(open ? "Zielmenü schließen" : "📍 Ziel / Route");
+            toggleRoutes.setText(open ? "▲ Zielmenü schließen" : "📍 Ziel / Route");
             if (open) scroll.post(() -> scroll.smoothScrollTo(0,
                 routePanel.getTop()));
         });
@@ -412,14 +429,14 @@ public final class IntegratedNavigationActivity extends Activity {
                 startActivity(launch);
             }
         });
-        panel.addView(Ui.text(this, isOsmPreview()
-            ? "OSM: Die Karte lädt OpenFreeMap. BRouter kann offline eine "
-                + "Straßenroute berechnen, wenn die regionalen Daten vorhanden sind. "
-                + "GPS-Abbiegehinweise und Android-Sprachausgabe im Entwicklungstest. "
-                + "Nicht als Fahrnavigation verwenden, bis reale Tests bestanden sind."
-            : "Google: Das SDK benötigt aktives Cloud Billing. "
-                + "Eine kostenrelevante Route wird nur nach Bestätigung gestartet.",
-            11, Ui.MUTED, false));
+        // The Google billing disclaimer is already included in the explicit
+        // route-confirmation dialog. Do not permanently occupy the tiny
+        // Spotify viewport with redundant small-print during guidance.
+        if (isOsmPreview()) {
+            panel.addView(Ui.text(this,
+                "OSM-Entwicklungstest: nicht als Fahrnavigation verwenden.",
+                11, Ui.MUTED, false));
+        }
         setContentView(root);
         // Keep interactive content away from Android's navigation/status bars
         // and the IME. While typing a destination, temporarily hide the map;
@@ -778,6 +795,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 if (engine != null && engine.ready()) {
                     DestinationStore.recordRecent(this, chosenName, coords);
                     engine.startConfirmedRoute(lat, lng, chosenName);
+                    collapseDestinationMenu();
                 }
             })
             .show();
@@ -835,6 +853,7 @@ public final class IntegratedNavigationActivity extends Activity {
                             DestinationStore.recordRecent(
                                 IntegratedNavigationActivity.this, readable, coords);
                             engine.startConfirmedRoute(lat, lng, readable);
+                            collapseDestinationMenu();
                         }
                     })
                     .show();
@@ -902,10 +921,20 @@ public final class IntegratedNavigationActivity extends Activity {
     private void updateVoiceButton() {
         if (voiceButton == null) return;
         boolean muted = NavigationVoicePreferences.isMuted(this);
-        voiceButton.setText(muted ? "🔇" : "🔊");
+        voiceButton.setImageDrawable(new NavigationAudioIcon(muted));
         voiceButton.setContentDescription(muted
-            ? "Google-Navigationsansagen einschalten"
-            : "Google-Navigationsansagen ausschalten");
+            ? "Navigationsansagen aus. Zum Einschalten tippen."
+            : "Navigationsansagen an. Zum Ausschalten tippen.");
+        voiceButton.setSelected(muted);
+    }
+
+    private void collapseDestinationMenu() {
+        if (routePanel == null || routePanel.getVisibility() != View.VISIBLE)
+            return;
+        routePanel.setVisibility(View.GONE);
+        if (toggleRoutes != null) toggleRoutes.setText("📍 Ziel / Route");
+        if (controlsScroll != null)
+            controlsScroll.post(() -> controlsScroll.smoothScrollTo(0, 0));
     }
 
     private void updateScreenAwake(boolean routeActive) {
