@@ -840,7 +840,7 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/Keine echte Saphe-Warnung/);
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
-  assert.match(manifest,/FahrCockpit Spotify & Saphe-Test/);
+  assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
   assert.match(gradle,/versionCode 25/);
   assert.match(gradle,/versionName '0\.9\.23-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
