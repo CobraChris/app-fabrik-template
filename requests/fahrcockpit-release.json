@@ -1,8 +1,8 @@
 {
-  "schema": 2,
-  "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-16-fahrcockpit-v26-unified-favorites",
-  "source_sha": "10d490addbdf1dbbb9933b58ead8faf3599eab2b",
-  "expected_version_code": 26,
-  "variant": "google-sdk-only"
+    "schema": 2,
+    "intent": "fahrcockpit-signed-beta",
+    "request_id": "2026-11-16-fahrcockpit-v26-unified-favorites",
+    "source_sha": "10d490addbdf1dbbb9933b58ead8faf3599eab2b",
+    "expected_version_code": 26,
+    "variant": "google-sdk-only"
 }
