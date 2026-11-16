@@ -724,6 +724,12 @@ public final class IntegratedNavigationActivity extends Activity {
      */
     private void showFavoriteEditor(String previousTarget, String currentLabel,
                                     String currentAddress) {
+        showFavoriteEditor(previousTarget, currentLabel, currentAddress, false, false);
+    }
+
+    private void showFavoriteEditor(String previousTarget, String currentLabel,
+                                    String currentAddress, boolean olderFavorite,
+                                    boolean returnToManager) {
         LinearLayout form = Ui.column(this);
         int padding = Ui.dp(this, 20);
         form.setPadding(padding, Ui.dp(this, 8), padding, 0);
@@ -760,7 +766,10 @@ public final class IntegratedNavigationActivity extends Activity {
             }
             boolean updated = previousTarget == null
                 ? DestinationStore.saveFavorite(this, label, target)
-                : DestinationStore.updateFavorite(this, previousTarget, label, target);
+                : olderFavorite
+                    ? DestinationStore.updateLegacyFavorite(this, previousTarget,
+                        label, target)
+                    : DestinationStore.updateFavorite(this, previousTarget, label, target);
             if (!updated) {
                 showStatus("Favorit nicht gespeichert. Name oder Ziel bereits vergeben?");
                 return;
@@ -774,6 +783,7 @@ public final class IntegratedNavigationActivity extends Activity {
             }
             showStatus("Favorit gespeichert: " + label);
             editor.dismiss();
+            if (returnToManager) showManageFavorites();
         }));
         editor.show();
     }
@@ -808,37 +818,68 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void showManageFavorites() {
-        List<DestinationStore.Entry> entries = DestinationStore.favorites(this);
+        // The selection list contains modern favorites, older stored targets and
+        // recent destinations. All of them must be removable from this screen.
+        List<DestinationStore.Entry> entries = DestinationStore.manageable(this);
         if (entries.isEmpty()) {
-            showStatus("Noch keine neuen Favoriten. Alte v18/v19-Ziele bleiben lesbar.");
+            showStatus("Keine gespeicherten oder zuletzt verwendeten Ziele vorhanden.");
             return;
         }
         String[] labels = new String[entries.size()];
-        for (int i = 0; i < entries.size(); i++) labels[i] = entries.get(i).label;
-        new AlertDialog.Builder(this).setTitle("Favoriten bearbeiten oder löschen")
+        for (int i = 0; i < entries.size(); i++) {
+            DestinationStore.Entry item = entries.get(i);
+            if (item.source == DestinationStore.Source.RECENT) {
+                labels[i] = "↶ " + item.label + " (zuletzt verwendet)";
+            } else if (item.source == DestinationStore.Source.LEGACY_FAVORITE) {
+                labels[i] = "★ " + item.label + " (älterer Favorit)";
+            } else {
+                labels[i] = "★ " + item.label;
+            }
+        }
+        new AlertDialog.Builder(this).setTitle("Ziele bearbeiten oder löschen")
             .setItems(labels, (dialog, which) -> {
                 DestinationStore.Entry selected = entries.get(which);
+                if (selected.source == DestinationStore.Source.RECENT) {
+                    // Recent destinations have no saved custom name to edit.
+                    new AlertDialog.Builder(this)
+                        .setTitle(selected.label)
+                        .setMessage("Zuletzt verwendetes Ziel: " + selected.target)
+                        .setPositiveButton("Aus Liste entfernen", (d, n) ->
+                            confirmRemoveDestination(selected))
+                        .setNegativeButton("Abbrechen", (d, n) -> showManageFavorites())
+                        .show();
+                    return;
+                }
                 new AlertDialog.Builder(this)
                     .setTitle(selected.label)
                     .setMessage("Hinterlegte Adresse: " + selected.target)
                     .setPositiveButton("Bearbeiten", (d, n) ->
                         showFavoriteEditor(selected.target, selected.label,
-                            selected.target))
-                    .setNegativeButton("Löschen", (d, n) -> {
-                        new AlertDialog.Builder(this)
-                            .setTitle("Favorit löschen?")
-                            .setMessage(selected.label)
-                            .setNegativeButton("Abbrechen", (d2, n2) -> {})
-                            .setPositiveButton("Löschen", (d2, n2) ->
-                                showStatus(DestinationStore.removeFavorite(this, selected.target)
-                                    ? "Favorit gelöscht."
-                                    : "Favorit konnte nicht gelöscht werden."))
-                            .show();
-                    })
-                    .setNeutralButton("Abbrechen", (d, n) -> {})
+                            selected.target,
+                            selected.source == DestinationStore.Source.LEGACY_FAVORITE,
+                            true))
+                    .setNegativeButton("Löschen", (d, n) ->
+                        confirmRemoveDestination(selected))
+                    .setNeutralButton("Abbrechen", (d, n) -> showManageFavorites())
                     .show();
             })
             .setNegativeButton("Schließen", (dialog, which) -> {})
+            .show();
+    }
+
+    private void confirmRemoveDestination(DestinationStore.Entry selected) {
+        new AlertDialog.Builder(this)
+            .setTitle("Ziel aus der Liste löschen?")
+            .setMessage("„" + selected.label + "“ wird aus den Favoriten und "
+                + "der Liste zuletzt verwendeter Ziele entfernt. "
+                + "Eine laufende Navigation wird nicht beendet.")
+            .setNegativeButton("Abbrechen", (d, n) -> showManageFavorites())
+            .setPositiveButton("Löschen", (d, n) -> {
+                boolean removed = DestinationStore.removeManaged(this, selected.target);
+                showStatus(removed ? "Ziel entfernt: " + selected.label
+                    : "Ziel konnte nicht vollständig entfernt werden.");
+                showManageFavorites();
+            })
             .show();
     }
 
