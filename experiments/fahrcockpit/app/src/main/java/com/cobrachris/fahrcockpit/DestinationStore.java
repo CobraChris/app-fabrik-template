@@ -75,8 +75,8 @@ final class DestinationStore {
         List<Entry> values = new ArrayList<>();
         if (maximum <= 0) return values;
         appendMatches(values, favorites(ctx), query, maximum);
-        appendMatches(values, recent(ctx), query, maximum);
         appendMatches(values, legacy(ctx), query, maximum);
+        appendMatches(values, recent(ctx), query, maximum);
         return values;
     }
 
