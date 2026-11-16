@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 24/);
- assert.match(gradle,/versionName '0\.9\.22-beta'/);
+ assert.match(gradle,/versionCode 25/);
+ assert.match(gradle,/versionName '0\.9\.23-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 24/);
- assert.match(gradle,/versionName '0\.9\.22-beta'/);
+ assert.match(gradle,/versionCode 25/);
+ assert.match(gradle,/versionName '0\.9\.23-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==24/);
+ assert.match(ci,/versionCode'\]==25/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -732,8 +732,8 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 24/);
-  assert.match(gradle,/versionName '0\.9\.22-beta'/);
+  assert.match(gradle,/versionCode 25/);
+  assert.match(gradle,/versionName '0\.9\.23-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
@@ -813,4 +813,35 @@ test('v24 portrait gives Google ETA extra room, landscape remains 70/30',()=>{
   assert.match(cockpit,/CockpitLayoutRules\.controlsWeight\(false\)/);
   assert.match(cockpit,/CockpitLayoutRules\.safeBottomInset\(bars\.bottom, keyboard\.bottom\)/);
   assert.doesNotMatch(cockpit,/Google: Das SDK benötigt aktives Cloud Billing/);
+});
+
+
+test('v25 Saphe probe is opt-in and reads only the exact Android package name',()=>{
+  const listener=java('SpotifyNotificationListener');
+  const rules=java('SapheNotificationRules');
+  const probe=java('SapheNotificationProbe');
+  const ui=java('IntegratedNavigationActivity');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  const gradle=read('app/build.gradle');
+  assert.match(listener,/onNotificationPosted\(StatusBarNotification notification\)/);
+  assert.match(listener,/notification\.getPackageName\(\)/);
+  assert.match(listener,/SapheNotificationProbe\.onNotificationPosted/);
+  assert.doesNotMatch(listener,/getNotification\(\)|getKey\(\)|getId\(\)|getTag\(\)/);
+  assert.match(rules,/WarningSource\.SAPHE_PACKAGE\.equals\(packageName\)/);
+  assert.match(rules,/optedIn && WarningSource/);
+  assert.match(probe,/if \(!SapheNotificationRules\.shouldRecord/);
+  assert.match(probe,/putLong\(KEY_LAST_EVENT, System\.currentTimeMillis\(\)\)/);
+  assert.match(probe,/return prefs\(ctx\)\.getBoolean\(KEY_ENABLED, false\)/);
+  assert.doesNotMatch(probe,/BluetoothGatt|Network|HttpURLConnection|Notification\.EXTRA|getExtras\(\)/);
+  assert.match(ui,/sapheCheck\.setOnClickListener\(v -> showSapheProbeDialog\(\)\)/);
+  assert.match(ui,/showSapheBanner\(true\)/);
+  assert.match(ui,/SapheNotificationProbe\.lastObservedAt\(this\)/);
+  assert.match(ui,/Warnungstyp nicht verifiziert/);
+  assert.match(ui,/Keine echte Saphe-Warnung/);
+  assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
+  assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
+  assert.match(manifest,/FahrCockpit Spotify & Saphe-Test/);
+  assert.match(gradle,/versionCode 25/);
+  assert.match(gradle,/versionName '0\.9\.23-beta'/);
+  assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
 });
