@@ -168,6 +168,10 @@ final class DestinationStore {
             if (DestinationMatchRules.sameTarget(entry.target, target)
                     || entry.label.equalsIgnoreCase(title)) return false;
         }
+        for (Entry entry : legacy(context)) {
+            if (!DestinationMatchRules.sameTarget(entry.target, oldTarget)
+                    && DestinationMatchRules.sameTarget(entry.target, target)) return false;
+        }
         if (!saveFavorite(context, title, target)) return false;
         return removeLegacy(context, oldTarget);
     }
