@@ -1030,8 +1030,8 @@ public final class IntegratedNavigationActivity extends Activity {
     private void showSapheBanner(boolean simulated) {
         if (sapheBanner == null) return;
         String text = simulated
-            ? "TEST · FahrCockpit-Einblendung\\nKeine echte Saphe-Warnung"
-            : "Saphe-Link-Mitteilung erkannt\\nWarnungstyp nicht verifiziert";
+            ? "TEST · FahrCockpit-Einblendung\nKeine echte Saphe-Warnung"
+            : "Saphe-Link-Mitteilung erkannt\nWarnungstyp nicht verifiziert";
         sapheBanner.setText(text);
         sapheBanner.setContentDescription(text);
         sapheBanner.setVisibility(View.VISIBLE);
@@ -1056,11 +1056,11 @@ public final class IntegratedNavigationActivity extends Activity {
         String details = "FahrCockpit prüft ausschließlich, ob Android eine "
             + "Benachrichtigung der offiziellen Saphe-Link-App meldet. "
             + "Der Inhalt bleibt ungelesen. Das ist noch keine echte "
-            + "Verkehrs- oder Blitzerwarnung.\\n\\n"
+            + "Verkehrs- oder Blitzerwarnung.\n\n"
             + "Benachrichtigungszugriff: " + (hasAndroidAccess ? "erlaubt" : "fehlt")
-            + "\\nDiagnose: " + (optedIn ? "eingeschaltet" : "ausgeschaltet")
-            + "\\nSaphe-Link-Mitteilung erkannt: " + (seen > 0 ? "ja" : "noch nein")
-            + "\\n\\nDer Test ist für das stehende Fahrzeug vorgesehen.";
+            + "\nDiagnose: " + (optedIn ? "eingeschaltet" : "ausgeschaltet")
+            + "\nSaphe-Link-Mitteilung erkannt: " + (seen > 0 ? "ja" : "noch nein")
+            + "\n\nDer Test ist für das stehende Fahrzeug vorgesehen.";
         new AlertDialog.Builder(this)
             .setTitle("Saphe-Meldungen prüfen")
             .setMessage(details)
