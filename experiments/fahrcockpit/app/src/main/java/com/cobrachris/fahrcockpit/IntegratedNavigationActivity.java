@@ -50,6 +50,11 @@ public final class IntegratedNavigationActivity extends Activity {
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
     private ImageButton voiceButton;
+    private TextView sapheBanner;
+    private long sapheLastShownAt;
+    private final Runnable hideSapheBanner = () -> {
+        if (sapheBanner != null) sapheBanner.setVisibility(View.GONE);
+    };
     private Button toggleRoutes;
     private LinearLayout routePanel;
     private ScrollView controlsScroll;
@@ -68,7 +73,10 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private final Runnable musicRefresh = new Runnable() {
         @Override public void run() {
-            if (spotifyState != null) updateMusic();
+            if (spotifyState != null) {
+                updateMusic();
+                refreshSapheNotificationProbe();
+            }
             handler.postDelayed(this, 1800L);
         }
     };
@@ -205,6 +213,23 @@ public final class IntegratedNavigationActivity extends Activity {
         // Mid-right avoids Google's top turn banner and bottom ETA card.
         voicePosition.rightMargin = Ui.dp(this, 14);
         mapPane.addView(voiceButton, voicePosition);
+
+        // Map-local diagnostic banner; never overlays the Spotify area and
+        // never represents itself as a verified speed-camera or hazard alert.
+        sapheBanner = Ui.text(this, "", 14, Ui.FG, true);
+        sapheBanner.setGravity(Gravity.CENTER);
+        sapheBanner.setMaxLines(3);
+        sapheBanner.setPadding(Ui.dp(this, 12), Ui.dp(this, 9),
+            Ui.dp(this, 12), Ui.dp(this, 9));
+        sapheBanner.setBackground(Ui.background(this, 0xee222730, 12));
+        sapheBanner.setElevation(Ui.dp(this, 6));
+        sapheBanner.setVisibility(View.GONE);
+        FrameLayout.LayoutParams sapheBannerPosition = new FrameLayout.LayoutParams(
+            -1, -2, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        sapheBannerPosition.leftMargin = Ui.dp(this, 18);
+        sapheBannerPosition.rightMargin = Ui.dp(this, 18);
+        sapheBannerPosition.topMargin = Ui.dp(this, landscape ? 100 : 120);
+        mapPane.addView(sapheBanner, sapheBannerPosition);
 
         Button sideToggle = Ui.button(this,
             landscape ? (spotifyLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
@@ -418,8 +443,12 @@ public final class IntegratedNavigationActivity extends Activity {
             new Intent(this, FuelActivity.class)
                 .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
             FUEL_PICK_REQUEST));
+        LinearLayout sapheActions = Ui.row(this);
         Button saphe = Ui.button(this, "Saphe öffnen");
-        panel.addView(saphe);
+        Button sapheCheck = Ui.button(this, "Meldung testen");
+        sapheActions.addView(saphe, new LinearLayout.LayoutParams(0, -2, 1f));
+        sapheActions.addView(sapheCheck, new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(sapheActions);
         saphe.setOnClickListener(v -> {
             Intent launch = getPackageManager().getLaunchIntentForPackage("my.saphelink");
             if (launch == null) {
@@ -428,6 +457,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 startActivity(launch);
             }
         });
+        sapheCheck.setOnClickListener(v -> showSapheProbeDialog());
         // The Google billing disclaimer is already included in the explicit
         // route-confirmation dialog. Do not permanently occupy the tiny
         // Spotify viewport with redundant small-print during guidance.
@@ -995,6 +1025,73 @@ public final class IntegratedNavigationActivity extends Activity {
         } else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+    }
+
+    private void showSapheBanner(boolean simulated) {
+        if (sapheBanner == null) return;
+        String text = simulated
+            ? "TEST · FahrCockpit-Einblendung\\nKeine echte Saphe-Warnung"
+            : "Saphe-Link-Mitteilung erkannt\\nWarnungstyp nicht verifiziert";
+        sapheBanner.setText(text);
+        sapheBanner.setContentDescription(text);
+        sapheBanner.setVisibility(View.VISIBLE);
+        handler.removeCallbacks(hideSapheBanner);
+        handler.postDelayed(hideSapheBanner, 6500L);
+    }
+
+    private void refreshSapheNotificationProbe() {
+        if (sapheBanner == null || !SapheNotificationProbe.enabled(this)) return;
+        long observedAt = SapheNotificationProbe.lastObservedAt(this);
+        if (observedAt > sapheLastShownAt) {
+            sapheLastShownAt = observedAt;
+            if (SapheNotificationRules.isRecent(
+                    observedAt, System.currentTimeMillis())) showSapheBanner(false);
+        }
+    }
+
+    private void showSapheProbeDialog() {
+        boolean hasAndroidAccess = Permissions.isMediaListenerEnabled(this);
+        boolean optedIn = SapheNotificationProbe.enabled(this);
+        long seen = SapheNotificationProbe.lastObservedAt(this);
+        String details = "FahrCockpit prüft ausschließlich, ob Android eine "
+            + "Benachrichtigung der offiziellen Saphe-Link-App meldet. "
+            + "Der Inhalt bleibt ungelesen. Das ist noch keine echte "
+            + "Verkehrs- oder Blitzerwarnung.\\n\\n"
+            + "Benachrichtigungszugriff: " + (hasAndroidAccess ? "erlaubt" : "fehlt")
+            + "\\nDiagnose: " + (optedIn ? "eingeschaltet" : "ausgeschaltet")
+            + "\\nSaphe-Link-Mitteilung erkannt: " + (seen > 0 ? "ja" : "noch nein")
+            + "\\n\\nDer Test ist für das stehende Fahrzeug vorgesehen.";
+        new AlertDialog.Builder(this)
+            .setTitle("Saphe-Meldungen prüfen")
+            .setMessage(details)
+            .setNeutralButton("Testanzeige", (dialog, which) ->
+                showSapheBanner(true))
+            .setNegativeButton("Schließen", (dialog, which) -> {})
+            .setPositiveButton(!hasAndroidAccess ? "Android-Zugriff prüfen"
+                : optedIn ? "Diagnose ausschalten" : "Diagnose einschalten",
+                (dialog, which) -> {
+                    if (!hasAndroidAccess) {
+                        try {
+                            startActivity(new Intent(
+                                Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+                        } catch (RuntimeException unavailable) {
+                            showStatus("Benachrichtigungszugriff nicht geöffnet.");
+                        }
+                        return;
+                    }
+                    boolean next = !optedIn;
+                    if (!SapheNotificationProbe.setEnabled(this, next)) {
+                        showStatus("Saphe-Diagnose konnte nicht gespeichert werden.");
+                        return;
+                    }
+                    sapheLastShownAt = 0L;
+                    handler.removeCallbacks(hideSapheBanner);
+                    if (sapheBanner != null) sapheBanner.setVisibility(View.GONE);
+                    showStatus(next
+                        ? "Saphe-Diagnose aktiv: wartet auf eine Android-Mitteilung."
+                        : "Saphe-Diagnose ausgeschaltet.");
+                })
+            .show();
     }
 
     private void showStatus(String message) {
