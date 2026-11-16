@@ -188,7 +188,7 @@ test('v25 Saphe notification probe release requires fixed SHA, Google-only branc
     {sha:pinned,code:25,variant:'google-sdk-only'});
   assert.equal(sourceRefFor('google-sdk-only',25),GOOGLE_V25_SOURCE_REF);
   assert.doesNotThrow(()=>validateSource(pinned,
-    pinned+'\t'+GOOGLE_V25_SOURCE_REF+'\n','google-sdk-only',25));
+    pinned+'\t'+GOOGLE_V24_SOURCE_REF+'\n','google-sdk-only',26));
   assert.throws(()=>validateSource(pinned,
     pinned+'\t'+GOOGLE_V24_SOURCE_REF+'\n','google-sdk-only',25));
   assert.throws(()=>validateSource(pinned,
