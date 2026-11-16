@@ -245,7 +245,8 @@ test('v20 integrated native layout is a real fixed 70/30 shell with existing Spo
  assert.match(shell,/SpotifyMedia\.send\(this, action\)/);
  assert.match(shell,/SpotifyMedia\.seekAbsolute/);
  assert.match(shell,/FuelActivity.class/);
- assert.match(shell,/my\.saphelink/);
+ assert.match(shell,/WarningSource\.openSaphe\(this\)/);
+ assert.match(java('WarningSource'),/my\.saphelink/);
  assert.match(shell,/SplitCockpitActivity.class/);
  assert.match(shell,/Button route = Ui.button/);
  assert.match(shell,/Route berechnen/);
