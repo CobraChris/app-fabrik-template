@@ -418,16 +418,20 @@ public final class IntegratedNavigationActivity extends Activity {
             new Intent(this, FuelActivity.class)
                 .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
             FUEL_PICK_REQUEST));
+        // Preserve one-tap Saphe launch and the current Google NavigationView.
+        // Never query unofficial vendor APIs or auto-start warning functions.
+        LinearLayout sapheRow = Ui.row(this);
         Button saphe = Ui.button(this, "Saphe öffnen");
-        panel.addView(saphe);
+        Button sapheSetup = Ui.button(this, "Einrichten");
+        sapheRow.addView(saphe, new LinearLayout.LayoutParams(0, -2, 2f));
+        sapheRow.addView(sapheSetup, new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(sapheRow);
         saphe.setOnClickListener(v -> {
-            Intent launch = getPackageManager().getLaunchIntentForPackage("my.saphelink");
-            if (launch == null) {
-                showStatus("Saphe-App auf diesem Gerät nicht gefunden.");
-            } else {
-                startActivity(launch);
-            }
+            if (!WarningSource.openSaphe(this))
+                showStatus("Saphe Link nicht verfügbar. Über Einrichten prüfen.");
         });
+        sapheSetup.setOnClickListener(v ->
+            startActivity(new Intent(this, SapheSetupActivity.class)));
         // The Google billing disclaimer is already included in the explicit
         // route-confirmation dialog. Do not permanently occupy the tiny
         // Spotify viewport with redundant small-print during guidance.
