@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA}
+import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA}
   from '../scripts/fahrcockpit-release-request.mjs';
 const sha='e6da2f64b027848d001b0f8f6158c5d5768171b0';
 const request={schema:1,intent:'fahrcockpit-signed-beta',request_id:'2026-11-07-signed-fahr',
@@ -173,4 +173,33 @@ test('v24 Google-only release requires exact reviewed commit, branch and request
   assert.throws(()=>validateRequest({...request24,variant:'google-places-activated'}));
   assert.throws(()=>validateRequest({...request24,extra:true}));
   assert.throws(()=>validateRequest({...request24,schema:1}));
+});
+
+
+test('v25 Saphe notification probe release requires fixed SHA, Google-only branch and exact request',()=>{
+  const pinned='e915f6dfdb49af1a2ac3d77219e723716a82bbed';
+  const request25={schema:2,intent:'fahrcockpit-signed-beta',
+    request_id:'2026-11-16-fahrcockpit-v25-google-only',
+    source_sha:pinned,expected_version_code:25,variant:'google-sdk-only'};
+  assert.equal(GOOGLE_V25_APPROVED_SHA,pinned);
+  assert.equal(GOOGLE_V25_SOURCE_REF,
+    'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe');
+  assert.deepEqual(validateRequest(request25),
+    {sha:pinned,code:25,variant:'google-sdk-only'});
+  assert.equal(sourceRefFor('google-sdk-only',25),GOOGLE_V25_SOURCE_REF);
+  assert.doesNotThrow(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V25_SOURCE_REF+'\n','google-sdk-only',25));
+  assert.throws(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V24_SOURCE_REF+'\n','google-sdk-only',25));
+  assert.throws(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V25_SOURCE_REF+'\n','google-sdk-only',24));
+  assert.throws(()=>validateSource(pinned,
+    '0'.repeat(40)+'\t'+GOOGLE_V25_SOURCE_REF+'\n','google-sdk-only',25));
+  assert.throws(()=>validateRequest({...request25,source_sha:'0'.repeat(40)}));
+  assert.throws(()=>validateRequest({...request25,request_id:'2026-11-16-fahrcockpit-v25-other'}));
+  assert.throws(()=>validateRequest({...request25,expected_version_code:26}));
+  assert.throws(()=>validateRequest({...request25,variant:'legacy'}));
+  assert.throws(()=>validateRequest({...request25,variant:'google-osm-integrated'}));
+  assert.throws(()=>validateRequest({...request25,variant:'google-places-activated'}));
+  assert.throws(()=>validateRequest({...request25,extra:true}));
 });
