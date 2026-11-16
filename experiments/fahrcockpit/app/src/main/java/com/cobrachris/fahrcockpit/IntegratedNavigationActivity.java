@@ -811,7 +811,7 @@ public final class IntegratedNavigationActivity extends Activity {
             .setItems(labels, (dialog, which) ->
                 applyDestinationSuggestion(entries.get(which).label,
                     entries.get(which).target))
-            .setNeutralButton("Favoriten verwalten", (dialog, which) ->
+            .setNeutralButton("Alle Ziele verwalten", (dialog, which) ->
                 showManageFavorites())
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
             .show();
