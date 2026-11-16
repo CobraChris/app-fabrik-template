@@ -2,7 +2,7 @@ name: FahrCockpit – optionale Google Navigation SDK Kompilierung (OHNE Billing
 
 on:
   push:
-    branches: [feature/fahrcockpit-v20-integrated-navigation-gated, feature/fahrcockpit-blitzer-bridge, feature/fahrcockpit-v21-google-first-fallback, fix/fahrcockpit-v22-keyboard-insets-layout, feature/fahrcockpit-v23-destinations-places-ui, feature/fahrcockpit-v24-compact-navigation-ui]
+    branches: [feature/fahrcockpit-v20-integrated-navigation-gated, feature/fahrcockpit-blitzer-bridge, feature/fahrcockpit-v21-google-first-fallback, fix/fahrcockpit-v22-keyboard-insets-layout, feature/fahrcockpit-v23-destinations-places-ui, feature/fahrcockpit-v24-compact-navigation-ui, feature/fahrcockpit-v25-saphe-notification-probe]
     paths:
       - 'experiments/fahrcockpit/**'
       - 'tests/fahrcockpit-contract.test.mjs'
@@ -103,7 +103,7 @@ jobs:
           p='experiments/fahrcockpit/app/build/outputs/apk/release/output-metadata.json'
           with open(p,encoding='utf-8') as f: meta=json.load(f)
           assert meta['applicationId']=='com.cobrachris.fahrcockpit'
-          assert meta['elements'][0]['versionCode']==24
+          assert meta['elements'][0]['versionCode']==25
           assert meta['elements'][0]['outputFile']=='app-release-unsigned.apk'
-          print('Verified: Google-only v24 development package, unsigned, no API key.')
+          print('Verified: Google-only v25 notification probe package, unsigned, no API key.')
           PY
