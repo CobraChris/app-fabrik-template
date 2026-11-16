@@ -60,7 +60,7 @@
 
         <service
             android:name=".SpotifyNotificationListener"
-            android:label="FahrCockpit Spotify & Saphe-Test"
+            android:label="FahrCockpit Spotify &amp; Saphe-Test"
             android:exported="true"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
