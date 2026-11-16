@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-15-fahrcockpit-v24-google-only",
-  "source_sha": "61c73d12778f42d7481eef8a5eeabe7f2bf477a3",
-  "expected_version_code": 24,
+  "request_id": "2026-11-16-fahrcockpit-v25-google-only",
+  "source_sha": "e915f6dfdb49af1a2ac3d77219e723716a82bbed",
+  "expected_version_code": 25,
   "variant": "google-sdk-only"
 }
