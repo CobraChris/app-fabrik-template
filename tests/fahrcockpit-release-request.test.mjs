@@ -296,11 +296,11 @@ test('v29 one-tap fuel release requires exact reviewed source and request',()=>{
     {sha:pinned,code:29,variant:'google-sdk-only'});
   assert.equal(sourceRefFor('google-sdk-only',29),GOOGLE_V29_SOURCE_REF);
   assert.doesNotThrow(()=>validateSource(pinned,
-    pinned+'\\t'+GOOGLE_V29_SOURCE_REF+'\\n','google-sdk-only',29));
+    pinned+'\t'+GOOGLE_V29_SOURCE_REF+'\n','google-sdk-only',29));
   assert.throws(()=>validateSource(pinned,
-    pinned+'\\t'+GOOGLE_V24_SOURCE_REF+'\\n','google-sdk-only',29));
+    pinned+'\t'+GOOGLE_V24_SOURCE_REF+'\n','google-sdk-only',29));
   assert.throws(()=>validateSource(pinned,
-    '0'.repeat(40)+'\\t'+GOOGLE_V29_SOURCE_REF+'\\n','google-sdk-only',29));
+    '0'.repeat(40)+'\t'+GOOGLE_V29_SOURCE_REF+'\n','google-sdk-only',29));
   assert.throws(()=>validateRequest({...request29,source_sha:'0'.repeat(40)}));
   assert.throws(()=>validateRequest({...request29,request_id:'2026-11-17-unapproved'}));
   assert.throws(()=>validateRequest({...request29,expected_version_code:30}));
