@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 28/);
- assert.match(gradle,/versionName '0\.9\.26-beta'/);
+ assert.match(gradle,/versionCode 29/);
+ assert.match(gradle,/versionName '0\.9\.27-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 28/);
- assert.match(gradle,/versionName '0\.9\.26-beta'/);
+ assert.match(gradle,/versionCode 29/);
+ assert.match(gradle,/versionName '0\.9\.27-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==28/);
+ assert.match(ci,/versionCode'\]==29/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -732,8 +732,8 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 28/);
-  assert.match(gradle,/versionName '0\.9\.26-beta'/);
+  assert.match(gradle,/versionCode 29/);
+  assert.match(gradle,/versionName '0\.9\.27-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
@@ -845,8 +845,8 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
   assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
-  assert.match(gradle,/versionCode 28/);
-  assert.match(gradle,/versionName '0\.9\.26-beta'/);
+  assert.match(gradle,/versionCode 29/);
+  assert.match(gradle,/versionName '0\.9\.27-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
 });
 
@@ -879,8 +879,8 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
   const marker=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 28/);
-  assert.match(gradle,/versionName '0\.9\.26-beta'/);
+  assert.match(gradle,/versionCode 29/);
+  assert.match(gradle,/versionName '0\.9\.27-beta'/);
   assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
   assert.match(fuel,/String\.format\(Locale\.GERMANY, "%.2f €\/l", price\)/);
   assert.match(cache,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
@@ -898,4 +898,25 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   assert.match(marker,/marker\.setTag\(s\)/);
   assert.match(cache,/String\.format\(Locale\.GERMANY, "%.2f €", price\)/);
   assert.doesNotMatch(marker,/setDestination\(|startGuidance\(|Places\.|HttpURLConnection|new NavigationView|new MapView/);
+});
+
+
+test('v29 nearby fuel search recovers from unavailable GPS through network provider',()=>{
+  const fuel=java('FuelActivity');
+  assert.match(fuel,/manager\.isProviderEnabled\(\s*LocationManager\.NETWORK_PROVIDER\)/);
+  assert.match(fuel,/manager\.isProviderEnabled\(\s*LocationManager\.GPS_PROVIDER\)/);
+  assert.match(fuel,/recentLocation\(manager\.getLastKnownLocation\(\s*LocationManager\.NETWORK_PROVIDER\)\)/);
+  assert.match(fuel,/recentLocation\(manager\.getLastKnownLocation\(\s*LocationManager\.GPS_PROVIDER\)\)/);
+  assert.match(fuel,/getCurrentLocation\(LocationManager\.NETWORK_PROVIDER/);
+  assert.match(fuel,/getCurrentLocation\(LocationManager\.GPS_PROVIDER/);
+  assert.match(fuel,/onLocationCandidate\(generation, location, key\)/);
+  assert.match(fuel,/if \(generation != locationGeneration/);
+  assert.match(fuel,/pendingLocationProviders <= 0/);
+  assert.match(fuel,/stopLocationRequests\(\)/);
+  assert.doesNotMatch(fuel,/locationSignal = new CancellationSignal/);
+  assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
+  assert.match(fuel,/String\.format\(Locale\.GERMANY, "%.2f €\/l", price\)/);
+  // The key stays in private app storage; only a manual search can call API.
+  assert.match(fuel,/search\.setOnClickListener\(v -> search\(\)\)/);
+  assert.doesNotMatch(fuel,/requestLocationUpdates\(/);
 });
