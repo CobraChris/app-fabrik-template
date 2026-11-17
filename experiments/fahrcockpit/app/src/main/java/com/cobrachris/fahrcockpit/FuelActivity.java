@@ -55,6 +55,7 @@ public final class FuelActivity extends Activity {
     private Spinner radius;
     private Spinner sortOrder;
     private JSONArray lastStations;
+    private String lastFetchedAt;
     private TextView message;
     private LinearLayout results;
     private Button search;
@@ -313,10 +314,13 @@ public final class FuelActivity extends Activity {
     }
 
     private void showStations(JSONArray stations) {
+        if (lastStations != stations) {
+            lastFetchedAt = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
+        }
         lastStations = stations;
         search.setEnabled(true);
         results.removeAllViews();
-        String at = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
+        String at = lastFetchedAt == null ? "–" : lastFetchedAt;
         message.setText(stations.length() + " Treffer · abgerufen um " + at +
             (returnToCockpit
                 ? "\nTankstelle auswählen. Eine Google-Navigationsroute wird erst nach deiner Bestätigung berechnet."
