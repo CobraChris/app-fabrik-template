@@ -22,6 +22,8 @@ public final class GoogleNavigationEngine implements NavigationEngine {
     private final Activity host;
     private final String apiKey;
     private NavigationView map;
+    private GoogleFuelPriceMarkers priceMarkers;
+    private int fuelMarkerGeneration;
     private Navigator navigator;
     private Status status = value -> {};
     private boolean startedRoute;
@@ -51,6 +53,7 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             apiKeyInitialized = true;
         }
         map = new NavigationView(host);
+        priceMarkers = new GoogleFuelPriceMarkers(host);
         map.onCreate(saved);
         return map;
     }
@@ -200,6 +203,17 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         navigator.setAudioGuidance(mode);
     }
 
+    @Override public void showFuelPrices(FuelMapSnapshot.Snapshot snapshot,
+                                         FuelMarkerSelection selection) {
+        if (map == null || closed) return;
+        final int generation = ++fuelMarkerGeneration;
+        map.getMapAsync(googleMap -> {
+            if (closed || generation != fuelMarkerGeneration
+                    || host.isDestroyed() || priceMarkers == null) return;
+            priceMarkers.display(googleMap, snapshot, selection);
+        });
+    }
+
     @Override public void setVoiceMuted(boolean muted) {
         // The activity persists the selection before calling this method.
         if (navigator == null || closed) return;
@@ -229,6 +243,9 @@ public final class GoogleNavigationEngine implements NavigationEngine {
     @Override public void onStop() {if (map != null) map.onStop();}
     @Override public void onDestroy(boolean activityFinishing) {
         closed = true;
+        ++fuelMarkerGeneration;
+        if (priceMarkers != null) priceMarkers.clear();
+        priceMarkers = null;
         if (activityFinishing) stopGuidanceAndClearRoute();
         if (map != null) map.onDestroy();
         map = null;
