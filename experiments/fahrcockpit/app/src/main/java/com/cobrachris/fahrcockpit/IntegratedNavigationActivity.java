@@ -5,6 +5,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.Context;
+import android.location.Location;
+import android.location.LocationManager;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
@@ -48,9 +51,18 @@ public final class IntegratedNavigationActivity extends Activity {
     private final Runnable expireFuelMarkers = () -> updateFuelMarkers();
     private TextView status, spotifyState, track, elapsed, duration, spotifyHeader, fuelInfo;
     private LinearLayout mediaControls, mediaSkip;
-    private Button fuelButton, fuelRefreshButton;
     private FuelQuickSearch fuelQuickSearch;
-    private boolean fuelMarkersVisible = true;
+    private boolean guidanceActive;
+    private boolean activityVisible;
+    private double lastFuelSearchLat = Double.NaN;
+    private double lastFuelSearchLng = Double.NaN;
+    private final Runnable autoFuelTick = new Runnable() {
+        @Override public void run() {
+            if (!activityVisible || !guidanceActive) return;
+            maybeRefreshFuelPrices();
+            handler.postDelayed(this, 30000L);
+        }
+    };
     private EditText destination;
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
@@ -161,7 +173,9 @@ public final class IntegratedNavigationActivity extends Activity {
                     @Override public void onGuidanceStateChanged(boolean active) {
                         runOnUiThread(() -> {
                             updateScreenAwake(active);
+                            guidanceActive = active;
                             if (active) collapseDestinationMenu();
+                            scheduleAutoFuelTick();
                         });
                     }
                 });
@@ -361,6 +375,8 @@ public final class IntegratedNavigationActivity extends Activity {
         stopButton.setOnClickListener(v -> {
             if (engine == null) return;
             engine.stopGuidanceAndClearRoute();
+            guidanceActive = false;
+            scheduleAutoFuelTick();
             showStatus("Navigation beendet · Route gelöscht.");
         });
 
@@ -453,39 +469,17 @@ public final class IntegratedNavigationActivity extends Activity {
                 routePanel.getTop()));
         });
 
-        LinearLayout fuelActions = Ui.row(this);
-        fuelButton = Ui.button(this, "⛽ Preise anzeigen");
-        fuelRefreshButton = Ui.button(this, "↻");
-        Button fuelSettings = Ui.button(this, "⚙");
-        fuelRefreshButton.setContentDescription("Tankstellenpreise neu abrufen");
-        fuelSettings.setContentDescription("Tankstellen-Einstellungen öffnen");
-        fuelActions.addView(fuelButton, new LinearLayout.LayoutParams(0, -2, 3f));
-        fuelActions.addView(fuelRefreshButton, new LinearLayout.LayoutParams(0, -2, 1f));
-        fuelActions.addView(fuelSettings, new LinearLayout.LayoutParams(0, -2, 1f));
-        panel.addView(fuelActions);
-        fuelInfo = Ui.text(this, "", 11, Ui.MUTED, false);
-        panel.addView(fuelInfo);
-        fuelButton.setOnClickListener(v -> {
-            if (fuelQuickSearch.isSearching()) return;
-            if (fuelMarkersVisible && !FuelMapSnapshot.read(this).stations.isEmpty()) {
-                fuelMarkersVisible = false;
-                updateFuelMarkers();
-            } else {
-                fuelMarkersVisible = true;
-                FuelMapSnapshot.Snapshot cached = FuelMapSnapshot.read(this);
-                if (cached.stations.isEmpty() || !cached.type.equals(FuelQuickSettings.type(this)))
-                    startQuickFuelSearch();
-                else updateFuelMarkers();
-            }
-        });
-        fuelRefreshButton.setOnClickListener(v -> {
-            fuelMarkersVisible = true;
-            startQuickFuelSearch();
-        });
+        // Infrequent Tankerkoenig controls live in the collapsed route submenu.
+        // Prices are displayed on the map without taking up cockpit button space.
+        Button fuelSettings = Ui.button(this, "⛽ Tankstellenpreise · Einstellungen");
+        routePanel.addView(fuelSettings);
         fuelSettings.setOnClickListener(v -> startActivityForResult(
             new Intent(this, FuelActivity.class)
                 .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
             FUEL_PICK_REQUEST));
+        fuelInfo = Ui.text(this, "", 11, Ui.MUTED, false);
+        fuelInfo.setVisibility(View.GONE);
+        routePanel.addView(fuelInfo);
         LinearLayout sapheActions = Ui.row(this);
         Button saphe = Ui.button(this, "Saphe öffnen");
         Button sapheCheck = Ui.button(this, "Meldung testen");
@@ -1092,64 +1086,116 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
 
-    private void startQuickFuelSearch() {
-        if (fuelQuickSearch == null || fuelQuickSearch.isSearching()) return;
-        fuelButton.setText("⛽ Preise werden geladen …");
-        fuelButton.setEnabled(false);
-        fuelRefreshButton.setEnabled(false);
-        fuelInfo.setVisibility(View.VISIBLE);
-        fuelInfo.setText("Standort und Tankerkönig-Preise werden abgerufen …");
+    private void scheduleAutoFuelTick() {
+        handler.removeCallbacks(autoFuelTick);
+        if (activityVisible && guidanceActive && FuelQuickSettings.autoEnabled(this)) {
+            handler.post(autoFuelTick);
+        }
+        updateFuelMarkers();
+    }
+
+    private Location recentFuelLocation() {
+        if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED &&
+            checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) return null;
+        LocationManager manager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (manager == null) return null;
+        try {
+            Location best = null;
+            for (String provider : new String[] {
+                    LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER}) {
+                if (LocationManager.GPS_PROVIDER.equals(provider) &&
+                    checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) continue;
+                if (!manager.isProviderEnabled(provider)) continue;
+                Location candidate = manager.getLastKnownLocation(provider);
+                if (candidate == null ||
+                        Math.abs(System.currentTimeMillis() - candidate.getTime()) > 120000L ||
+                        candidate.hasAccuracy() && candidate.getAccuracy() > 1000f) continue;
+                if (best == null || candidate.getTime() > best.getTime()) best = candidate;
+            }
+            return best;
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private boolean movedBeyondLastFuelSearch() {
+        if (!Double.isFinite(lastFuelSearchLat) || !Double.isFinite(lastFuelSearchLng))
+            return false;
+        Location current = recentFuelLocation();
+        if (current == null) return false;
+        float[] distance = new float[1];
+        Location.distanceBetween(lastFuelSearchLat, lastFuelSearchLng,
+            current.getLatitude(), current.getLongitude(), distance);
+        return distance[0] >= FuelAutoRefreshPolicy.DISTANCE_TRIGGER_METERS;
+    }
+
+    private void maybeRefreshFuelPrices() {
+        if (!activityVisible || !guidanceActive || fuelQuickSearch == null
+                || fuelQuickSearch.isSearching()) return;
+        String savedKey = getSharedPreferences("fuel_settings_v1", MODE_PRIVATE)
+            .getString("tankerkoenig_local_key", "");
+        boolean keyAvailable = FuelRules.validKey(savedKey);
+        long now = System.currentTimeMillis();
+        FuelMapSnapshot.Snapshot snapshot = FuelMapSnapshot.read(this);
+        // A cache from a different fuel type is never considered current.
+        long success = snapshot.type.equals(FuelQuickSettings.type(this))
+            ? snapshot.fetchedAt : 0L;
+        boolean should = FuelAutoRefreshPolicy.shouldFetch(now,
+            FuelQuickSettings.lastAutoAttempt(this), success,
+            FuelQuickSettings.autoFailures(this), movedBeyondLastFuelSearch(),
+            activityVisible, guidanceActive, FuelQuickSettings.autoEnabled(this),
+            keyAvailable);
+        if (!should) return;
+        // Persist only the attempt time and backoff count, never user location.
+        FuelQuickSettings.recordAutoAttempt(this, now);
         fuelQuickSearch.start(new FuelQuickSearch.Result() {
-            @Override public void onSuccess(FuelMapSnapshot.Snapshot snapshot) {
-                fuelButton.setEnabled(true);
-                fuelRefreshButton.setEnabled(true);
+            @Override public void onSuccess(FuelMapSnapshot.Snapshot prices) {
+                FuelQuickSettings.recordAutoResult(IntegratedNavigationActivity.this, true);
                 updateFuelMarkers();
-                if (snapshot.stations.isEmpty()) {
-                    fuelInfo.setVisibility(View.VISIBLE);
-                    fuelInfo.setText("Keine gültigen Preise im gewählten Suchradius.");
-                }
+            }
+            @Override public void onSuccess(FuelMapSnapshot.Snapshot prices,
+                    double latitude, double longitude) {
+                lastFuelSearchLat = latitude;
+                lastFuelSearchLng = longitude;
+                onSuccess(prices);
             }
             @Override public void onFailure(String reason) {
-                fuelButton.setEnabled(true);
-                fuelRefreshButton.setEnabled(true);
+                FuelQuickSettings.recordAutoResult(IntegratedNavigationActivity.this, false);
                 updateFuelMarkers();
-                fuelInfo.setVisibility(View.VISIBLE);
-                fuelInfo.setText(reason);
+                if (fuelInfo != null) fuelInfo.setText(
+                    "Preisabruf vorübergehend nicht verfügbar · spätere Wiederholung");
             }
         });
     }
 
     private void updateFuelMarkers() {
         FuelMapSnapshot.Snapshot snapshot = FuelMapSnapshot.read(this);
-        boolean valid = !snapshot.stations.isEmpty()
+        boolean valid = FuelQuickSettings.autoEnabled(this)
+            && !snapshot.stations.isEmpty()
             && snapshot.type.equals(FuelQuickSettings.type(this));
         if (engine != null) {
-            FuelMapSnapshot.Snapshot displayed = fuelMarkersVisible && valid
+            FuelMapSnapshot.Snapshot displayed = valid
                 ? snapshot : new FuelMapSnapshot.Snapshot("", 0L, new ArrayList<>());
             engine.showFuelPrices(displayed,
                 station -> acceptFuelStation(station.lat, station.lng, station.name));
         }
-        if (fuelButton != null) {
-            fuelButton.setText(fuelMarkersVisible && valid
-                ? "⛽ Preise ausblenden" : "⛽ Preise anzeigen");
-        }
         if (fuelInfo != null) {
-            if (valid && fuelMarkersVisible) {
+            if (valid) {
                 java.text.DateFormat time = java.text.DateFormat.getTimeInstance(
                     java.text.DateFormat.SHORT);
                 fuelInfo.setText(snapshot.stations.size() + " Preise · "
                     + snapshot.type.toUpperCase(java.util.Locale.GERMANY)
-                    + " · abgerufen " + time.format(new java.util.Date(snapshot.fetchedAt)));
-                fuelInfo.setVisibility(View.VISIBLE);
-            } else if (valid) {
-                fuelInfo.setText("Preise ausgeblendet · ↻ zum Aktualisieren");
-                fuelInfo.setVisibility(View.VISIBLE);
+                    + " · Stand " + time.format(new java.util.Date(snapshot.fetchedAt)));
             } else {
-                fuelInfo.setVisibility(View.GONE);
+                fuelInfo.setText("Keine aktuellen Tankstellenpreise · Einstellungen");
             }
+            fuelInfo.setVisibility(View.VISIBLE);
         }
         handler.removeCallbacks(expireFuelMarkers);
-        if (valid && fuelMarkersVisible) {
+        if (valid && activityVisible) {
             long delay = Math.max(1000L, FuelMapSnapshot.MAX_AGE_MS
                 - (System.currentTimeMillis() - snapshot.fetchedAt) + 100L);
             handler.postDelayed(expireFuelMarkers, delay);
@@ -1289,20 +1335,26 @@ public final class IntegratedNavigationActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
+        activityVisible = true;
         if (engine != null) {
             engine.onResume();
             // Only display prices previously requested via the Tankerkoenig
             // search. No background polling or Google billable route calls.
             updateFuelMarkers();
         }
+        scheduleAutoFuelTick();
     }
     @Override protected void onPause() {
+        activityVisible = false;
+        handler.removeCallbacks(autoFuelTick);
+        if (fuelQuickSearch != null) fuelQuickSearch.cancel();
         if (engine != null) engine.onPause();
         super.onPause();
     }
     @Override protected void onStop() {
         handler.removeCallbacks(musicRefresh);
         handler.removeCallbacks(expireFuelMarkers);
+        handler.removeCallbacks(autoFuelTick);
         if (fuelQuickSearch != null) fuelQuickSearch.cancel();
         if (engine != null) engine.onStop();
         super.onStop();
