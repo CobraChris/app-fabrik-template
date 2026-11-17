@@ -23,10 +23,11 @@
       <h1 id="status-title">Meine Apps · GitHub-Status</h1>
       <p class="project-description">Diese Ansicht übernimmt deine lokal gespeicherten Projekte. Der manuelle Projektstatus ist unabhängig vom GitHub-Status. GitHub wird nur beim Tippen auf „Aktualisieren“ abgefragt.</p>
       <div class="status-overview-actions">
-        <button type="button" id="status-refresh-all">Bis zu 10 Projekte jetzt prüfen</button>
+        <button type="button" id="status-refresh-all">Alle Projekte prüfen</button>
         <output id="status-project-count">0 Projekte</output>
       </div>
       <p id="status-feedback" class="privacy-notice" role="status" aria-live="polite">Noch keine GitHub-Abfrage durchgeführt.</p>
+      <p class="privacy-notice">Die Abfrage läuft nacheinander über alle Projekte. Bei GitHubs kostenlosem API-Limit wird automatisch pausiert und ein späteres Fortsetzen angeboten. Das ist keine Beschränkung der Projektanzahl.</p>
       <ul id="status-project-list" class="status-project-list" aria-label="GitHub-Status der lokalen Projekte"></ul>
       <p id="status-empty" class="empty-state">Auf diesem Gerät sind noch keine Projekte gespeichert. Gehe zu „Projekte verwalten“ und füge Repositories hinzu. Deine bisherigen Projekt-Notizen bleiben unverändert.</p>
       <p class="privacy-notice"><strong>Datenschutz:</strong> Nur öffentlich erreichbare Repository-Metadaten werden ohne Login abgefragt. Für private Repositories erscheint bewusst kein erfundener CI- oder Release-Status. Es werden keine Tokens gespeichert und keine GitHub-Änderungen vorgenommen.</p>

@@ -2,7 +2,26 @@
 // Deliberately no login, OAuth, GitHub token, or endpoint for private repositories.
 import { githubRepository } from './github-links.mjs';
 
-export const MAX_BATCH = 10;
+// A request budget, not a project-count limit. Unauthenticated GitHub has 60 calls/hour/IP.
+export const MAX_API_REQUESTS_PER_PASS = 42;
+export const GITHUB_RATE_RESERVE = 3;
+
+export function parseGithubRateLimit(rawRemaining, rawReset) {
+  const remaining = typeof rawRemaining === 'string' && /^\d+$/.test(rawRemaining)
+    ? Number(rawRemaining) : null;
+  const resetSeconds = typeof rawReset === 'string' && /^\d{9,12}$/.test(rawReset)
+    ? Number(rawReset) : null;
+  return {
+    remaining: Number.isSafeInteger(remaining) ? remaining : null,
+    resetAt: Number.isSafeInteger(resetSeconds) ? resetSeconds * 1000 : null
+  };
+}
+
+export function canQueryGithub({ used, remaining, blockedUntil }, now = Date.now()) {
+  return Number.isInteger(used) && used >= 0 && used < MAX_API_REQUESTS_PER_PASS &&
+    (remaining === null || (Number.isInteger(remaining) && remaining >= GITHUB_RATE_RESERVE)) &&
+    (!Number.isFinite(blockedUntil) || blockedUntil <= now);
+}
 export const MAX_WORKFLOW_RUNS = 30;
 
 export function githubApiUrls(rawRepository, rawBranch = 'main') {

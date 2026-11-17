@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  githubApiUrls,parseRepository,parseWorkflowRuns,parseRelease,classifyRepoHttp,MAX_BATCH
+  githubApiUrls,parseRepository,parseWorkflowRuns,parseRelease,classifyRepoHttp,
+  MAX_API_REQUESTS_PER_PASS,GITHUB_RATE_RESERVE,parseGithubRateLimit,canQueryGithub
 } from '../site/status-data.mjs';
 import { projectKey, parseProjects } from '../site/projects.mjs';
 
@@ -19,7 +20,28 @@ test('only validated GitHub API URLs with bounded page size are generated',()=>{
     assert.throws(()=>githubApiUrls(input));
   for(const branch of ['../../secrets','a//b','/branch','a/','a?token=abc',''])
     if(branch)assert.throws(()=>githubApiUrls(repo,branch));
-  assert.ok(MAX_BATCH<=10,'Bounded unauthenticated API traffic');
+  assert.equal(MAX_API_REQUESTS_PER_PASS,42,'Request budget, not a project cap');
+  assert.equal(GITHUB_RATE_RESERVE,3);
+});
+
+test('rate limit headers and number of API requests determine the pause, never a fixed project count',()=>{
+  assert.deepEqual(parseGithubRateLimit('40','1795000000'),{
+    remaining:40,resetAt:1795000000000
+  });
+  assert.deepEqual(parseGithubRateLimit('not-a-number','none'),{
+    remaining:null,resetAt:null
+  });
+  assert.equal(canQueryGithub({used:0,remaining:null,blockedUntil:0},Date.now()),true);
+  assert.equal(canQueryGithub({used:41,remaining:60,blockedUntil:0},1000),true);
+  assert.equal(canQueryGithub({used:42,remaining:60,blockedUntil:0},1000),false);
+  assert.equal(canQueryGithub({used:3,remaining:2,blockedUntil:0},1000),false);
+  assert.equal(canQueryGithub({used:3,remaining:3,blockedUntil:0},1000),true);
+  assert.equal(canQueryGithub({used:0,remaining:50,blockedUntil:2000},1000),false);
+  assert.equal(canQueryGithub({used:0,remaining:50,blockedUntil:2000},2000),true);
+  // Simulate 20 public repositories: they are not excluded by index; only calls are budgeted.
+  const cards=Array.from({length:20},(_,i)=>'Example/repo-'+i);
+  assert.equal(cards.length,20);
+  assert.equal(canQueryGithub({used:39,remaining:20,blockedUntil:0},1000),true);
 });
 
 test('repository metadata has to be public and from the exact expected project',()=>{
@@ -98,5 +120,10 @@ test('dashboard is read-only, has honest privacy notices and is cached as an app
   assert.match(js,/credentials:'omit'/);
   assert.match(js,/cache:'no-store'/);
   assert.match(js,/refreshCard/);
+  assert.match(js,/checkedRepos\.add/);
+  assert.match(js,/projects\.filter\(p=>!checkedRepos\.has/);
+  assert.match(js,/response\.headers\.get\('x-ratelimit-remaining'\)/);
+  assert.doesNotMatch(js,/\.slice\(0,MAX_BATCH\)/);
+  assert.match(html,/Alle Projekte prüfen/);
   assert.match(js,/textContent=/);
 });
