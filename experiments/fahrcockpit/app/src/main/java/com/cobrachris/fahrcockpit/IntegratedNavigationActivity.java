@@ -45,11 +45,12 @@ public final class IntegratedNavigationActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private NavigationEngine engine;
-    private final Runnable expireFuelMarkers = () -> {
-        if (engine != null) engine.showFuelPrices(FuelMapSnapshot.read(this),
-            station -> acceptFuelStation(station.lat, station.lng, station.name));
-    };
-    private TextView status, spotifyState, track, elapsed, duration;
+    private final Runnable expireFuelMarkers = () -> updateFuelMarkers();
+    private TextView status, spotifyState, track, elapsed, duration, spotifyHeader, fuelInfo;
+    private LinearLayout mediaControls, mediaSkip;
+    private Button fuelButton, fuelRefreshButton;
+    private FuelQuickSearch fuelQuickSearch;
+    private boolean fuelMarkersVisible = true;
     private EditText destination;
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
@@ -105,6 +106,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 savedInstanceState.getString(STATE_SELECTED_TARGET));
         }
         engine = loadEngine();
+        fuelQuickSearch = new FuelQuickSearch(this);
         placesAutocomplete = PlacesAutocompleteBridge.approved(this);
 
         boolean landscape = getResources().getConfiguration().orientation
@@ -373,7 +375,7 @@ public final class IntegratedNavigationActivity extends Activity {
             startActivity(intent);
         });
 
-        TextView spotifyHeader = Ui.text(this, "Spotify", 16, Ui.FG, true);
+        spotifyHeader = Ui.text(this, "Spotify", 16, Ui.FG, true);
         spotifyHeader.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
         panel.addView(spotifyHeader);
         spotifyState = Ui.text(this, "Spotify-Status wird geprüft …",
@@ -416,24 +418,24 @@ public final class IntegratedNavigationActivity extends Activity {
             }
         });
 
-        LinearLayout media = Ui.row(this);
+        mediaControls = Ui.row(this);
         previous = Ui.button(this, "⏮");
         play = Ui.button(this, "▶");
         next = Ui.button(this, "⏭");
-        media.addView(previous, new LinearLayout.LayoutParams(0, -2, 1f));
-        media.addView(play, new LinearLayout.LayoutParams(0, -2, 1f));
-        media.addView(next, new LinearLayout.LayoutParams(0, -2, 1f));
-        panel.addView(media);
+        mediaControls.addView(previous, new LinearLayout.LayoutParams(0, -2, 1f));
+        mediaControls.addView(play, new LinearLayout.LayoutParams(0, -2, 1f));
+        mediaControls.addView(next, new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(mediaControls);
         previous.setOnClickListener(v -> send(SpotifyMedia.Action.PREVIOUS));
         play.setOnClickListener(v -> send(SpotifyMedia.Action.TOGGLE));
         next.setOnClickListener(v -> send(SpotifyMedia.Action.NEXT));
 
-        LinearLayout skip = Ui.row(this);
+        mediaSkip = Ui.row(this);
         backward = Ui.button(this, "−15 s");
         forward = Ui.button(this, "+15 s");
-        skip.addView(backward, new LinearLayout.LayoutParams(0, -2, 1f));
-        skip.addView(forward, new LinearLayout.LayoutParams(0, -2, 1f));
-        panel.addView(skip);
+        mediaSkip.addView(backward, new LinearLayout.LayoutParams(0, -2, 1f));
+        mediaSkip.addView(forward, new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(mediaSkip);
         backward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_BACK));
         forward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_FORWARD));
 
@@ -451,9 +453,36 @@ public final class IntegratedNavigationActivity extends Activity {
                 routePanel.getTop()));
         });
 
-        Button fuel = Ui.button(this, "⛽ Tankstellen");
-        panel.addView(fuel);
-        fuel.setOnClickListener(v -> startActivityForResult(
+        LinearLayout fuelActions = Ui.row(this);
+        fuelButton = Ui.button(this, "⛽ Preise anzeigen");
+        fuelRefreshButton = Ui.button(this, "↻");
+        Button fuelSettings = Ui.button(this, "⚙");
+        fuelRefreshButton.setContentDescription("Tankstellenpreise neu abrufen");
+        fuelSettings.setContentDescription("Tankstellen-Einstellungen öffnen");
+        fuelActions.addView(fuelButton, new LinearLayout.LayoutParams(0, -2, 3f));
+        fuelActions.addView(fuelRefreshButton, new LinearLayout.LayoutParams(0, -2, 1f));
+        fuelActions.addView(fuelSettings, new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(fuelActions);
+        fuelInfo = Ui.text(this, "", 11, Ui.MUTED, false);
+        panel.addView(fuelInfo);
+        fuelButton.setOnClickListener(v -> {
+            if (fuelQuickSearch.isSearching()) return;
+            if (fuelMarkersVisible && !FuelMapSnapshot.read(this).stations.isEmpty()) {
+                fuelMarkersVisible = false;
+                updateFuelMarkers();
+            } else {
+                fuelMarkersVisible = true;
+                FuelMapSnapshot.Snapshot cached = FuelMapSnapshot.read(this);
+                if (cached.stations.isEmpty() || !cached.type.equals(FuelQuickSettings.type(this)))
+                    startQuickFuelSearch();
+                else updateFuelMarkers();
+            }
+        });
+        fuelRefreshButton.setOnClickListener(v -> {
+            fuelMarkersVisible = true;
+            startQuickFuelSearch();
+        });
+        fuelSettings.setOnClickListener(v -> startActivityForResult(
             new Intent(this, FuelActivity.class)
                 .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
             FUEL_PICK_REQUEST));
@@ -1030,6 +1059,14 @@ public final class IntegratedNavigationActivity extends Activity {
         String nextAction = SpotifyDisplayRules.nextAction(allowed, state.connected);
         spotifySetup.setVisibility(nextAction == null ? View.GONE : View.VISIBLE);
         if (nextAction != null) spotifySetup.setText(nextAction);
+        // When Spotify is unavailable, reclaim its disabled transport controls
+        // without removing the one-tap Spotify launch action.
+        boolean showMedia = state.connected;
+        spotifyHeader.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        spotifyState.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        track.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        mediaControls.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        mediaSkip.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         spotifyState.setText(state.connected
             ? SpotifyDisplayRules.connectedStatus(state.playing)
             : SpotifyDisplayRules.notConnected(allowed));
@@ -1052,6 +1089,70 @@ public final class IntegratedNavigationActivity extends Activity {
                 state.positionMs, state.durationMs));
             elapsed.setText(TrackProgressRules.time(state.positionMs));
             duration.setText(TrackProgressRules.time(state.durationMs));
+        }
+    }
+
+    private void startQuickFuelSearch() {
+        if (fuelQuickSearch == null || fuelQuickSearch.isSearching()) return;
+        fuelButton.setText("⛽ Preise werden geladen …");
+        fuelButton.setEnabled(false);
+        fuelRefreshButton.setEnabled(false);
+        fuelInfo.setVisibility(View.VISIBLE);
+        fuelInfo.setText("Standort und Tankerkönig-Preise werden abgerufen …");
+        fuelQuickSearch.start(new FuelQuickSearch.Result() {
+            @Override public void onSuccess(FuelMapSnapshot.Snapshot snapshot) {
+                fuelButton.setEnabled(true);
+                fuelRefreshButton.setEnabled(true);
+                updateFuelMarkers();
+                if (snapshot.stations.isEmpty()) {
+                    fuelInfo.setVisibility(View.VISIBLE);
+                    fuelInfo.setText("Keine gültigen Preise im gewählten Suchradius.");
+                }
+            }
+            @Override public void onFailure(String reason) {
+                fuelButton.setEnabled(true);
+                fuelRefreshButton.setEnabled(true);
+                updateFuelMarkers();
+                fuelInfo.setVisibility(View.VISIBLE);
+                fuelInfo.setText(reason);
+            }
+        });
+    }
+
+    private void updateFuelMarkers() {
+        FuelMapSnapshot.Snapshot snapshot = FuelMapSnapshot.read(this);
+        boolean valid = !snapshot.stations.isEmpty()
+            && snapshot.type.equals(FuelQuickSettings.type(this));
+        if (engine != null) {
+            FuelMapSnapshot.Snapshot displayed = fuelMarkersVisible && valid
+                ? snapshot : new FuelMapSnapshot.Snapshot("", 0L, new ArrayList<>());
+            engine.showFuelPrices(displayed,
+                station -> acceptFuelStation(station.lat, station.lng, station.name));
+        }
+        if (fuelButton != null) {
+            fuelButton.setText(fuelMarkersVisible && valid
+                ? "⛽ Preise ausblenden" : "⛽ Preise anzeigen");
+        }
+        if (fuelInfo != null) {
+            if (valid && fuelMarkersVisible) {
+                java.text.DateFormat time = java.text.DateFormat.getTimeInstance(
+                    java.text.DateFormat.SHORT);
+                fuelInfo.setText(snapshot.stations.size() + " Preise · "
+                    + snapshot.type.toUpperCase(java.util.Locale.GERMANY)
+                    + " · abgerufen " + time.format(new java.util.Date(snapshot.fetchedAt)));
+                fuelInfo.setVisibility(View.VISIBLE);
+            } else if (valid) {
+                fuelInfo.setText("Preise ausgeblendet · ↻ zum Aktualisieren");
+                fuelInfo.setVisibility(View.VISIBLE);
+            } else {
+                fuelInfo.setVisibility(View.GONE);
+            }
+        }
+        handler.removeCallbacks(expireFuelMarkers);
+        if (valid && fuelMarkersVisible) {
+            long delay = Math.max(1000L, FuelMapSnapshot.MAX_AGE_MS
+                - (System.currentTimeMillis() - snapshot.fetchedAt) + 100L);
+            handler.postDelayed(expireFuelMarkers, delay);
         }
     }
 
@@ -1192,15 +1293,7 @@ public final class IntegratedNavigationActivity extends Activity {
             engine.onResume();
             // Only display prices previously requested via the Tankerkoenig
             // search. No background polling or Google billable route calls.
-            FuelMapSnapshot.Snapshot prices = FuelMapSnapshot.read(this);
-            engine.showFuelPrices(prices,
-                station -> acceptFuelStation(station.lat, station.lng, station.name));
-            handler.removeCallbacks(expireFuelMarkers);
-            if (prices.fetchedAt > 0L && !prices.stations.isEmpty()) {
-                long delay = Math.max(1000L, FuelMapSnapshot.MAX_AGE_MS
-                    - (System.currentTimeMillis() - prices.fetchedAt) + 100L);
-                handler.postDelayed(expireFuelMarkers, delay);
-            }
+            updateFuelMarkers();
         }
     }
     @Override protected void onPause() {
@@ -1210,6 +1303,7 @@ public final class IntegratedNavigationActivity extends Activity {
     @Override protected void onStop() {
         handler.removeCallbacks(musicRefresh);
         handler.removeCallbacks(expireFuelMarkers);
+        if (fuelQuickSearch != null) fuelQuickSearch.cancel();
         if (engine != null) engine.onStop();
         super.onStop();
     }
