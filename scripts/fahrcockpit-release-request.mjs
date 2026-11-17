@@ -33,7 +33,7 @@ export const GOOGLE_V27_APPROVED_SHA = 'c0b89ecc7ae7a0c9c68d1d9270ee79c97c23c913
 export const GOOGLE_V28_SOURCE_REF =
     'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe';
 // Draft placeholder: must be updated to exact source-merge SHA after PR #97.
-export const GOOGLE_V28_APPROVED_SHA = 'c9661f8c07b4dff67ec286d78b6de3b4e578905b';
+export const GOOGLE_V28_APPROVED_SHA = '950438faf31298dfabb94cb6b79fc50ca88825f3';
 
 export function validateRequest(r) {
   if (!r || Array.isArray(r) || typeof r !== 'object') throw Error('Not an object');
