@@ -25,6 +25,12 @@ interface NavigationEngine {
     void stopGuidanceAndClearRoute();
     /** Explicit user preference; does not start or alter a route. */
     default void setVoiceMuted(boolean muted) {}
+    /** Display only previously user-requested, locally cached fuel prices. */
+    interface FuelMarkerSelection {
+        void onStationSelected(FuelMapSnapshot.Station station);
+    }
+    default void showFuelPrices(FuelMapSnapshot.Snapshot snapshot,
+                                FuelMarkerSelection selection) {}
     void onStart();
     void onResume();
     void onPause();
