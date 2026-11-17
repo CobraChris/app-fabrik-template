@@ -86,8 +86,9 @@ public final class FuelActivity extends Activity {
 
         root.addView(Ui.text(this, "⛽ Tankstellen & Preise", 25, Ui.FG, true));
         root.addView(Ui.text(this,
-            "Live-Preise für E5, E10 und Diesel in Deutschland. " +
-            "Der Abruf erfolgt nur, wenn du die Suche startest.", 14, Ui.MUTED, false));
+            "Tankerkönig-Preise in Deutschland. Automatischer Abruf nur bei " +
+            "sichtbarem FahrCockpit und aktiver Navigation. Keine Hintergrundabfragen.",
+            14, Ui.MUTED, false));
 
         Ui.section(this, root, "Kostenfreier Tankerkönig-Schlüssel",
             "Persönlichen API-Key einmalig auf diesem Handy speichern. " +
@@ -116,6 +117,20 @@ public final class FuelActivity extends Activity {
         root.addView(provider);
         provider.setOnClickListener(v -> openBrowser("https://onboarding.tankerkoenig.de/"));
 
+        Ui.section(this, root, "Anzeige und automatische Aktualisierung", "");
+        android.widget.CheckBox autoPrices = new android.widget.CheckBox(this);
+        autoPrices.setText("Tankstellenpreise automatisch auf der Karte anzeigen");
+        autoPrices.setTextColor(Ui.FG);
+        autoPrices.setChecked(FuelQuickSettings.autoEnabled(this));
+        root.addView(autoPrices);
+        autoPrices.setOnCheckedChangeListener((button, enabled) ->
+            FuelQuickSettings.setAutoEnabled(FuelActivity.this, enabled));
+        root.addView(Ui.text(this,
+            "Nur bei aktiver Navigation und sichtbarer App: Diesel, 10 km, " +
+            "alle 15 Minuten oder bei 5 km Ortswechsel. Mindestens 5 Minuten " +
+            "Abstand zwischen automatischen Abfragen; Fehler mit längerem Backoff. " +
+            "Abgelaufene Preise werden ausgeblendet. Den manuellen Abruf " +
+            "kannst du weiterhin hier starten.", 12, Ui.MUTED, false));
         Ui.section(this, root, "Kraftstoff und Suchradius", "");
         fuelKind = new Spinner(this);
         ArrayAdapter<String> types = new ArrayAdapter<>(this,
