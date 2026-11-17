@@ -45,6 +45,10 @@ public final class IntegratedNavigationActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private NavigationEngine engine;
+    private final Runnable expireFuelMarkers = () -> {
+        if (engine != null) engine.showFuelPrices(FuelMapSnapshot.read(this),
+            station -> acceptFuelStation(station.lat, station.lng, station.name));
+    };
     private TextView status, spotifyState, track, elapsed, duration;
     private EditText destination;
     private SeekBar seek;
@@ -899,13 +903,16 @@ public final class IntegratedNavigationActivity extends Activity {
             return;
         double lat = data.getDoubleExtra(FuelActivity.RESULT_LATITUDE, Double.NaN);
         double lng = data.getDoubleExtra(FuelActivity.RESULT_LONGITUDE, Double.NaN);
+        acceptFuelStation(lat, lng, data.getStringExtra(FuelActivity.RESULT_NAME));
+    }
+
+    private void acceptFuelStation(double lat, double lng, String displayName) {
         String coords = FuelRules.stationCoordinates(lat, lng);
         if (coords == null) {
             showStatus("Tankstelle hat ungültige Zielkoordinaten.");
             return;
         }
-        String name = RouteTargetRules.clean(
-            data.getStringExtra(FuelActivity.RESULT_NAME));
+        String name = RouteTargetRules.clean(displayName);
         if (name == null) name = "Tankstelle";
         chosenTarget = name;
         applyDestinationSuggestion(name, coords);
@@ -1181,7 +1188,20 @@ public final class IntegratedNavigationActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
-        if (engine != null) engine.onResume();
+        if (engine != null) {
+            engine.onResume();
+            // Only display prices previously requested via the Tankerkoenig
+            // search. No background polling or Google billable route calls.
+            FuelMapSnapshot.Snapshot prices = FuelMapSnapshot.read(this);
+            engine.showFuelPrices(prices,
+                station -> acceptFuelStation(station.lat, station.lng, station.name));
+            handler.removeCallbacks(expireFuelMarkers);
+            if (prices.fetchedAt > 0L && !prices.stations.isEmpty()) {
+                long delay = Math.max(1000L, FuelMapSnapshot.MAX_AGE_MS
+                    - (System.currentTimeMillis() - prices.fetchedAt) + 100L);
+                handler.postDelayed(expireFuelMarkers, delay);
+            }
+        }
     }
     @Override protected void onPause() {
         if (engine != null) engine.onPause();
@@ -1189,6 +1209,7 @@ public final class IntegratedNavigationActivity extends Activity {
     }
     @Override protected void onStop() {
         handler.removeCallbacks(musicRefresh);
+        handler.removeCallbacks(expireFuelMarkers);
         if (engine != null) engine.onStop();
         super.onStop();
     }
