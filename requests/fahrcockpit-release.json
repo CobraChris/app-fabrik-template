@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-17-fahrcockpit-v28-fuel-map-prices",
-  "source_sha": "950438faf31298dfabb94cb6b79fc50ca88825f3",
-  "expected_version_code": 28,
+  "request_id": "2026-11-17-fahrcockpit-v29-quick-fuel-controls",
+  "source_sha": "88d7cd8b60dea038505c20ef4b61130dbaee3e56",
+  "expected_version_code": 29,
   "variant": "google-sdk-only"
 }
