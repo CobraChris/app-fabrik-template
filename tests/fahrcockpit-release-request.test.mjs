@@ -232,7 +232,7 @@ test('v26 unified favorites release is pinned to reviewed source and exact reque
 });
 
 test('v27 compact UX release allows exactly one reviewed commit and request',()=>{
-  const pinned='d199948624deb01f12d780f79dc5d24c5e79d936';
+  const pinned='c0b89ecc7ae7a0c9c68d1d9270ee79c97c23c913';
   const request27={schema:2,intent:'fahrcockpit-signed-beta',
     request_id:'2026-11-17-fahrcockpit-v27-compact-ux',
     source_sha:pinned,expected_version_code:27,variant:'google-sdk-only'};
