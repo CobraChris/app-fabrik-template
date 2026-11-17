@@ -117,6 +117,7 @@ public final class IntegratedNavigationActivity extends Activity {
             selectedTarget = RouteTargetRules.clean(
                 savedInstanceState.getString(STATE_SELECTED_TARGET));
         }
+        FuelQuickSettings.initializeV30Defaults(this);
         engine = loadEngine();
         fuelQuickSearch = new FuelQuickSearch(this);
         placesAutocomplete = PlacesAutocompleteBridge.approved(this);
