@@ -1089,7 +1089,8 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private void scheduleAutoFuelTick() {
         handler.removeCallbacks(autoFuelTick);
-        if (activityVisible && guidanceActive && FuelQuickSettings.autoEnabled(this)) {
+        if (BuildConfig.AUTO_TANKERKOENIG_APPROVED && activityVisible && guidanceActive
+                && FuelQuickSettings.autoEnabled(this)) {
             handler.post(autoFuelTick);
         }
         updateFuelMarkers();
@@ -1134,7 +1135,8 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void maybeRefreshFuelPrices() {
-        if (!activityVisible || !guidanceActive || fuelQuickSearch == null
+        if (!BuildConfig.AUTO_TANKERKOENIG_APPROVED || !activityVisible
+                || !guidanceActive || fuelQuickSearch == null
                 || fuelQuickSearch.isSearching()) return;
         String savedKey = getSharedPreferences("fuel_settings_v1", MODE_PRIVATE)
             .getString("tankerkoenig_local_key", "");
