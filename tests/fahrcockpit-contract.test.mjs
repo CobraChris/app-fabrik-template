@@ -920,3 +920,45 @@ test('v29 nearby fuel search recovers from unavailable GPS through network provi
   assert.match(fuel,/search\.setOnClickListener\(v -> search\(\)\)/);
   assert.doesNotMatch(fuel,/requestLocationUpdates\(/);
 });
+
+
+test('v29 direct fuel overlay is one tap, explicitly refreshed, and reuses saved settings',()=>{
+  const activity=java('IntegratedNavigationActivity');
+  const quick=java('FuelQuickSearch');
+  const settings=java('FuelQuickSettings');
+  const fuel=java('FuelActivity');
+  assert.match(activity,/fuelButton = Ui\.button\(this, "⛽ Preise anzeigen"\)/);
+  assert.match(activity,/fuelButton\.setOnClickListener\(v ->/);
+  assert.match(activity,/fuelRefreshButton\.setOnClickListener\(v ->/);
+  assert.match(activity,/startQuickFuelSearch\(\)/);
+  assert.match(activity,/FuelMapSnapshot\.read\(this\)/);
+  assert.match(activity,/engine\.showFuelPrices\(displayed,/);
+  assert.match(activity,/fuelMarkersVisible = false/);
+  assert.match(activity,/FuelMapSnapshot\.MAX_AGE_MS/);
+  assert.match(activity,/new Intent\(this, FuelActivity\.class\)/);
+  assert.match(quick,/getString\("tankerkoenig_local_key"/);
+  assert.match(quick,/FuelRules\.validKey\(key\)/);
+  assert.match(quick,/FuelRules\.requestUrl\(key/);
+  assert.match(quick,/getCurrentLocation\(LocationManager\.NETWORK_PROVIDER/);
+  assert.match(quick,/getCurrentLocation\(LocationManager\.GPS_PROVIDER/);
+  assert.match(quick,/locationResolved = true/);
+  assert.match(quick,/if \(token != generation \|\| !searching \|\| locationResolved\) return/);
+  assert.match(quick,/FuelMapSnapshot\.save\(host, stations, type\)/);
+  assert.doesNotMatch(quick,/startGuidance\(|setDestination\(|Places\.|requestLocationUpdates\(/);
+  assert.match(settings,/fuel_type_index/);
+  assert.match(settings,/fuel_radius_index/);
+  assert.match(settings,/fuel_sort_index/);
+  assert.match(fuel,/FuelQuickSettings\.saveType\(FuelActivity\.this, position\)/);
+  assert.match(fuel,/FuelQuickSettings\.saveRadius\(FuelActivity\.this, position\)/);
+  assert.match(fuel,/FuelQuickSettings\.saveSort\(FuelActivity\.this, position\)/);
+});
+
+test('v29 idle Spotify panel keeps launch action while hiding disabled controls',()=>{
+  const activity=java('IntegratedNavigationActivity');
+  assert.match(activity,/boolean showMedia = state\.connected/);
+  assert.match(activity,/mediaControls\.setVisibility\(showMedia \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(activity,/mediaSkip\.setVisibility\(showMedia \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(activity,/spotifyHeader\.setVisibility\(showMedia \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(activity,/spotifySetup\.setVisibility\(nextAction == null \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(activity,/spotifySetup\.setOnClickListener\(v -> openSpotifyOrPermissions\(\)\)/);
+});
