@@ -32,6 +32,10 @@ import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * German fuel prices from Tankerkoenig, only on explicit user action.
@@ -49,6 +53,9 @@ public final class FuelActivity extends Activity {
     private EditText apiKey;
     private Spinner fuelKind;
     private Spinner radius;
+    private Spinner sortOrder;
+    private JSONArray lastStations;
+    private String lastFetchedAt;
     private TextView message;
     private LinearLayout results;
     private Button search;
@@ -121,6 +128,20 @@ public final class FuelActivity extends Activity {
         radius.setAdapter(distances);
         radius.setSelection(1);
         root.addView(radius);
+
+        sortOrder = new Spinner(this);
+        ArrayAdapter<String> sorting = new ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_dropdown_item,
+            new String[] {"Nach Entfernung", "Nach Preis (günstigste zuerst)"});
+        sortOrder.setAdapter(sorting);
+        root.addView(sortOrder);
+        sortOrder.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent,
+                    android.view.View view, int position, long id) {
+                if (lastStations != null) showStations(lastStations);
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
 
         search = Ui.button(this, "Preise in meiner Nähe abrufen");
         root.addView(search);
@@ -293,9 +314,13 @@ public final class FuelActivity extends Activity {
     }
 
     private void showStations(JSONArray stations) {
+        if (lastStations != stations) {
+            lastFetchedAt = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
+        }
+        lastStations = stations;
         search.setEnabled(true);
         results.removeAllViews();
-        String at = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
+        String at = lastFetchedAt == null ? "–" : lastFetchedAt;
         message.setText(stations.length() + " Treffer · abgerufen um " + at +
             (returnToCockpit
                 ? "\nTankstelle auswählen. Eine Google-Navigationsroute wird erst nach deiner Bestätigung berechnet."
@@ -303,9 +328,22 @@ public final class FuelActivity extends Activity {
         if (stations.length() == 0) {
             results.addView(Ui.text(this, "Keine Meldungen im gewählten Radius.", 14, Ui.MUTED, false));
         }
-        // Show all returned stations. No hidden filtering or data redistribution.
+        // Sort only the presentation of the same API response; never create
+        // extra requests when switching the sort order.
+        List<JSONObject> ordered = new ArrayList<>();
         for (int i = 0; i < stations.length(); i++) {
-            JSONObject s = stations.optJSONObject(i);
+            JSONObject station = stations.optJSONObject(i);
+            if (station != null) ordered.add(station);
+        }
+        boolean byPrice = sortOrder != null && sortOrder.getSelectedItemPosition() == 1;
+        Collections.sort(ordered, (a, b) -> {
+            double va = a.optDouble(byPrice ? "price" : "dist", -1);
+            double vb = b.optDouble(byPrice ? "price" : "dist", -1);
+            if (!Double.isFinite(va) || va < 0) va = Double.POSITIVE_INFINITY;
+            if (!Double.isFinite(vb) || vb < 0) vb = Double.POSITIVE_INFINITY;
+            return Double.compare(va, vb);
+        });
+        for (JSONObject s : ordered) {
             if (s == null) continue;
             String name = s.optString("name", "Tankstelle");
             String brand = s.optString("brand", "");
@@ -321,28 +359,42 @@ public final class FuelActivity extends Activity {
                                             : "Entfernung unbekannt";
             String openText = s.optBoolean("isOpen", false) ? "geöffnet" : "geschlossen/unbekannt";
             LinearLayout station = Ui.column(this);
-            station.setPadding(Ui.dp(this, 12), Ui.dp(this, 8),
-                Ui.dp(this, 12), Ui.dp(this, 8));
+            station.setPadding(Ui.dp(this, 10), Ui.dp(this, 6),
+                Ui.dp(this, 10), Ui.dp(this, 6));
             station.setBackground(Ui.background(this, Ui.PANEL, 12));
-            station.addView(Ui.text(this, priceText + "  ·  " + name, 17, Ui.FG, true));
-            station.addView(Ui.text(this, brand + " · " + street + ", " + town +
-                "\n" + distText + " · " + openText, 13, Ui.MUTED, false));
+            TextView heading = Ui.text(this, priceText + " · " + name, 15, Ui.FG, true);
+            heading.setMaxLines(2);
+            heading.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            heading.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
+            station.addView(heading);
+            TextView details = Ui.text(this, brand + " · " + street + ", " + town +
+                "\n" + distText + " · " + openText, 12, Ui.MUTED, false);
+            details.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
+            station.addView(details);
+            LinearLayout actions = Ui.row(this);
             String coordinates = FuelRules.stationCoordinates(lat, lng);
             if (returnToCockpit) {
                 Button inApp = Ui.button(this, "Als FahrCockpit-Ziel übernehmen");
                 inApp.setEnabled(coordinates != null);
                 inApp.setOnClickListener(v -> selectForCockpit(lat, lng,
                     (brand.trim().isEmpty() ? "" : brand.trim() + " · ") + name));
-                station.addView(inApp);
+                inApp.setText("Als Ziel");
+                inApp.setTextSize(12);
+                inApp.setMinHeight(Ui.dp(this, 40));
+                actions.addView(inApp, new LinearLayout.LayoutParams(0, -2, 1f));
             }
             // Preserve the external Maps alternative without forcing a switch.
             Button route = Ui.button(this, "In Google Maps öffnen");
             route.setEnabled(coordinates != null);
             route.setOnClickListener(v -> openMapsDestination(lat, lng));
-            station.addView(route);
+            route.setText("Google Maps");
+            route.setTextSize(12);
+            route.setMinHeight(Ui.dp(this, 40));
+            actions.addView(route, new LinearLayout.LayoutParams(0, -2, 1f));
+            station.addView(actions);
             results.addView(station, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            Ui.gap(this, results, 10);
+            Ui.gap(this, results, 5);
         }
     }
 

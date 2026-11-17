@@ -138,8 +138,8 @@ public final class IntegratedNavigationActivity extends Activity {
 
         LinearLayout panel = Ui.column(this);
         panel.setPadding(Ui.dp(this, landscape ? 8 : 12),
-            Ui.dp(this, landscape ? 2 : 6),
-            Ui.dp(this, landscape ? 8 : 12), Ui.dp(this, 20));
+            Ui.dp(this, landscape ? 2 : 4),
+            Ui.dp(this, landscape ? 8 : 12), Ui.dp(this, landscape ? 8 : 10));
         scroll.addView(panel);
 
         if (engine != null && engine.configured()) {
@@ -176,11 +176,13 @@ public final class IntegratedNavigationActivity extends Activity {
 
         // State the actual provider prominently: preview packages NEVER
         // contain Google SDK. Google remains the shipping product target.
-        panel.addView(Ui.text(this, BuildConfig.GOOGLE_ONLY
+        TextView cockpitTitle = Ui.text(this, BuildConfig.GOOGLE_ONLY
             ? "FahrCockpit · Google Navigation"
             : (BuildConfig.VISUAL_PREVIEW
                 ? "FahrCockpit v21 · OSM-Sichttest"
-                : "FahrCockpit · Google-Navigation"), 17, Ui.FG, true));
+                : "FahrCockpit · Google-Navigation"), landscape ? 15 : 16, Ui.FG, true);
+        cockpitTitle.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
+        panel.addView(cockpitTitle);
         if (BuildConfig.VISUAL_PREVIEW) {
             panel.addView(Ui.text(this,
                 "Dies ist NUR die separat installierte OSM-Kartenvorschau. "
@@ -208,11 +210,10 @@ public final class IntegratedNavigationActivity extends Activity {
             if (engine != null) engine.setVoiceMuted(muted);
             updateVoiceButton();
         });
-        FrameLayout.LayoutParams voicePosition = new FrameLayout.LayoutParams(
-            Ui.dp(this, 48), Ui.dp(this, 48), Gravity.END | Gravity.CENTER_VERTICAL);
-        // Mid-right avoids Google's top turn banner and bottom ETA card.
-        voicePosition.rightMargin = Ui.dp(this, 14);
-        mapPane.addView(voiceButton, voicePosition);
+        // Keep voice controls off the live map: Google's compass, guidance
+        // banner and ETA stay unobstructed in both screen orientations.
+        voiceButton.setMinimumWidth(Ui.dp(this, 44));
+        voiceButton.setMinimumHeight(Ui.dp(this, 44));
 
         // Map-local diagnostic banner; never overlays the Spotify area and
         // never represents itself as a verified speed-camera or hazard alert.
@@ -231,16 +232,19 @@ public final class IntegratedNavigationActivity extends Activity {
         sapheBannerPosition.topMargin = Ui.dp(this, landscape ? 100 : 120);
         mapPane.addView(sapheBanner, sapheBannerPosition);
 
+        LinearLayout tools = Ui.row(this);
+        tools.addView(voiceButton, new LinearLayout.LayoutParams(
+            Ui.dp(this, 44), Ui.dp(this, 44)));
         Button sideToggle = Ui.button(this,
-            landscape ? (spotifyLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
-                : CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
-        sideToggle.setTextSize(landscape ? 12 : 14);
-        sideToggle.setContentDescription(
-            CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
+            landscape ? "⇄ Seite" : CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
+        sideToggle.setTextSize(12);
+        sideToggle.setMinHeight(Ui.dp(this, 40));
+        sideToggle.setContentDescription(CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
         sideToggle.setEnabled(landscape);
-        // The greyed-out horizontal control wasted portrait screen height.
         sideToggle.setVisibility(landscape ? View.VISIBLE : View.GONE);
-        panel.addView(sideToggle);
+        if (landscape) tools.addView(sideToggle,
+            new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(tools);
         sideToggle.setOnClickListener(v -> {
             // Layout reparenting, not Activity recreation: preserve the active
             // navigation engine, the route state and Spotify playback.
@@ -260,8 +264,7 @@ public final class IntegratedNavigationActivity extends Activity {
                     root.addView(scroll, controlParams);
                 }
             }
-            sideToggle.setText(landscape
-                ? (newLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
+            sideToggle.setText(landscape ? "⇄ Seite"
                 : CockpitPanePreferences.toggleLabel(newLeft, landscape));
             sideToggle.setContentDescription(
                 CockpitPanePreferences.toggleLabel(newLeft, landscape));
@@ -273,6 +276,9 @@ public final class IntegratedNavigationActivity extends Activity {
                 : "Vorschau · Navigation SDK nicht aktiviert · keine Gebühren"),
             12, Ui.WARN, false);
         status.setMaxLines(3);
+        // A routine success message is diagnostic, not permanent driving UI.
+        status.setVisibility(engine != null && engine.configured()
+            && BuildConfig.GOOGLE_ONLY ? View.GONE : View.VISIBLE);
         panel.addView(status);
 
         // Route creation is intentionally collapsed during driving; Spotify
@@ -363,14 +369,18 @@ public final class IntegratedNavigationActivity extends Activity {
             startActivity(intent);
         });
 
-        panel.addView(Ui.text(this, "Spotify", 16, Ui.FG, true));
+        TextView spotifyHeader = Ui.text(this, "Spotify", 16, Ui.FG, true);
+        spotifyHeader.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
+        panel.addView(spotifyHeader);
         spotifyState = Ui.text(this, "Spotify-Status wird geprüft …",
             12, Ui.MUTED, false);
+        spotifyState.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
         panel.addView(spotifyState);
         spotifySetup = Ui.button(this, "Spotify öffnen und Musik starten");
         panel.addView(spotifySetup);
         spotifySetup.setOnClickListener(v -> openSpotifyOrPermissions());
         track = Ui.text(this, "", 13, Ui.FG, true);
+        track.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
         track.setMaxLines(2);
         panel.addView(track);
 
@@ -907,10 +917,9 @@ public final class IntegratedNavigationActivity extends Activity {
         final String chosenName = name;
         new AlertDialog.Builder(this)
             .setTitle("Google Navigation: Tankstelle anfahren")
-            .setMessage(chosenName + "\nZielkoordinaten: " + coords
-                + "\n\nDie neue Route ersetzt nach Bestätigung gegebenenfalls "
-                + "die bisherige Route. Die Berechnung zählt gegen die "
-                + "Google-Navigation-SDK-Quote.")
+            .setMessage(chosenName + "\nZiel: " + coords
+                + "\n\nDie neue Route kann die bisherige ersetzen. "
+                + "Der Abruf zählt gegen dein Google-SDK-Kontingent.")
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
             .setPositiveButton("Route berechnen", (dialog, which) -> {
                 if (engine != null && engine.ready()) {
@@ -1136,7 +1145,14 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void showStatus(String message) {
-        if (status != null) status.setText(message);
+        if (status == null) return;
+        // Routine SDK guidance status consumes scarce screen space. Errors,
+        // warnings and user actions remain visible (including Saphe feedback).
+        boolean routine = BuildConfig.GOOGLE_ONLY && message != null
+            && (message.contains("Echte Google-Abbiegenavigation")
+                || message.equals("Google Navigation SDK wird vorbereitet …"));
+        status.setText(message);
+        status.setVisibility(routine ? View.GONE : View.VISIBLE);
     }
 
     private void showProviderFailure(NavigationProviderPolicy.Failure reason) {
