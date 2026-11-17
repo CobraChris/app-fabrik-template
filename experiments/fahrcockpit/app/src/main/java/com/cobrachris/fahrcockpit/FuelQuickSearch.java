@@ -32,6 +32,7 @@ final class FuelQuickSearch {
     private int generation;
     private int pendingProviders;
     private boolean searching;
+    private boolean locationResolved;
 
     FuelQuickSearch(Activity host) { this.host = host; }
     boolean isSearching() { return searching; }
@@ -65,6 +66,7 @@ final class FuelQuickSearch {
                 return;
             }
             searching = true;
+            locationResolved = false;
             final int token = ++generation;
             Location recent = null;
             if (netEnabled) recent = recent(manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER));
@@ -74,6 +76,7 @@ final class FuelQuickSearch {
                     recent = other;
             }
             if (recent != null) {
+                locationResolved = true;
                 fetch(token, recent, key, callback);
                 return;
             }
@@ -114,9 +117,10 @@ final class FuelQuickSearch {
     }
 
     private void candidate(int token, Location location, String key, Result callback) {
-        if (token != generation || !searching) return;
+        if (token != generation || !searching || locationResolved) return;
         if (location != null && Double.isFinite(location.getLatitude())
                 && Double.isFinite(location.getLongitude())) {
+            locationResolved = true;
             cancelProviders();
             fetch(token, location, key, callback);
             return;
@@ -179,6 +183,7 @@ final class FuelQuickSearch {
     private void fail(int token, String message, Result callback) {
         if (token != generation) return;
         searching = false;
+        locationResolved = false;
         cancelProviders();
         if (!host.isFinishing() && !host.isDestroyed()) callback.onFailure(message);
     }
@@ -194,6 +199,7 @@ final class FuelQuickSearch {
     void cancel() {
         ++generation;
         searching = false;
+        locationResolved = false;
         cancelProviders();
         main.removeCallbacksAndMessages(null);
     }
