@@ -60,7 +60,11 @@ public final class FuelActivity extends Activity {
     private LinearLayout results;
     private Button search;
     private boolean pendingSearch;
-    private CancellationSignal locationSignal;
+    // Concurrent network/GPS fixes: the first valid reply wins. No background polling.
+    private CancellationSignal gpsSignal;
+    private CancellationSignal networkSignal;
+    private int locationGeneration;
+    private int pendingLocationProviders;
     private final Handler main = new Handler(Looper.getMainLooper());
 
     @Override public void onCreate(Bundle savedInstanceState) {
@@ -223,43 +227,114 @@ public final class FuelActivity extends Activity {
         }
         boolean fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
             == PackageManager.PERMISSION_GRANTED;
+        boolean coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED;
+        if (!fine && !coarse) {
+            fail("Standortberechtigung fehlt.");
+            return;
+        }
         try {
-            String provider;
-            if (fine && manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                provider = LocationManager.GPS_PROVIDER;
-            } else if (manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                provider = LocationManager.NETWORK_PROVIDER;
-            } else {
+            boolean gpsAvailable = fine && manager.isProviderEnabled(
+                LocationManager.GPS_PROVIDER);
+            boolean networkAvailable = manager.isProviderEnabled(
+                LocationManager.NETWORK_PROVIDER);
+            if (!gpsAvailable && !networkAvailable) {
                 fail("Ortung nicht aktiviert. Bitte Standortdienste einschalten.");
                 return;
             }
-            Location last = manager.getLastKnownLocation(provider);
-            if (last != null && System.currentTimeMillis() - last.getTime() < 120000) {
-                fetch(last, key);
+            // The original implementation only inspected GPS history when GPS
+            // was enabled, even when a fresh network fix was already available.
+            Location recent = null;
+            if (networkAvailable) {
+                recent = recentLocation(manager.getLastKnownLocation(
+                    LocationManager.NETWORK_PROVIDER));
+            }
+            if (gpsAvailable) {
+                Location gps = recentLocation(manager.getLastKnownLocation(
+                    LocationManager.GPS_PROVIDER));
+                if (gps != null && (recent == null || gps.getTime() > recent.getTime())) {
+                    recent = gps;
+                }
+            }
+            if (recent != null) {
+                fetch(recent, key);
                 return;
             }
-            locationSignal = new CancellationSignal();
-            final CancellationSignal signal = locationSignal;
+
+            stopLocationRequests();
+            final int generation = ++locationGeneration;
+            // Prefer neither GPS nor network exclusively: request both at once,
+            // and accept whichever succeeds. Only request GPS with fine permission.
+            if (networkAvailable) {
+                networkSignal = new CancellationSignal();
+                pendingLocationProviders++;
+                try {
+                    manager.getCurrentLocation(LocationManager.NETWORK_PROVIDER,
+                        networkSignal, getMainExecutor(),
+                        location -> onLocationCandidate(generation, location, key));
+                } catch (RuntimeException networkFailure) {
+                    pendingLocationProviders--;
+                    networkSignal = null;
+                }
+            }
+            if (gpsAvailable) {
+                gpsSignal = new CancellationSignal();
+                pendingLocationProviders++;
+                try {
+                    manager.getCurrentLocation(LocationManager.GPS_PROVIDER,
+                        gpsSignal, getMainExecutor(),
+                        location -> onLocationCandidate(generation, location, key));
+                } catch (RuntimeException gpsFailure) {
+                    pendingLocationProviders--;
+                    gpsSignal = null;
+                }
+            }
+            if (pendingLocationProviders == 0) {
+                stopLocationRequests();
+                fail("Standortdienste konnten nicht gestartet werden.");
+                return;
+            }
             main.postDelayed(() -> {
-                if (locationSignal == signal && search != null && !search.isEnabled()) {
-                    signal.cancel();
-                    locationSignal = null;
-                    fail("Standort nicht erreichbar. Bitte GPS prüfen oder Google Maps öffnen.");
-                }
+                if (generation != locationGeneration || search.isEnabled()) return;
+                stopLocationRequests();
+                fail("Standort nicht erreichbar. Bitte Standort und Berechtigung prüfen.");
             }, 14000);
-            manager.getCurrentLocation(provider, signal, getMainExecutor(), location -> {
-                if (locationSignal != signal) return;
-                locationSignal = null;
-                if (location == null) {
-                    fail("Standort nicht ermittelbar.");
-                } else {
-                    fetch(location, key);
-                }
-            });
-        } catch (RuntimeException e) {
-            locationSignal = null;
+        } catch (RuntimeException serviceFailure) {
+            stopLocationRequests();
             fail("Standortberechtigung oder Standortdienst fehlt.");
         }
+    }
+
+    private static Location recentLocation(Location position) {
+        if (position == null) return null;
+        long age = System.currentTimeMillis() - position.getTime();
+        return age >= 0 && age < 120000
+            && Double.isFinite(position.getLatitude())
+            && Double.isFinite(position.getLongitude()) ? position : null;
+    }
+
+    private void onLocationCandidate(int generation, Location position, String key) {
+        if (generation != locationGeneration || search.isEnabled()) return;
+        if (position != null && Double.isFinite(position.getLatitude())
+                && Double.isFinite(position.getLongitude())) {
+            stopLocationRequests();
+            fetch(position, key);
+            return;
+        }
+        pendingLocationProviders--;
+        if (pendingLocationProviders <= 0) {
+            stopLocationRequests();
+            fail("Standort nicht ermittelbar. Bitte Standortdienste prüfen.");
+        }
+    }
+
+    private void stopLocationRequests() {
+        ++locationGeneration; // Invalidate queued callbacks and the timeout.
+        if (gpsSignal != null) gpsSignal.cancel();
+        if (networkSignal != null) networkSignal.cancel();
+        gpsSignal = null;
+        networkSignal = null;
+        pendingLocationProviders = 0;
     }
 
     private void fetch(Location location, String key) {
@@ -439,8 +514,7 @@ public final class FuelActivity extends Activity {
     }
 
     @Override public void onDestroy() {
-        if (locationSignal != null) locationSignal.cancel();
-        locationSignal = null;
+        stopLocationRequests();
         super.onDestroy();
     }
 }
