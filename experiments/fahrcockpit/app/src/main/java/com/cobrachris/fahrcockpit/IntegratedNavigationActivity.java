@@ -43,6 +43,10 @@ public final class IntegratedNavigationActivity extends Activity {
     private static final String STATE_SELECTED_TARGET = "selected_target";
     private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable expireFuelMarkers = () -> {
+        if (engine != null) engine.showFuelPrices(FuelMapSnapshot.read(this),
+            station -> acceptFuelStation(station.lat, station.lng, station.name));
+    };
 
     private NavigationEngine engine;
     private TextView status, spotifyState, track, elapsed, duration;
@@ -1188,8 +1192,15 @@ public final class IntegratedNavigationActivity extends Activity {
             engine.onResume();
             // Only display prices previously requested via the Tankerkoenig
             // search. No background polling or Google billable route calls.
-            engine.showFuelPrices(FuelMapSnapshot.read(this),
+            FuelMapSnapshot.Snapshot prices = FuelMapSnapshot.read(this);
+            engine.showFuelPrices(prices,
                 station -> acceptFuelStation(station.lat, station.lng, station.name));
+            handler.removeCallbacks(expireFuelMarkers);
+            if (prices.fetchedAt > 0L && !prices.stations.isEmpty()) {
+                long delay = Math.max(1000L, FuelMapSnapshot.MAX_AGE_MS
+                    - (System.currentTimeMillis() - prices.fetchedAt) + 100L);
+                handler.postDelayed(expireFuelMarkers, delay);
+            }
         }
     }
     @Override protected void onPause() {
@@ -1198,6 +1209,7 @@ public final class IntegratedNavigationActivity extends Activity {
     }
     @Override protected void onStop() {
         handler.removeCallbacks(musicRefresh);
+        handler.removeCallbacks(expireFuelMarkers);
         if (engine != null) engine.onStop();
         super.onStop();
     }
