@@ -18,12 +18,16 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /**
- * One user gesture -> at most one Tankerkoenig request using the saved local key.
+ * A single foreground-only call -> at most one Tankerkoenig HTTP request.
+ * The caller enforces auto-refresh minimum interval, navigation and visibility.
  * Does not activate Google Places or issue billable Navigation SDK route requests.
  */
 final class FuelQuickSearch {
     interface Result {
         void onSuccess(FuelMapSnapshot.Snapshot snapshot);
+        default void onSuccess(FuelMapSnapshot.Snapshot snapshot, double lat, double lng) {
+            onSuccess(snapshot);
+        }
         void onFailure(String message);
     }
     private final Activity host;
@@ -168,7 +172,8 @@ final class FuelQuickSearch {
                             || host.isDestroyed()) return;
                     FuelMapSnapshot.save(host, stations, type);
                     searching = false;
-                    callback.onSuccess(FuelMapSnapshot.read(host));
+                    callback.onSuccess(FuelMapSnapshot.read(host),
+                        location.getLatitude(), location.getLongitude());
                 });
             } catch (Exception ignored) {
                 // Never reveal URLs, location coordinates or API keys in logs/UI.
