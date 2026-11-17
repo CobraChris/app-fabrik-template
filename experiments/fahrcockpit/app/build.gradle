@@ -47,14 +47,16 @@ android {
                 ? 'FahrCockpit' : 'FahrCockpit (Test)')]
         minSdk 30
         targetSdk withGoogleNavSdk ? 36 : 35
-        versionCode 29
-        versionName '0.9.27-beta'
+        versionCode 30
+        versionName '0.9.28-beta'
         buildConfigField 'String', 'NAVSDK_API_KEY', '"' + googleNavKey + '"'
         buildConfigField 'boolean', 'VISUAL_PREVIEW', visualPreview.toString()
         buildConfigField 'boolean', 'GOOGLE_ONLY', googleOnly.toString()
         buildConfigField 'boolean', 'WITH_GOOGLE_PLACES', withGooglePlaces.toString()
         // Production v23 must not activate a new billable service.
         buildConfigField 'boolean', 'GOOGLE_PLACES_ACTIVATED', 'false'
+        // Tankerkoenig requests on user action for apps; no permission for auto polling yet.
+        buildConfigField 'boolean', 'AUTO_TANKERKOENIG_APPROVED', 'false'
         if (withGoogleNavSdk) multiDexEnabled true
     }
     buildFeatures {
