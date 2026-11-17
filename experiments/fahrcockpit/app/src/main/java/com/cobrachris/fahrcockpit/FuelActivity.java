@@ -119,14 +119,16 @@ public final class FuelActivity extends Activity {
 
         Ui.section(this, root, "Anzeige und automatische Aktualisierung", "");
         android.widget.CheckBox autoPrices = new android.widget.CheckBox(this);
-        autoPrices.setText("Tankstellenpreise automatisch auf der Karte anzeigen");
+        autoPrices.setText("Automatische Anzeige vormerken (API-Freigabe ausstehend)");
         autoPrices.setTextColor(Ui.FG);
         autoPrices.setChecked(FuelQuickSettings.autoEnabled(this));
         root.addView(autoPrices);
         autoPrices.setOnCheckedChangeListener((button, enabled) ->
             FuelQuickSettings.setAutoEnabled(FuelActivity.this, enabled));
         root.addView(Ui.text(this,
-            "Nur bei aktiver Navigation und sichtbarer App: Diesel, 10 km, " +
+            "Entwicklungsentwurf: Noch keine automatischen API-Abfragen, " +
+            "weil Tankerkönig für Apps Abrufe auf Nutzeraktion vorsieht. " +
+            "Geplant nach Erlaubnis: Nur bei aktiver Navigation, Diesel, 10 km, " +
             "alle 15 Minuten oder bei 5 km Ortswechsel. Mindestens 5 Minuten " +
             "Abstand zwischen automatischen Abfragen; Fehler mit längerem Backoff. " +
             "Abgelaufene Preise werden ausgeblendet. Den manuellen Abruf " +
