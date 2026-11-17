@@ -195,3 +195,32 @@ html{scroll-behavior:smooth}
   background:var(--app-accent,#b1e0ff);color:#0b1828;font-weight:750;text-decoration:none;margin-top:12px}
 #github-fallback-link[hidden]{display:none}
 #github-fallback-link:focus-visible{outline:2px solid #90d2ff;outline-offset:3px}
+
+
+/* Eigenständige, nur lesende GitHub-Statusübersicht */
+.status-dashboard{margin-top:24px}
+.status-dashboard h1{font-size:clamp(26px,5vw,38px);margin:8px 0 20px;letter-spacing:-.03em}
+.status-overview-actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:20px}
+.status-overview-actions button{background:var(--app-accent,#b1e0ff);color:#091626;border:0;border-radius:11px;padding:12px 17px;font:inherit;font-weight:750;cursor:pointer}
+.status-overview-actions button:disabled,.status-card-actions button:disabled{opacity:.6;cursor:wait}
+.status-overview-actions output{font-size:12px;color:#a6b9d0}
+.status-project-list{list-style:none;padding:0;margin:18px 0}
+.status-project-card{border:1px solid #33465d;border-radius:14px;padding:17px;margin:12px 0;background:#101b2b;overflow-wrap:anywhere}
+.status-project-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:9px}
+.status-project-head strong{font-size:15px}
+.status-local-state{font-size:11px;color:#a9bdd5}
+.status-row{margin:8px 0;font-weight:750;color:#aab9c9}
+.status-row[data-kind="success"]{color:#9dd8b6}
+.status-row[data-kind="failure"]{color:#ffb5a5}
+.status-row[data-kind="running"]{color:#f4d39b}
+.status-detail{font-size:13px;color:#c0cfe0;line-height:1.5;margin:7px 0}
+.status-checked{font-size:11px;color:#7c96b3;margin:9px 0}
+.status-card-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:15px}
+.status-card-actions a{color:#b7dbfa;font-size:13px}
+.status-card-actions button{padding:9px 12px!important}
+.status-dashboard a:focus-visible,.status-dashboard button:focus-visible{outline:2px solid #90d2ff;outline-offset:3px}
+@media(max-width:580px){
+  .status-overview-actions button{width:100%}
+  .status-project-card{padding:13px}
+  .status-project-head{align-items:start}
+}

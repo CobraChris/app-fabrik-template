@@ -19,6 +19,7 @@
     <nav class="quick-nav" aria-label="Bereiche der App-Fabrik">
       <a href="#quickstart-title">Start</a>
       <a href="#projects-title">Projekte</a>
+      <a href="./status.html">GitHub-Status</a>
       <a href="#ideas-title">App-Ideen</a>
     </nav>
     <section class="quickstart" aria-labelledby="quickstart-title">
@@ -29,6 +30,7 @@
         <button id="quickstart-action" type="button">Zum nächsten Schritt</button>
         <button id="new-app-entry" type="button">GitHub-Vorlage anlegen</button>
         <a href="./apps/">Veröffentlichte Apps ansehen</a>
+        <a href="./status.html">Statusübersicht öffnen</a>
       </div>
       <p id="quickstart-summary" class="quickstart-summary" aria-live="polite">Noch keine Übersicht verfügbar</p>
     </section>
@@ -77,7 +79,7 @@
         <div><span class="eyebrow">PROJEKTÜBERSICHT</span><h2 id="projects-title">Meine Apps & nächste Schritte</h2></div>
         <output id="project-count" aria-live="polite">0 offen</output>
       </div>
-      <p class="project-description">Verfolge deine verschiedenen GitHub-Projekte an einem Ort. Status und nächster Schritt sind deine eigenen Notizen, keine automatisch aus GitHub abgerufenen Angaben.</p>
+      <p class="project-description">Verfolge deine verschiedenen GitHub-Projekte an einem Ort. Status und nächster Schritt sind deine eigenen Notizen. <a href="./status.html">Öffentlichen GitHub-CI-/Release-Status bei Bedarf prüfen</a>.</p>
       <section class="focus-section" aria-labelledby="focus-title">
         <div class="focus-heading">
           <div>
@@ -133,7 +135,7 @@
         <button id="project-import" type="button" class="secondary-button">Projekt-Backup importieren</button>
         <input id="project-file" type="file" accept="application/json,.json" hidden>
       </div>
-      <p class="privacy-notice">Die Projektübersicht ist lokal auf diesem Gerät gespeichert. Es erfolgt keine automatische Prüfung von GitHub-Status oder Synchronisation. Für wichtige Projekte regelmäßig ein Backup erstellen.</p>
+      <p class="privacy-notice">Die Projektübersicht ist lokal auf diesem Gerät gespeichert. Nur über die separate Statusübersicht kannst du öffentliche GitHub-Daten bewusst abrufen; private Repositories bleiben ohne Anmeldung unlesbar. Keine automatische Synchronisation. Für wichtige Projekte regelmäßig ein Backup erstellen.</p>
     </section>
     <section class="panel" aria-labelledby="ideas-title">
       <div class="panel-heading">
