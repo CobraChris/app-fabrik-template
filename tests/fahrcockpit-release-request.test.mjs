@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA}
+import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA,GOOGLE_V27_SOURCE_REF,GOOGLE_V27_APPROVED_SHA}
   from '../scripts/fahrcockpit-release-request.mjs';
 const sha='e6da2f64b027848d001b0f8f6158c5d5768171b0';
 const request={schema:1,intent:'fahrcockpit-signed-beta',request_id:'2026-11-07-signed-fahr',
@@ -229,4 +229,30 @@ test('v26 unified favorites release is pinned to reviewed source and exact reque
   assert.throws(()=>validateRequest({...request26,variant:'google-osm-integrated'}));
   assert.throws(()=>validateRequest({...request26,variant:'google-places-activated'}));
   assert.throws(()=>validateRequest({...request26,extra:true}));
+});
+
+test('v27 compact UX release allows exactly one reviewed commit and request',()=>{
+  const pinned='c0b89ecc7ae7a0c9c68d1d9270ee79c97c23c913';
+  const request27={schema:2,intent:'fahrcockpit-signed-beta',
+    request_id:'2026-11-17-fahrcockpit-v27-compact-ux',
+    source_sha:pinned,expected_version_code:27,variant:'google-sdk-only'};
+  assert.equal(GOOGLE_V27_APPROVED_SHA,pinned);
+  assert.equal(GOOGLE_V27_SOURCE_REF,
+    'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe');
+  assert.deepEqual(validateRequest(request27),
+    {sha:pinned,code:27,variant:'google-sdk-only'});
+  assert.equal(sourceRefFor('google-sdk-only',27),GOOGLE_V27_SOURCE_REF);
+  assert.doesNotThrow(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V27_SOURCE_REF+'\n','google-sdk-only',27));
+  assert.throws(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V24_SOURCE_REF+'\n','google-sdk-only',27));
+  assert.throws(()=>validateSource(pinned,
+    '0'.repeat(40)+'\t'+GOOGLE_V27_SOURCE_REF+'\n','google-sdk-only',27));
+  assert.throws(()=>validateRequest({...request27,source_sha:'0'.repeat(40)}));
+  assert.throws(()=>validateRequest({...request27,request_id:'2026-11-17-unapproved'}));
+  assert.throws(()=>validateRequest({...request27,expected_version_code:28}));
+  assert.throws(()=>validateRequest({...request27,variant:'legacy'}));
+  assert.throws(()=>validateRequest({...request27,variant:'google-osm-integrated'}));
+  assert.throws(()=>validateRequest({...request27,variant:'google-places-activated'}));
+  assert.throws(()=>validateRequest({...request27,extra:true}));
 });
