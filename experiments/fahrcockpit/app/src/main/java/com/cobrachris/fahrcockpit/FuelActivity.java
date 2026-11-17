@@ -123,25 +123,42 @@ public final class FuelActivity extends Activity {
                 "Super E5", "Super E10", "Diesel"
             });
         fuelKind.setAdapter(types);
+        fuelKind.setSelection(FuelQuickSettings.typeIndex(this));
         root.addView(fuelKind);
+        fuelKind.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent,
+                    android.view.View view, int position, long id) {
+                FuelQuickSettings.saveType(FuelActivity.this, position);
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
         radius = new Spinner(this);
         ArrayAdapter<String> distances = new ArrayAdapter<>(this,
             android.R.layout.simple_spinner_dropdown_item, new String[] {
                 "5 km", "10 km", "20 km", "25 km"
             });
         radius.setAdapter(distances);
-        radius.setSelection(1);
+        radius.setSelection(FuelQuickSettings.radiusIndex(this));
         root.addView(radius);
+        radius.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent,
+                    android.view.View view, int position, long id) {
+                FuelQuickSettings.saveRadius(FuelActivity.this, position);
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
 
         sortOrder = new Spinner(this);
         ArrayAdapter<String> sorting = new ArrayAdapter<>(this,
             android.R.layout.simple_spinner_dropdown_item,
             new String[] {"Nach Entfernung", "Nach Preis (günstigste zuerst)"});
         sortOrder.setAdapter(sorting);
+        sortOrder.setSelection(FuelQuickSettings.sortIndex(this));
         root.addView(sortOrder);
         sortOrder.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent,
                     android.view.View view, int position, long id) {
+                FuelQuickSettings.saveSort(FuelActivity.this, position);
                 if (lastStations != null) showStations(lastStations);
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
