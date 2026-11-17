@@ -924,6 +924,7 @@ test('v29 nearby fuel search recovers from unavailable GPS through network provi
 
 test('v30 foreground fuel automation reuses local key, fuel screen and map marker UX',()=>{
   const activity=java('IntegratedNavigationActivity');
+  const gradle=readFileSync(new URL('../experiments/fahrcockpit/app/build.gradle',import.meta.url),'utf8');
   const quick=java('FuelQuickSearch');
   const settings=java('FuelQuickSettings');
   const fuel=java('FuelActivity');
@@ -937,6 +938,8 @@ test('v30 foreground fuel automation reuses local key, fuel screen and map marke
   assert.match(activity,/activityVisible && guidanceActive/);
   assert.match(activity,/scheduleAutoFuelTick\(\)/);
   assert.match(activity,/FuelAutoRefreshPolicy\.shouldFetch/);
+  assert.match(activity,/BuildConfig\.AUTO_TANKERKOENIG_APPROVED/);
+  assert.match(gradle,/AUTO_TANKERKOENIG_APPROVED', 'false'/);
   assert.match(activity,/movedBeyondLastFuelSearch\(\)/);
   assert.match(activity,/FuelQuickSettings\.recordAutoAttempt\(this, now\)/);
   assert.match(activity,/FuelQuickSettings\.recordAutoResult/);
