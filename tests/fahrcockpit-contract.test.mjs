@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 25/);
- assert.match(gradle,/versionName '0\.9\.23-beta'/);
+ assert.match(gradle,/versionCode 27/);
+ assert.match(gradle,/versionName '0\.9\.25-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -679,8 +679,8 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 25/);
- assert.match(gradle,/versionName '0\.9\.23-beta'/);
+ assert.match(gradle,/versionCode 27/);
+ assert.match(gradle,/versionName '0\.9\.25-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
@@ -732,13 +732,14 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 25/);
-  assert.match(gradle,/versionName '0\.9\.23-beta'/);
+  assert.match(gradle,/versionCode 27/);
+  assert.match(gradle,/versionName '0\.9\.25-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
-  assert.match(shell,/mapPane\.addView\(voiceButton, voicePosition\)/);
-  assert.doesNotMatch(shell,/panel\.addView\(voiceButton\)/);
+  assert.match(shell,/tools\.addView\(voiceButton, new LinearLayout\.LayoutParams\(/);
+  assert.match(shell,/panel\.addView\(tools\)/);
+  assert.doesNotMatch(shell,/mapPane\.addView\(voiceButton/);
   assert.match(shell,/DestinationStore\.recordRecent/);
   assert.match(shell,/DestinationStore\.saveFavorite/);
   assert.match(shell,/DestinationStore\.removeFavorite/);
@@ -762,7 +763,9 @@ test('v24 speaker is monochrome icon-only, never a Samsung emoji or text button'
   assert.match(cockpit,/voiceButton\.setImageDrawable\(new NavigationAudioIcon\(muted\)\)/);
   assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
   assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
-  assert.match(cockpit,/mapPane\.addView\(voiceButton, voicePosition\)/);
+  assert.match(cockpit,/tools\.addView\(voiceButton, new LinearLayout\.LayoutParams\(/);
+  assert.match(cockpit,/panel\.addView\(tools\)/);
+  assert.doesNotMatch(cockpit,/mapPane\.addView\(voiceButton/);
   assert.doesNotMatch(cockpit,/voiceButton\.setText\(/);
   assert.doesNotMatch(icon,/\uD83D\uDD0A|\uD83D\uDD07|Emoji/);
   assert.match(icon,/if \(muted\)/);
@@ -841,7 +844,27 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
   assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
-  assert.match(gradle,/versionCode 25/);
-  assert.match(gradle,/versionName '0\.9\.23-beta'/);
+  assert.match(gradle,/versionCode 27/);
+  assert.match(gradle,/versionName '0\.9\.25-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
+});
+
+
+test('v27 compact cockpit keeps navigation voice accessible without masking Google map',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const layout=java('CockpitLayoutRules');
+  const weights=java('IntegratedNavigationRules');
+  assert.match(cockpit,/tools\.addView\(voiceButton, new LinearLayout\.LayoutParams\(/);
+  assert.match(cockpit,/panel\.addView\(tools\)/);
+  assert.doesNotMatch(cockpit,/mapPane\.addView\(voiceButton/);
+  assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
+  assert.match(cockpit,/sideToggle\.setContentDescription\(/);
+  assert.match(cockpit,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
+  assert.match(cockpit,/status\.setVisibility\(routine \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(cockpit,/CockpitLayoutRules\.mapWeight\(false\)/);
+  assert.match(cockpit,/CockpitLayoutRules\.controlsWeight\(false\)/);
+  assert.match(layout,/PORTRAIT_MAP_WEIGHT = 12/);
+  assert.match(weights,/MAP_WEIGHT = 7/);
+  assert.match(weights,/CONTROLS_WEIGHT = 3/);
 });
