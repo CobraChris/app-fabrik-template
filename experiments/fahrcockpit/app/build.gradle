@@ -55,6 +55,8 @@ android {
         buildConfigField 'boolean', 'WITH_GOOGLE_PLACES', withGooglePlaces.toString()
         // Production v23 must not activate a new billable service.
         buildConfigField 'boolean', 'GOOGLE_PLACES_ACTIVATED', 'false'
+        // Tankerkoenig requests on user action for apps; no permission for auto polling yet.
+        buildConfigField 'boolean', 'AUTO_TANKERKOENIG_APPROVED', 'false'
         if (withGoogleNavSdk) multiDexEnabled true
     }
     buildFeatures {
