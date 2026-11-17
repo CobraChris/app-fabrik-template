@@ -684,7 +684,7 @@ test('v22 Google-only candidate preserves package and build identity',()=>{
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==25/);
+ assert.match(ci,/versionCode'\]==27/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -742,13 +742,14 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   assert.doesNotMatch(shell,/mapPane\.addView\(voiceButton/);
   assert.match(shell,/DestinationStore\.recordRecent/);
   assert.match(shell,/DestinationStore\.saveFavorite/);
-  assert.match(shell,/DestinationStore\.removeFavorite/);
+  assert.match(shell,/DestinationStore\.removeManaged/);
   assert.match(shell,/AddressSuggestionResolver\.suggest/);
   assert.match(shell,/postDelayed\(pendingSuggestions, 650L\)/);
   assert.match(geo,/Geocoder\.GeocodeListener/);
   assert.match(store,/fahrcockpit_manual_routes_v1/);
   assert.match(store,/fahrcockpit_destinations_v23/);
   assert.match(store,/static boolean removeFavorite/);
+  assert.match(store,/static boolean removeManaged/);
   assert.match(rules,/maySuggestOnline/);
   assert.match(nav,/NavigationRequestBudget\.reserve\(host\)/);
   assert.doesNotMatch(shell,/Places\.initializeWithNewPlacesApiEnabled/);
