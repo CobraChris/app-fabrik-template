@@ -29,7 +29,7 @@ export const GOOGLE_V26_APPROVED_SHA = '10d490addbdf1dbbb9933b58ead8faf3599eab2b
 export const GOOGLE_V27_SOURCE_REF =
     'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe';
 // Exact reviewed compact UX source; further changes need separate approval.
-export const GOOGLE_V27_APPROVED_SHA = 'd199948624deb01f12d780f79dc5d24c5e79d936';
+export const GOOGLE_V27_APPROVED_SHA = 'c0b89ecc7ae7a0c9c68d1d9270ee79c97c23c913';
 
 export function validateRequest(r) {
   if (!r || Array.isArray(r) || typeof r !== 'object') throw Error('Not an object');
