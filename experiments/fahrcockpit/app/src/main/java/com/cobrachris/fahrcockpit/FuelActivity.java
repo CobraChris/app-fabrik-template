@@ -271,9 +271,10 @@ public final class FuelActivity extends Activity {
         results.removeAllViews();
         message.setText("Aktuelle Tankstellenpreise werden abgerufen …");
         String url;
+        final String selectedFuelType = fuelType();
         try {
             url = FuelRules.requestUrl(key, location.getLatitude(),
-                location.getLongitude(), radiusKm(), fuelType());
+                location.getLongitude(), radiusKm(), selectedFuelType);
         } catch (IllegalArgumentException e) {
             fail(e.getMessage());
             return;
@@ -302,7 +303,12 @@ public final class FuelActivity extends Activity {
                 }
                 JSONArray stations = response.optJSONArray("stations");
                 if (stations == null) throw new IllegalStateException("Keine Tankstellenliste");
-                main.post(() -> showStations(stations));
+                main.post(() -> {
+                    // Share only the validated station data, never the API key.
+                    // Rendering the cache on the map does not re-query the API.
+                    FuelMapSnapshot.save(this, stations, selectedFuelType);
+                    showStations(stations);
+                });
             } catch (Exception e) {
                 // Don't log URLs, as they contain the private API key.
                 main.post(() -> fail("Preisabruf fehlgeschlagen. " +
@@ -353,7 +359,7 @@ public final class FuelActivity extends Activity {
             double distance = s.optDouble("dist", -1);
             double lat = s.optDouble("lat", Double.NaN);
             double lng = s.optDouble("lng", Double.NaN);
-            String priceText = price >= 0 ? String.format(Locale.GERMANY, "%.3f €/l", price)
+            String priceText = price >= 0 ? String.format(Locale.GERMANY, "%.2f €/l", price)
                                           : "Preis nicht gemeldet";
             String distText = distance >= 0 ? String.format(Locale.GERMANY, "%.1f km", distance)
                                             : "Entfernung unbekannt";
