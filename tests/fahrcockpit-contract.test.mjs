@@ -887,7 +887,7 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   assert.match(cache,/MAX_STATIONS = 40/);
   assert.match(cache,/context\.getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
   assert.doesNotMatch(cache,/apiKey|tankerkoenig_local_key|requestUrl|HttpURLConnection/);
-  assert.match(activity,/engine\.showFuelPrices\(FuelMapSnapshot\.read\(this\)/);
+  assert.match(activity,/engine\.showFuelPrices\(displayed,/);
   assert.match(activity,/station -> acceptFuelStation\(station\.lat, station\.lng, station\.name\)/);
   assert.match(activity,/setPositiveButton\("Route berechnen"/);
   assert.match(activity,/engine\.startConfirmedRoute\(lat, lng, chosenName\)/);
