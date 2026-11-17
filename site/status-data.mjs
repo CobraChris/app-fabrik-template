@@ -27,7 +27,7 @@ export function parseRepository(raw, expected) {
       typeof raw.full_name !== 'string' ||
       raw.full_name.toLowerCase() !== repo.toLowerCase() ||
       raw.private !== false || raw.archived === true ||
-      typeof raw.default_branch !== 'string') {
+      typeof raw.default_branch !== 'string' || !raw.default_branch.trim()) {
     throw Error('Repository nicht öffentlich zugänglich.');
   }
   // Branch must be validated before it is inserted into an API URL.
