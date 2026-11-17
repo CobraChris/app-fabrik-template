@@ -7,9 +7,9 @@ export const MAX_API_REQUESTS_PER_PASS = 42;
 export const GITHUB_RATE_RESERVE = 3;
 
 export function parseGithubRateLimit(rawRemaining, rawReset) {
-  const remaining = typeof rawRemaining === 'string' && /^\\d+$/.test(rawRemaining)
+  const remaining = typeof rawRemaining === 'string' && /^\d+$/.test(rawRemaining)
     ? Number(rawRemaining) : null;
-  const resetSeconds = typeof rawReset === 'string' && /^\\d{9,12}$/.test(rawReset)
+  const resetSeconds = typeof rawReset === 'string' && /^\d{9,12}$/.test(rawReset)
     ? Number(rawReset) : null;
   return {
     remaining: Number.isSafeInteger(remaining) ? remaining : null,
