@@ -43,12 +43,12 @@ public final class IntegratedNavigationActivity extends Activity {
     private static final String STATE_SELECTED_TARGET = "selected_target";
     private static final String ROUTES_PREFS = "fahrcockpit_manual_routes_v1";
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private NavigationEngine engine;
     private final Runnable expireFuelMarkers = () -> {
         if (engine != null) engine.showFuelPrices(FuelMapSnapshot.read(this),
             station -> acceptFuelStation(station.lat, station.lng, station.name));
     };
-
-    private NavigationEngine engine;
     private TextView status, spotifyState, track, elapsed, duration;
     private EditText destination;
     private SeekBar seek;
