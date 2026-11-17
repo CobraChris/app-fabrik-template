@@ -259,7 +259,7 @@ test('v27 compact UX release allows exactly one reviewed commit and request',()=
 
 
 test('v28 map price release is pinned to reviewed source, branch and exact request',()=>{
-  const pinned='c9661f8c07b4dff67ec286d78b6de3b4e578905b';
+  const pinned='950438faf31298dfabb94cb6b79fc50ca88825f3';
   const request28={schema:2,intent:'fahrcockpit-signed-beta',
     request_id:'2026-11-17-fahrcockpit-v28-fuel-map-prices',
     source_sha:pinned,expected_version_code:28,variant:'google-sdk-only'};
