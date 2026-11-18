@@ -1302,7 +1302,7 @@ public final class IntegratedNavigationActivity extends Activity {
         content.addView(summary);
         Button receiverTest = Ui.button(this, "Android-Empfänger testen");
         content.addView(receiverTest);
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog sapheDialog = new AlertDialog.Builder(this)
             .setTitle("Saphe-Diagnose")
             .setView(content)
             .setNeutralButton("Testanzeige", (dialog, which) ->
@@ -1334,10 +1334,10 @@ public final class IntegratedNavigationActivity extends Activity {
                 })
             .create();
         receiverTest.setOnClickListener(v -> {
-            dialog.dismiss();
+            sapheDialog.dismiss();
             sendSapheReceiverSelfTest();
         });
-        dialog.show();
+        sapheDialog.show();
     }
 
     private void showStatus(String message) {
