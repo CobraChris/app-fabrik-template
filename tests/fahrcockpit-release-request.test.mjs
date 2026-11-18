@@ -353,7 +353,7 @@ test('v32 neutral Safety prototype requires exact Google-only source and request
   assert.doesNotThrow(()=>validateSource(pinned,
     pinned+'\t'+GOOGLE_V32_SOURCE_REF+'\n','google-sdk-only',32));
   assert.throws(()=>validateSource(pinned,
-    pinned+'\t'+GOOGLE_V31_SOURCE_REF+'\n','google-sdk-only',32));
+    pinned+'\t'+'refs/heads/feature/fahrcockpit-v32-safety-event-banner'+'\n','google-sdk-only',32));
   assert.throws(()=>validateSource(pinned,
     '0'.repeat(40)+'\t'+GOOGLE_V32_SOURCE_REF+'\n','google-sdk-only',32));
   assert.throws(()=>validateRequest({...request32,source_sha:'0'.repeat(40)}));
