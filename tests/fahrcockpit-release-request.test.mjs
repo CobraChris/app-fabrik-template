@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA,GOOGLE_V27_SOURCE_REF,GOOGLE_V27_APPROVED_SHA,GOOGLE_V28_SOURCE_REF,GOOGLE_V28_APPROVED_SHA,GOOGLE_V29_SOURCE_REF,GOOGLE_V29_APPROVED_SHA,GOOGLE_V31_SOURCE_REF,GOOGLE_V31_APPROVED_SHA}
+import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA,GOOGLE_V27_SOURCE_REF,GOOGLE_V27_APPROVED_SHA,GOOGLE_V28_SOURCE_REF,GOOGLE_V28_APPROVED_SHA,GOOGLE_V29_SOURCE_REF,GOOGLE_V29_APPROVED_SHA,GOOGLE_V31_SOURCE_REF,GOOGLE_V31_APPROVED_SHA,GOOGLE_V32_SOURCE_REF,GOOGLE_V32_APPROVED_SHA}
   from '../scripts/fahrcockpit-release-request.mjs';
 const sha='e6da2f64b027848d001b0f8f6158c5d5768171b0';
 const request={schema:1,intent:'fahrcockpit-signed-beta',request_id:'2026-11-07-signed-fahr',
@@ -337,4 +337,32 @@ test('v31 Saphe diagnostic release pins reviewed Google-only source and rejects 
   assert.throws(()=>validateRequest({...request31,variant:'google-places-activated'}));
   assert.throws(()=>validateRequest({...request31,extra:true}));
   assert.throws(()=>validateRequest({...request31,schema:1}));
+});
+
+test('v32 neutral Safety prototype requires exact Google-only source and request',()=>{
+  const pinned='9210adcf150d926dcd5505c3c5366c640ab4e9c9';
+  const request32={schema:2,intent:'fahrcockpit-signed-beta',
+    request_id:'2026-11-18-fahrcockpit-v32-safety-banner',
+    source_sha:pinned,expected_version_code:32,variant:'google-sdk-only'};
+  assert.equal(GOOGLE_V32_APPROVED_SHA,pinned);
+  assert.equal(GOOGLE_V32_SOURCE_REF,
+    'refs/heads/feature/fahrcockpit-v32-safety-event-banner');
+  assert.deepEqual(validateRequest(request32),
+    {sha:pinned,code:32,variant:'google-sdk-only'});
+  assert.equal(sourceRefFor('google-sdk-only',32),GOOGLE_V32_SOURCE_REF);
+  assert.doesNotThrow(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V32_SOURCE_REF+'\n','google-sdk-only',32));
+  assert.throws(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V31_SOURCE_REF+'\n','google-sdk-only',32));
+  assert.throws(()=>validateSource(pinned,
+    '0'.repeat(40)+'\t'+GOOGLE_V32_SOURCE_REF+'\n','google-sdk-only',32));
+  assert.throws(()=>validateRequest({...request32,source_sha:'0'.repeat(40)}));
+  assert.throws(()=>validateRequest({...request32,request_id:'2026-11-18-fahrcockpit-v32-other'}));
+  assert.throws(()=>validateRequest({...request32,expected_version_code:30}));
+  assert.throws(()=>validateRequest({...request32,expected_version_code:33}));
+  assert.throws(()=>validateRequest({...request32,variant:'legacy'}));
+  assert.throws(()=>validateRequest({...request32,variant:'google-osm-integrated'}));
+  assert.throws(()=>validateRequest({...request32,variant:'google-places-activated'}));
+  assert.throws(()=>validateRequest({...request32,extra:true}));
+  assert.throws(()=>validateRequest({...request32,schema:1}));
 });
