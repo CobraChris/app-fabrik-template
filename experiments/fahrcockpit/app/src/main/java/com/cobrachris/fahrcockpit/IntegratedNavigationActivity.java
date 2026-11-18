@@ -1,6 +1,10 @@
 package com.cobrachris.fahrcockpit;
 
 import android.Manifest;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -1207,26 +1211,105 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
 
+    private void sendSapheReceiverSelfTest() {
+        long now = System.currentTimeMillis();
+        if (!SapheDiagnosticSession.active(this, now)) {
+            showStatus("Zuerst die 10-Minuten-Saphe-Diagnose starten.");
+            return;
+        }
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            new AlertDialog.Builder(this)
+                .setTitle("Benachrichtigungstest nicht verfügbar")
+                .setMessage("FahrCockpit hat keine Android-Mitteilungsberechtigung. "
+                    + "Die Saphe-Erkennung bleibt davon getrennt. "
+                    + "Du kannst die Berechtigung in den Android-App-Einstellungen "
+                    + "prüfen; es wird nichts automatisch geändert.")
+                .setPositiveButton("Verstanden", (dialog, which) -> {})
+                .show();
+            return;
+        }
+        NotificationManager manager =
+            (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager == null || !SapheDiagnosticSession.requestSelfTest(this, now)) {
+            showStatus("Saphe-Empfängertest konnte nicht gestartet werden.");
+            return;
+        }
+        try {
+            String channelId = "fahrcockpit_saphe_receiver_test";
+            if (Build.VERSION.SDK_INT >= 26) {
+                NotificationChannel channel = new NotificationChannel(channelId,
+                    "FahrCockpit Diagnose", NotificationManager.IMPORTANCE_LOW);
+                channel.setDescription("Einmaliger lokaler Empfängertest, keine Saphe-Warnung");
+                channel.enableVibration(false);
+                channel.setSound(null, null);
+                manager.createNotificationChannel(channel);
+            }
+            Notification notification = new Notification.Builder(this, channelId)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("FahrCockpit Empfängertest")
+                .setContentText("Lokaler Test – keine Saphe-Warnung")
+                .setAutoCancel(true)
+                .setSilent(true)
+                .build();
+            manager.notify(31031, notification);
+            handler.postDelayed(() -> {
+                manager.cancel(31031);
+                if (!isFinishing() && !isDestroyed()) showSapheProbeDialog();
+            }, 1600L);
+        } catch (RuntimeException exception) {
+            SapheDiagnosticSession.stop(this);
+            showStatus("Lokaler Mitteilungstest konnte nicht gesendet werden.");
+        }
+    }
+
     private void showSapheProbeDialog() {
+        long now = System.currentTimeMillis();
         boolean hasAndroidAccess = Permissions.isMediaListenerEnabled(this);
         boolean optedIn = SapheNotificationProbe.enabled(this);
+        boolean active = SapheDiagnosticSession.active(this, now);
+        long last = SapheDiagnosticSession.lastSapheAt(this);
+        int count = SapheDiagnosticSession.sapheCount(this);
         long seen = SapheNotificationProbe.lastObservedAt(this);
-        String details = "FahrCockpit prüft ausschließlich, ob Android eine "
-            + "Benachrichtigung der offiziellen Saphe-Link-App meldet. "
-            + "Der Inhalt bleibt ungelesen. Das ist noch keine echte "
-            + "Verkehrs- oder Blitzerwarnung.\n\n"
-            + "Benachrichtigungszugriff: " + (hasAndroidAccess ? "erlaubt" : "fehlt")
-            + "\nDiagnose: " + (optedIn ? "eingeschaltet" : "ausgeschaltet")
-            + "\nSaphe-Link-Mitteilung erkannt: " + (seen > 0 ? "ja" : "noch nein")
-            + "\n\nDer Test ist für das stehende Fahrzeug vorgesehen.";
+        long connected = SapheDiagnosticSession.listenerConnectedAt(this);
+        boolean listenerSeen = active && connected >= now - SapheDiagnosticSession.DURATION_MS;
+        java.text.DateFormat clock = java.text.DateFormat.getTimeInstance(
+            java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
+        String details = "Erkennt nur Android-Benachrichtigungen der offiziellen "
+            + "Saphe-Link-App. Keine Bluetooth- oder Blitzerwarnschnittstelle. "
+            + "Es werden keine Mitteilungstexte gelesen.\\n\\n"
+            + "Android-Zugriff: " + (hasAndroidAccess ? "erlaubt" : "fehlt")
+            + "\\nBenachrichtigungsempfänger: " + (listenerSeen
+                ? "aktiv bestätigt" : "noch nicht bestätigt")
+            + "\\nBestehende Saphe-Erkennung: " + (optedIn ? "eingeschaltet" : "ausgeschaltet")
+            + "\\n10-Minuten-Diagnose: " + (active ? "aktiv" : "nicht aktiv")
+            + (active ? " (bis " + clock.format(new java.util.Date(
+                SapheDiagnosticSession.endsAt(this))) + ")" : "")
+            + "\\nSaphe-Mitteilungen im Test: " + (active ? count : 0)
+            + "\\nLetzte Saphe-Mitteilung: " + (active && last > 0
+                ? clock.format(new java.util.Date(last)) : "keine")
+            + "\\nLokaler Android-Empfängertest: " +
+                (SapheDiagnosticSession.selfTestSeen(this) ? "erfolgreich" : "noch nicht bestätigt")
+            + "\\nAlte Saphe-Erkennung: " + (seen > 0 ? "ja" : "noch nein")
+            + "\\n\\nDieser Test ist für das stehende Fahrzeug vorgesehen.";
+        // Extra action is explicitly in this dialog; it does not claim that
+        // Saphe warnings or the device's Bluetooth events have been received.
+        LinearLayout content = Ui.column(this);
+        content.setPadding(Ui.dp(this, 18), Ui.dp(this, 8),
+            Ui.dp(this, 18), Ui.dp(this, 8));
+        TextView summary = Ui.text(this, details, 14, Ui.FG, false);
+        content.addView(summary);
+        Button receiverTest = Ui.button(this, "Android-Empfänger testen");
+        content.addView(receiverTest);
+        receiverTest.setOnClickListener(v -> sendSapheReceiverSelfTest());
         new AlertDialog.Builder(this)
-            .setTitle("Saphe-Meldungen prüfen")
-            .setMessage(details)
+            .setTitle("Saphe-Diagnose")
+            .setView(content)
             .setNeutralButton("Testanzeige", (dialog, which) ->
                 showSapheBanner(true))
             .setNegativeButton("Schließen", (dialog, which) -> {})
             .setPositiveButton(!hasAndroidAccess ? "Android-Zugriff prüfen"
-                : optedIn ? "Diagnose ausschalten" : "Diagnose einschalten",
+                : active ? "Diagnose beenden" : "10 Minuten starten",
                 (dialog, which) -> {
                     if (!hasAndroidAccess) {
                         try {
@@ -1237,17 +1320,19 @@ public final class IntegratedNavigationActivity extends Activity {
                         }
                         return;
                     }
-                    boolean next = !optedIn;
-                    if (!SapheNotificationProbe.setEnabled(this, next)) {
-                        showStatus("Saphe-Diagnose konnte nicht gespeichert werden.");
-                        return;
+                    if (active) {
+                        SapheDiagnosticSession.stop(this);
+                        showStatus("Saphe-Diagnose beendet; keine neuen Ereignisse werden erfasst.");
+                    } else {
+                        // Preserve the user's existing legacy opt-in preference
+                        // and enable it only when explicitly starting diagnostics.
+                        if (!optedIn) SapheNotificationProbe.setEnabled(this, true);
+                        if (!SapheDiagnosticSession.start(this, System.currentTimeMillis())) {
+                            showStatus("Saphe-Diagnose konnte nicht gestartet werden.");
+                            return;
+                        }
+                        showStatus("Saphe-Diagnose für 10 Minuten aktiviert.");
                     }
-                    sapheLastShownAt = 0L;
-                    handler.removeCallbacks(hideSapheBanner);
-                    if (sapheBanner != null) sapheBanner.setVisibility(View.GONE);
-                    showStatus(next
-                        ? "Saphe-Diagnose aktiv: wartet auf eine Android-Mitteilung."
-                        : "Saphe-Diagnose ausgeschaltet.");
                 })
             .show();
     }
