@@ -840,8 +840,8 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/sapheCheck\.setOnClickListener\(v -> showSapheProbeDialog\(\)\)/);
   assert.match(ui,/showSapheBanner\(true\)/);
   assert.match(ui,/SapheNotificationProbe\.lastObservedAt\(this\)/);
-  assert.match(ui,/Warnungstyp nicht verifiziert/);
-  assert.match(ui,/Keine echte Saphe-Warnung/);
+  assert.match(ui,/Safety-Ereignis · Typ nicht verifiziert/);
+  assert.match(ui,/keine echte Warnung/);
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
   assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
@@ -988,7 +988,7 @@ test('v31 Saphe diagnostic is ten-minute opt-in and never reads payload or Bluet
   assert.match(cockpit,/setDefaults\(0\)/);
   assert.match(cockpit,/10 Minuten starten/);
   assert.match(cockpit,/Testanzeige/);
-  assert.match(cockpit,/Keine echte Saphe-Warnung/);
+  assert.match(cockpit,/keine echte Warnung/);
 });
 
 test('v31 Google voice defaults off and routine guidance haptics are omitted',()=>{
@@ -1003,4 +1003,21 @@ test('v31 Google voice defaults off and routine guidance haptics are omitted',()
   assert.doesNotMatch(engine,/Navigator\.AudioGuidance\.VIBRATION/);
   assert.match(engine,/navigator\.setAudioGuidance\(mode\)/);
   assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
+});
+
+test('v32 neutral safety prototype reuses Saphe events with visible timed map banner',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const gradle=read('app/build.gradle');
+  assert.match(gradle,/versionCode 32/);
+  assert.match(gradle,/versionName '0\\.9\\.30-beta'/);
+  assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
+  assert.match(cockpit,/SapheDiagnosticSession\\.lastSapheAt\\(this\\)/);
+  assert.match(cockpit,/SapheNotificationProbe\\.lastObservedAt\\(this\\)/);
+  assert.match(cockpit,/Math\\.max\\(observedAt, diagnosticAt\\)/);
+  assert.match(cockpit,/title = simulated \\? "TEST · ACHTUNG" : "ACHTUNG"/);
+  assert.match(cockpit,/Safety-Ereignis · Typ nicht verifiziert/);
+  assert.match(cockpit,/handler\\.postDelayed\\(hideSapheBanner, 2200L\\)/);
+  assert.match(cockpit,/safetyEventCount\\+\\+/);
+  assert.match(cockpit,/showSapheBanner\\(true\\)/);
+  assert.doesNotMatch(cockpit,/sapheBanner\\.setText\\("Blitzer"/);
 });
