@@ -351,11 +351,11 @@ test('v32 neutral Safety prototype requires exact Google-only source and request
     {sha:pinned,code:32,variant:'google-sdk-only'});
   assert.equal(sourceRefFor('google-sdk-only',32),GOOGLE_V32_SOURCE_REF);
   assert.doesNotThrow(()=>validateSource(pinned,
-    pinned+'\\t'+GOOGLE_V32_SOURCE_REF+'\\n','google-sdk-only',32));
+    pinned+'\t'+GOOGLE_V32_SOURCE_REF+'\n','google-sdk-only',32));
   assert.throws(()=>validateSource(pinned,
-    pinned+'\\t'+GOOGLE_V31_SOURCE_REF+'\\n','google-sdk-only',32));
+    pinned+'\t'+GOOGLE_V31_SOURCE_REF+'\n','google-sdk-only',32));
   assert.throws(()=>validateSource(pinned,
-    '0'.repeat(40)+'\\t'+GOOGLE_V32_SOURCE_REF+'\\n','google-sdk-only',32));
+    '0'.repeat(40)+'\t'+GOOGLE_V32_SOURCE_REF+'\n','google-sdk-only',32));
   assert.throws(()=>validateRequest({...request32,source_sha:'0'.repeat(40)}));
   assert.throws(()=>validateRequest({...request32,request_id:'2026-11-18-fahrcockpit-v32-other'}));
   assert.throws(()=>validateRequest({...request32,expected_version_code:30}));
