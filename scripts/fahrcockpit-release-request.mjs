@@ -45,7 +45,7 @@ export const GOOGLE_V31_APPROVED_SHA = 'cd3823114ca5c6a780c450bf2b8bbbcc13cf6e98
 export const GOOGLE_V32_SOURCE_REF =
     'refs/heads/feature/fahrcockpit-v32-safety-event-banner';
 // Exact v32 candidate SHA; never resolve a floating branch tip for release.
-export const GOOGLE_V32_APPROVED_SHA = 'b7105088fa1a0a030c5830def1eae6666222fc1a';
+export const GOOGLE_V32_APPROVED_SHA = '9210adcf150d926dcd5505c3c5366c640ab4e9c9';
 
 export function validateRequest(r) {
   if (!r || Array.isArray(r) || typeof r !== 'object') throw Error('Not an object');
