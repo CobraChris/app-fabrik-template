@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-18-fahrcockpit-v31-saphe-diagnostics",
-  "source_sha": "cd3823114ca5c6a780c450bf2b8bbbcc13cf6e98",
-  "expected_version_code": 31,
+  "request_id": "2026-11-18-fahrcockpit-v32-safety-banner",
+  "source_sha": "b7105088fa1a0a030c5830def1eae6666222fc1a",
+  "expected_version_code": 32,
   "variant": "google-sdk-only"
 }
