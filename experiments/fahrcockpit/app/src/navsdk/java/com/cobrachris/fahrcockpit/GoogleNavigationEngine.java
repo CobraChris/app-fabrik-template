@@ -193,12 +193,12 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             return;
         }
         if (navigator == null || closed) return;
-        // Google Navigation SDK 7.6.1 uses integer AudioGuidance flags.
-        // Muting speech preserves haptic alerts; no billable route request.
+        // v31: voice defaults to muted. Do not vibrate for routine Google
+        // guidance, even when speech is switched on. Saphe is unaffected.
+        // Preserve an existing user override in NavigationVoicePreferences.
         int mode = NavigationVoicePreferences.isMuted(host)
-            ? Navigator.AudioGuidance.VIBRATION
+            ? 0
             : Navigator.AudioGuidance.VOICE_ALERTS_AND_GUIDANCE
-                | Navigator.AudioGuidance.VIBRATION
                 | Navigator.AudioGuidance.BLUETOOTH_AUDIO;
         navigator.setAudioGuidance(mode);
     }
