@@ -1201,8 +1201,11 @@ public final class IntegratedNavigationActivity extends Activity {
         long now = System.currentTimeMillis();
         if (!simulated && lastSafetyShownAt > 0
                 && now - lastSafetyShownAt < SAFETY_COOLDOWN_MS) return;
-        lastSafetyShownAt = now;
-        if (!simulated) safetyEventCount++;
+        // A manual test must not suppress a following genuine Android event.
+        if (!simulated) {
+            lastSafetyShownAt = now;
+            safetyEventCount++;
+        }
         String title = simulated ? "TEST · ACHTUNG" : "ACHTUNG";
         String subtitle = simulated
             ? "Safety-Testanzeige · keine echte Warnung"
