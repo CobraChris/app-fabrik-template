@@ -1250,7 +1250,8 @@ public final class IntegratedNavigationActivity extends Activity {
                 .setContentTitle("FahrCockpit Empfängertest")
                 .setContentText("Lokaler Test – keine Saphe-Warnung")
                 .setAutoCancel(true)
-                .setSilent(true)
+                .setDefaults(0)
+                .setOnlyAlertOnce(true)
                 .build();
             manager.notify(31031, notification);
             handler.postDelayed(() -> {
@@ -1301,8 +1302,7 @@ public final class IntegratedNavigationActivity extends Activity {
         content.addView(summary);
         Button receiverTest = Ui.button(this, "Android-Empfänger testen");
         content.addView(receiverTest);
-        receiverTest.setOnClickListener(v -> sendSapheReceiverSelfTest());
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
             .setTitle("Saphe-Diagnose")
             .setView(content)
             .setNeutralButton("Testanzeige", (dialog, which) ->
@@ -1332,7 +1332,12 @@ public final class IntegratedNavigationActivity extends Activity {
                         showStatus("Saphe-Diagnose für 10 Minuten aktiviert.");
                     }
                 })
-            .show();
+            .create();
+        receiverTest.setOnClickListener(v -> {
+            dialog.dismiss();
+            sendSapheReceiverSelfTest();
+        });
+        dialog.show();
     }
 
     private void showStatus(String message) {
