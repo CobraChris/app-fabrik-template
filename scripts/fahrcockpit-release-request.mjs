@@ -43,7 +43,7 @@ export const GOOGLE_V31_SOURCE_REF =
 // Reviewed v31 Saphe diagnostic source after PR #106, never floating.
 export const GOOGLE_V31_APPROVED_SHA = 'cd3823114ca5c6a780c450bf2b8bbbcc13cf6e98';
 export const GOOGLE_V32_SOURCE_REF =
-    'refs/heads/feature/fahrcockpit-v32-safety-event-banner';
+    'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe';
 // Exact v32 candidate SHA; never resolve a floating branch tip for release.
 export const GOOGLE_V32_APPROVED_SHA = '9210adcf150d926dcd5505c3c5366c640ab4e9c9';
 
@@ -112,7 +112,7 @@ export function validateRequest(r) {
        r.source_sha !== GOOGLE_V31_APPROVED_SHA))
     throw Error('Unapproved v31 release identity or reviewed source SHA');
   if (r.expected_version_code === 32 &&
-      (r.request_id !== '2026-11-18-fahrcockpit-v32-safety-banner' ||
+      (r.request_id !== '2026-11-18-fahrcockpit-v32-safety-banner-retry1' ||
        r.source_sha !== GOOGLE_V32_APPROVED_SHA))
     throw Error('Unapproved v32 release identity or reviewed source SHA');
   return { sha:r.source_sha, code:r.expected_version_code,

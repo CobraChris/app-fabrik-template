@@ -342,18 +342,18 @@ test('v31 Saphe diagnostic release pins reviewed Google-only source and rejects 
 test('v32 neutral Safety prototype requires exact Google-only source and request',()=>{
   const pinned='9210adcf150d926dcd5505c3c5366c640ab4e9c9';
   const request32={schema:2,intent:'fahrcockpit-signed-beta',
-    request_id:'2026-11-18-fahrcockpit-v32-safety-banner',
+    request_id:'2026-11-18-fahrcockpit-v32-safety-banner-retry1',
     source_sha:pinned,expected_version_code:32,variant:'google-sdk-only'};
   assert.equal(GOOGLE_V32_APPROVED_SHA,pinned);
   assert.equal(GOOGLE_V32_SOURCE_REF,
-    'refs/heads/feature/fahrcockpit-v32-safety-event-banner');
+    'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe');
   assert.deepEqual(validateRequest(request32),
     {sha:pinned,code:32,variant:'google-sdk-only'});
   assert.equal(sourceRefFor('google-sdk-only',32),GOOGLE_V32_SOURCE_REF);
   assert.doesNotThrow(()=>validateSource(pinned,
     pinned+'\t'+GOOGLE_V32_SOURCE_REF+'\n','google-sdk-only',32));
   assert.throws(()=>validateSource(pinned,
-    pinned+'\t'+GOOGLE_V31_SOURCE_REF+'\n','google-sdk-only',32));
+    pinned+'\t'+'refs/heads/feature/fahrcockpit-v32-safety-event-banner'+'\n','google-sdk-only',32));
   assert.throws(()=>validateSource(pinned,
     '0'.repeat(40)+'\t'+GOOGLE_V32_SOURCE_REF+'\n','google-sdk-only',32));
   assert.throws(()=>validateRequest({...request32,source_sha:'0'.repeat(40)}));
