@@ -1277,21 +1277,21 @@ public final class IntegratedNavigationActivity extends Activity {
             java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
         String details = "Erkennt nur Android-Benachrichtigungen der offiziellen "
             + "Saphe-Link-App. Keine Bluetooth- oder Blitzerwarnschnittstelle. "
-            + "Es werden keine Mitteilungstexte gelesen.\\n\\n"
+            + "Es werden keine Mitteilungstexte gelesen.\n\n"
             + "Android-Zugriff: " + (hasAndroidAccess ? "erlaubt" : "fehlt")
-            + "\\nBenachrichtigungsempfänger: " + (listenerSeen
+            + "\nBenachrichtigungsempfänger: " + (listenerSeen
                 ? "aktiv bestätigt" : "noch nicht bestätigt")
-            + "\\nBestehende Saphe-Erkennung: " + (optedIn ? "eingeschaltet" : "ausgeschaltet")
-            + "\\n10-Minuten-Diagnose: " + (active ? "aktiv" : "nicht aktiv")
+            + "\nBestehende Saphe-Erkennung: " + (optedIn ? "eingeschaltet" : "ausgeschaltet")
+            + "\n10-Minuten-Diagnose: " + (active ? "aktiv" : "nicht aktiv")
             + (active ? " (bis " + clock.format(new java.util.Date(
                 SapheDiagnosticSession.endsAt(this))) + ")" : "")
-            + "\\nSaphe-Mitteilungen im Test: " + (active ? count : 0)
-            + "\\nLetzte Saphe-Mitteilung: " + (active && last > 0
+            + "\nSaphe-Mitteilungen im Test: " + (active ? count : 0)
+            + "\nLetzte Saphe-Mitteilung: " + (active && last > 0
                 ? clock.format(new java.util.Date(last)) : "keine")
-            + "\\nLokaler Android-Empfängertest: " +
+            + "\nLokaler Android-Empfängertest: " +
                 (SapheDiagnosticSession.selfTestSeen(this) ? "erfolgreich" : "noch nicht bestätigt")
-            + "\\nAlte Saphe-Erkennung: " + (seen > 0 ? "ja" : "noch nein")
-            + "\\n\\nDieser Test ist für das stehende Fahrzeug vorgesehen.";
+            + "\nAlte Saphe-Erkennung: " + (seen > 0 ? "ja" : "noch nein")
+            + "\n\nDieser Test ist für das stehende Fahrzeug vorgesehen.";
         // Extra action is explicitly in this dialog; it does not claim that
         // Saphe warnings or the device's Bluetooth events have been received.
         LinearLayout content = Ui.column(this);
@@ -1324,9 +1324,7 @@ public final class IntegratedNavigationActivity extends Activity {
                         SapheDiagnosticSession.stop(this);
                         showStatus("Saphe-Diagnose beendet; keine neuen Ereignisse werden erfasst.");
                     } else {
-                        // Preserve the user's existing legacy opt-in preference
-                        // and enable it only when explicitly starting diagnostics.
-                        if (!optedIn) SapheNotificationProbe.setEnabled(this, true);
+                        // Independent temporary session: preserve legacy opt-in unchanged.
                         if (!SapheDiagnosticSession.start(this, System.currentTimeMillis())) {
                             showStatus("Saphe-Diagnose konnte nicht gestartet werden.");
                             return;
