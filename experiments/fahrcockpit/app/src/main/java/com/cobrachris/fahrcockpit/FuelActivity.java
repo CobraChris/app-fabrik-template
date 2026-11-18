@@ -32,6 +32,10 @@ import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * German fuel prices from Tankerkoenig, only on explicit user action.
@@ -49,11 +53,18 @@ public final class FuelActivity extends Activity {
     private EditText apiKey;
     private Spinner fuelKind;
     private Spinner radius;
+    private Spinner sortOrder;
+    private JSONArray lastStations;
+    private String lastFetchedAt;
     private TextView message;
     private LinearLayout results;
     private Button search;
     private boolean pendingSearch;
-    private CancellationSignal locationSignal;
+    // Concurrent network/GPS fixes: the first valid reply wins. No background polling.
+    private CancellationSignal gpsSignal;
+    private CancellationSignal networkSignal;
+    private int locationGeneration;
+    private int pendingLocationProviders;
     private final Handler main = new Handler(Looper.getMainLooper());
 
     @Override public void onCreate(Bundle savedInstanceState) {
@@ -112,15 +123,46 @@ public final class FuelActivity extends Activity {
                 "Super E5", "Super E10", "Diesel"
             });
         fuelKind.setAdapter(types);
+        fuelKind.setSelection(FuelQuickSettings.typeIndex(this));
         root.addView(fuelKind);
+        fuelKind.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent,
+                    android.view.View view, int position, long id) {
+                FuelQuickSettings.saveType(FuelActivity.this, position);
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
         radius = new Spinner(this);
         ArrayAdapter<String> distances = new ArrayAdapter<>(this,
             android.R.layout.simple_spinner_dropdown_item, new String[] {
                 "5 km", "10 km", "20 km", "25 km"
             });
         radius.setAdapter(distances);
-        radius.setSelection(1);
+        radius.setSelection(FuelQuickSettings.radiusIndex(this));
         root.addView(radius);
+        radius.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent,
+                    android.view.View view, int position, long id) {
+                FuelQuickSettings.saveRadius(FuelActivity.this, position);
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+
+        sortOrder = new Spinner(this);
+        ArrayAdapter<String> sorting = new ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_dropdown_item,
+            new String[] {"Nach Entfernung", "Nach Preis (günstigste zuerst)"});
+        sortOrder.setAdapter(sorting);
+        sortOrder.setSelection(FuelQuickSettings.sortIndex(this));
+        root.addView(sortOrder);
+        sortOrder.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent,
+                    android.view.View view, int position, long id) {
+                FuelQuickSettings.saveSort(FuelActivity.this, position);
+                if (lastStations != null) showStations(lastStations);
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
 
         search = Ui.button(this, "Preise in meiner Nähe abrufen");
         root.addView(search);
@@ -202,43 +244,114 @@ public final class FuelActivity extends Activity {
         }
         boolean fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
             == PackageManager.PERMISSION_GRANTED;
+        boolean coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED;
+        if (!fine && !coarse) {
+            fail("Standortberechtigung fehlt.");
+            return;
+        }
         try {
-            String provider;
-            if (fine && manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                provider = LocationManager.GPS_PROVIDER;
-            } else if (manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                provider = LocationManager.NETWORK_PROVIDER;
-            } else {
+            boolean gpsAvailable = fine && manager.isProviderEnabled(
+                LocationManager.GPS_PROVIDER);
+            boolean networkAvailable = manager.isProviderEnabled(
+                LocationManager.NETWORK_PROVIDER);
+            if (!gpsAvailable && !networkAvailable) {
                 fail("Ortung nicht aktiviert. Bitte Standortdienste einschalten.");
                 return;
             }
-            Location last = manager.getLastKnownLocation(provider);
-            if (last != null && System.currentTimeMillis() - last.getTime() < 120000) {
-                fetch(last, key);
+            // The original implementation only inspected GPS history when GPS
+            // was enabled, even when a fresh network fix was already available.
+            Location recent = null;
+            if (networkAvailable) {
+                recent = recentLocation(manager.getLastKnownLocation(
+                    LocationManager.NETWORK_PROVIDER));
+            }
+            if (gpsAvailable) {
+                Location gps = recentLocation(manager.getLastKnownLocation(
+                    LocationManager.GPS_PROVIDER));
+                if (gps != null && (recent == null || gps.getTime() > recent.getTime())) {
+                    recent = gps;
+                }
+            }
+            if (recent != null) {
+                fetch(recent, key);
                 return;
             }
-            locationSignal = new CancellationSignal();
-            final CancellationSignal signal = locationSignal;
+
+            stopLocationRequests();
+            final int generation = ++locationGeneration;
+            // Prefer neither GPS nor network exclusively: request both at once,
+            // and accept whichever succeeds. Only request GPS with fine permission.
+            if (networkAvailable) {
+                networkSignal = new CancellationSignal();
+                pendingLocationProviders++;
+                try {
+                    manager.getCurrentLocation(LocationManager.NETWORK_PROVIDER,
+                        networkSignal, getMainExecutor(),
+                        location -> onLocationCandidate(generation, location, key));
+                } catch (RuntimeException networkFailure) {
+                    pendingLocationProviders--;
+                    networkSignal = null;
+                }
+            }
+            if (gpsAvailable) {
+                gpsSignal = new CancellationSignal();
+                pendingLocationProviders++;
+                try {
+                    manager.getCurrentLocation(LocationManager.GPS_PROVIDER,
+                        gpsSignal, getMainExecutor(),
+                        location -> onLocationCandidate(generation, location, key));
+                } catch (RuntimeException gpsFailure) {
+                    pendingLocationProviders--;
+                    gpsSignal = null;
+                }
+            }
+            if (pendingLocationProviders == 0) {
+                stopLocationRequests();
+                fail("Standortdienste konnten nicht gestartet werden.");
+                return;
+            }
             main.postDelayed(() -> {
-                if (locationSignal == signal && search != null && !search.isEnabled()) {
-                    signal.cancel();
-                    locationSignal = null;
-                    fail("Standort nicht erreichbar. Bitte GPS prüfen oder Google Maps öffnen.");
-                }
+                if (generation != locationGeneration || search.isEnabled()) return;
+                stopLocationRequests();
+                fail("Standort nicht erreichbar. Bitte Standort und Berechtigung prüfen.");
             }, 14000);
-            manager.getCurrentLocation(provider, signal, getMainExecutor(), location -> {
-                if (locationSignal != signal) return;
-                locationSignal = null;
-                if (location == null) {
-                    fail("Standort nicht ermittelbar.");
-                } else {
-                    fetch(location, key);
-                }
-            });
-        } catch (RuntimeException e) {
-            locationSignal = null;
+        } catch (RuntimeException serviceFailure) {
+            stopLocationRequests();
             fail("Standortberechtigung oder Standortdienst fehlt.");
         }
+    }
+
+    private static Location recentLocation(Location position) {
+        if (position == null) return null;
+        long age = System.currentTimeMillis() - position.getTime();
+        return age >= 0 && age < 120000
+            && Double.isFinite(position.getLatitude())
+            && Double.isFinite(position.getLongitude()) ? position : null;
+    }
+
+    private void onLocationCandidate(int generation, Location position, String key) {
+        if (generation != locationGeneration || search.isEnabled()) return;
+        if (position != null && Double.isFinite(position.getLatitude())
+                && Double.isFinite(position.getLongitude())) {
+            stopLocationRequests();
+            fetch(position, key);
+            return;
+        }
+        pendingLocationProviders--;
+        if (pendingLocationProviders <= 0) {
+            stopLocationRequests();
+            fail("Standort nicht ermittelbar. Bitte Standortdienste prüfen.");
+        }
+    }
+
+    private void stopLocationRequests() {
+        ++locationGeneration; // Invalidate queued callbacks and the timeout.
+        if (gpsSignal != null) gpsSignal.cancel();
+        if (networkSignal != null) networkSignal.cancel();
+        gpsSignal = null;
+        networkSignal = null;
+        pendingLocationProviders = 0;
     }
 
     private void fetch(Location location, String key) {
@@ -250,9 +363,10 @@ public final class FuelActivity extends Activity {
         results.removeAllViews();
         message.setText("Aktuelle Tankstellenpreise werden abgerufen …");
         String url;
+        final String selectedFuelType = fuelType();
         try {
             url = FuelRules.requestUrl(key, location.getLatitude(),
-                location.getLongitude(), radiusKm(), fuelType());
+                location.getLongitude(), radiusKm(), selectedFuelType);
         } catch (IllegalArgumentException e) {
             fail(e.getMessage());
             return;
@@ -281,7 +395,12 @@ public final class FuelActivity extends Activity {
                 }
                 JSONArray stations = response.optJSONArray("stations");
                 if (stations == null) throw new IllegalStateException("Keine Tankstellenliste");
-                main.post(() -> showStations(stations));
+                main.post(() -> {
+                    // Share only the validated station data, never the API key.
+                    // Rendering the cache on the map does not re-query the API.
+                    FuelMapSnapshot.save(this, stations, selectedFuelType);
+                    showStations(stations);
+                });
             } catch (Exception e) {
                 // Don't log URLs, as they contain the private API key.
                 main.post(() -> fail("Preisabruf fehlgeschlagen. " +
@@ -293,9 +412,13 @@ public final class FuelActivity extends Activity {
     }
 
     private void showStations(JSONArray stations) {
+        if (lastStations != stations) {
+            lastFetchedAt = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
+        }
+        lastStations = stations;
         search.setEnabled(true);
         results.removeAllViews();
-        String at = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
+        String at = lastFetchedAt == null ? "–" : lastFetchedAt;
         message.setText(stations.length() + " Treffer · abgerufen um " + at +
             (returnToCockpit
                 ? "\nTankstelle auswählen. Eine Google-Navigationsroute wird erst nach deiner Bestätigung berechnet."
@@ -303,9 +426,22 @@ public final class FuelActivity extends Activity {
         if (stations.length() == 0) {
             results.addView(Ui.text(this, "Keine Meldungen im gewählten Radius.", 14, Ui.MUTED, false));
         }
-        // Show all returned stations. No hidden filtering or data redistribution.
+        // Sort only the presentation of the same API response; never create
+        // extra requests when switching the sort order.
+        List<JSONObject> ordered = new ArrayList<>();
         for (int i = 0; i < stations.length(); i++) {
-            JSONObject s = stations.optJSONObject(i);
+            JSONObject station = stations.optJSONObject(i);
+            if (station != null) ordered.add(station);
+        }
+        boolean byPrice = sortOrder != null && sortOrder.getSelectedItemPosition() == 1;
+        Collections.sort(ordered, (a, b) -> {
+            double va = a.optDouble(byPrice ? "price" : "dist", -1);
+            double vb = b.optDouble(byPrice ? "price" : "dist", -1);
+            if (!Double.isFinite(va) || va < 0) va = Double.POSITIVE_INFINITY;
+            if (!Double.isFinite(vb) || vb < 0) vb = Double.POSITIVE_INFINITY;
+            return Double.compare(va, vb);
+        });
+        for (JSONObject s : ordered) {
             if (s == null) continue;
             String name = s.optString("name", "Tankstelle");
             String brand = s.optString("brand", "");
@@ -315,34 +451,48 @@ public final class FuelActivity extends Activity {
             double distance = s.optDouble("dist", -1);
             double lat = s.optDouble("lat", Double.NaN);
             double lng = s.optDouble("lng", Double.NaN);
-            String priceText = price >= 0 ? String.format(Locale.GERMANY, "%.3f €/l", price)
+            String priceText = price >= 0 ? String.format(Locale.GERMANY, "%.2f €/l", price)
                                           : "Preis nicht gemeldet";
             String distText = distance >= 0 ? String.format(Locale.GERMANY, "%.1f km", distance)
                                             : "Entfernung unbekannt";
             String openText = s.optBoolean("isOpen", false) ? "geöffnet" : "geschlossen/unbekannt";
             LinearLayout station = Ui.column(this);
-            station.setPadding(Ui.dp(this, 12), Ui.dp(this, 8),
-                Ui.dp(this, 12), Ui.dp(this, 8));
+            station.setPadding(Ui.dp(this, 10), Ui.dp(this, 6),
+                Ui.dp(this, 10), Ui.dp(this, 6));
             station.setBackground(Ui.background(this, Ui.PANEL, 12));
-            station.addView(Ui.text(this, priceText + "  ·  " + name, 17, Ui.FG, true));
-            station.addView(Ui.text(this, brand + " · " + street + ", " + town +
-                "\n" + distText + " · " + openText, 13, Ui.MUTED, false));
+            TextView heading = Ui.text(this, priceText + " · " + name, 15, Ui.FG, true);
+            heading.setMaxLines(2);
+            heading.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            heading.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
+            station.addView(heading);
+            TextView details = Ui.text(this, brand + " · " + street + ", " + town +
+                "\n" + distText + " · " + openText, 12, Ui.MUTED, false);
+            details.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
+            station.addView(details);
+            LinearLayout actions = Ui.row(this);
             String coordinates = FuelRules.stationCoordinates(lat, lng);
             if (returnToCockpit) {
                 Button inApp = Ui.button(this, "Als FahrCockpit-Ziel übernehmen");
                 inApp.setEnabled(coordinates != null);
                 inApp.setOnClickListener(v -> selectForCockpit(lat, lng,
                     (brand.trim().isEmpty() ? "" : brand.trim() + " · ") + name));
-                station.addView(inApp);
+                inApp.setText("Als Ziel");
+                inApp.setTextSize(12);
+                inApp.setMinHeight(Ui.dp(this, 40));
+                actions.addView(inApp, new LinearLayout.LayoutParams(0, -2, 1f));
             }
             // Preserve the external Maps alternative without forcing a switch.
             Button route = Ui.button(this, "In Google Maps öffnen");
             route.setEnabled(coordinates != null);
             route.setOnClickListener(v -> openMapsDestination(lat, lng));
-            station.addView(route);
+            route.setText("Google Maps");
+            route.setTextSize(12);
+            route.setMinHeight(Ui.dp(this, 40));
+            actions.addView(route, new LinearLayout.LayoutParams(0, -2, 1f));
+            station.addView(actions);
             results.addView(station, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-            Ui.gap(this, results, 10);
+            Ui.gap(this, results, 5);
         }
     }
 
@@ -381,8 +531,7 @@ public final class FuelActivity extends Activity {
     }
 
     @Override public void onDestroy() {
-        if (locationSignal != null) locationSignal.cancel();
-        locationSignal = null;
+        stopLocationRequests();
         super.onDestroy();
     }
 }
