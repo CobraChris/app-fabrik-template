@@ -12,8 +12,15 @@ import android.service.notification.StatusBarNotification;
  * This is NOT a documented Saphe warning API and does not infer danger events.
  */
 public final class SpotifyNotificationListener extends NotificationListenerService {
+    @Override public void onListenerConnected() {
+        super.onListenerConnected();
+        SapheDiagnosticSession.onListenerConnected(this, System.currentTimeMillis());
+    }
+
     @Override public void onNotificationPosted(StatusBarNotification notification) {
         if (notification == null) return;
         SapheNotificationProbe.onNotificationPosted(this, notification.getPackageName());
+        SapheDiagnosticSession.onNotification(this, notification.getPackageName(),
+            System.currentTimeMillis());
     }
 }
