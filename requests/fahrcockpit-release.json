@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-17-fahrcockpit-v29-quick-fuel-controls",
-  "source_sha": "88d7cd8b60dea038505c20ef4b61130dbaee3e56",
-  "expected_version_code": 29,
+  "request_id": "2026-11-18-fahrcockpit-v31-saphe-diagnostics",
+  "source_sha": "cd3823114ca5c6a780c450bf2b8bbbcc13cf6e98",
+  "expected_version_code": 31,
   "variant": "google-sdk-only"
 }
