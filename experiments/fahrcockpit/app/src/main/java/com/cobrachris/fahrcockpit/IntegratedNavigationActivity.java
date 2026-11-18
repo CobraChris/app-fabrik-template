@@ -60,7 +60,11 @@ public final class IntegratedNavigationActivity extends Activity {
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
     private ImageButton voiceButton;
     private TextView sapheBanner;
+    private TextView safetyEventStatus;
     private long sapheLastShownAt;
+    private long lastSafetyShownAt;
+    private int safetyEventCount;
+    private static final long SAFETY_COOLDOWN_MS = 10000L;
     private final Runnable hideSapheBanner = () -> {
         if (sapheBanner != null) sapheBanner.setVisibility(View.GONE);
     };
@@ -227,12 +231,12 @@ public final class IntegratedNavigationActivity extends Activity {
 
         // Map-local diagnostic banner; never overlays the Spotify area and
         // never represents itself as a verified speed-camera or hazard alert.
-        sapheBanner = Ui.text(this, "", 14, Ui.FG, true);
+        sapheBanner = Ui.text(this, "", 22, 0xff211200, true);
         sapheBanner.setGravity(Gravity.CENTER);
         sapheBanner.setMaxLines(3);
-        sapheBanner.setPadding(Ui.dp(this, 12), Ui.dp(this, 9),
-            Ui.dp(this, 12), Ui.dp(this, 9));
-        sapheBanner.setBackground(Ui.background(this, 0xee222730, 12));
+        sapheBanner.setPadding(Ui.dp(this, 16), Ui.dp(this, 19),
+            Ui.dp(this, 16), Ui.dp(this, 19));
+        sapheBanner.setBackground(Ui.background(this, 0xffffbe29, 12));
         sapheBanner.setElevation(Ui.dp(this, 6));
         sapheBanner.setVisibility(View.GONE);
         FrameLayout.LayoutParams sapheBannerPosition = new FrameLayout.LayoutParams(
@@ -290,6 +294,9 @@ public final class IntegratedNavigationActivity extends Activity {
         status.setVisibility(engine != null && engine.configured()
             && BuildConfig.GOOGLE_ONLY ? View.GONE : View.VISIBLE);
         panel.addView(status);
+        safetyEventStatus = Ui.text(this, "Safety-Ereignisse: 0 · noch keine", 12, Ui.WARN, false);
+        safetyEventStatus.setVisibility(View.GONE);
+        panel.addView(safetyEventStatus);
 
         // Route creation is intentionally collapsed during driving; Spotify
         // stays visible in the limited 30 % panel without manual searching.
@@ -1191,19 +1198,46 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private void showSapheBanner(boolean simulated) {
         if (sapheBanner == null) return;
-        String text = simulated
-            ? "TEST · FahrCockpit-Einblendung\nKeine echte Saphe-Warnung"
-            : "Saphe-Link-Mitteilung erkannt\nWarnungstyp nicht verifiziert";
-        sapheBanner.setText(text);
-        sapheBanner.setContentDescription(text);
+        long now = System.currentTimeMillis();
+        if (!simulated && lastSafetyShownAt > 0
+                && now - lastSafetyShownAt < SAFETY_COOLDOWN_MS) return;
+        // A manual test must not suppress a following genuine Android event.
+        if (!simulated) {
+            lastSafetyShownAt = now;
+            safetyEventCount++;
+        }
+        String title = simulated ? "TEST · ACHTUNG" : "ACHTUNG";
+        String subtitle = simulated
+            ? "Safety-Testanzeige · keine echte Warnung"
+            : "Safety-Ereignis · Typ nicht verifiziert";
+        String message = title + "\n" + subtitle;
+        android.text.SpannableString styled = new android.text.SpannableString(message);
+        styled.setSpan(new android.text.style.RelativeSizeSpan(0.64f),
+            title.length() + 1, message.length(),
+            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sapheBanner.setText(styled);
+        sapheBanner.setContentDescription(message);
         sapheBanner.setVisibility(View.VISIBLE);
         handler.removeCallbacks(hideSapheBanner);
-        handler.postDelayed(hideSapheBanner, 6500L);
+        handler.postDelayed(hideSapheBanner, 2200L);
+        if (!simulated && safetyEventStatus != null) {
+            java.text.DateFormat clock = java.text.DateFormat.getTimeInstance(
+                java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
+            safetyEventStatus.setText("Safety-Ereignisse: " + safetyEventCount
+                + " · zuletzt " + clock.format(new java.util.Date(now)));
+            safetyEventStatus.setVisibility(View.VISIBLE);
+        }
     }
 
     private void refreshSapheNotificationProbe() {
-        if (sapheBanner == null || !SapheNotificationProbe.enabled(this)) return;
-        long observedAt = SapheNotificationProbe.lastObservedAt(this);
+        if (sapheBanner == null) return;
+        long observedAt = SapheNotificationProbe.enabled(this)
+            ? SapheNotificationProbe.lastObservedAt(this) : 0L;
+        long diagnosticAt = SapheDiagnosticSession.active(this, System.currentTimeMillis())
+            ? SapheDiagnosticSession.lastSapheAt(this) : 0L;
+        // Both probes can observe one Android notification. Use the later
+        // timestamp as a single visual event rather than double counting.
+        observedAt = Math.max(observedAt, diagnosticAt);
         if (observedAt > sapheLastShownAt) {
             sapheLastShownAt = observedAt;
             if (SapheNotificationRules.isRecent(
