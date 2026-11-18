@@ -340,7 +340,7 @@ test('v31 Saphe diagnostic release pins reviewed Google-only source and rejects 
 });
 
 test('v32 neutral Safety prototype requires exact Google-only source and request',()=>{
-  const pinned='b7105088fa1a0a030c5830def1eae6666222fc1a';
+  const pinned='9210adcf150d926dcd5505c3c5366c640ab4e9c9';
   const request32={schema:2,intent:'fahrcockpit-signed-beta',
     request_id:'2026-11-18-fahrcockpit-v32-safety-banner',
     source_sha:pinned,expected_version_code:32,variant:'google-sdk-only'};
