@@ -985,7 +985,7 @@ test('v31 Saphe diagnostic is ten-minute opt-in and never reads payload or Bluet
   assert.match(cockpit,/SapheDiagnosticSession\.lastSapheAt\(this\)/);
   assert.match(cockpit,/SapheDiagnosticSession\.selfTestSeen\(this\)/);
   assert.match(cockpit,/manager\.notify\(31031, notification\)/);
-  assert.match(cockpit,/setSilent\(true\)/);
+  assert.match(cockpit,/setDefaults\(0\)/);
   assert.match(cockpit,/10 Minuten starten/);
   assert.match(cockpit,/Testanzeige/);
   assert.match(cockpit,/Keine echte Saphe-Warnung/);
