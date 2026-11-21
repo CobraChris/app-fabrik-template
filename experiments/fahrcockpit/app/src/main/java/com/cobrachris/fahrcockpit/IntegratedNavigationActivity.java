@@ -574,29 +574,13 @@ public final class IntegratedNavigationActivity extends Activity {
         LinearLayout fuelActions = Ui.row(this);
         fuelButton = cockpitButton("Preise anzeigen", false);
         fuelButton.setContentDescription("Tankstellenpreise auf Karte anzeigen oder ausblenden");
-        Button fuelMore = cockpitButton("⋯", false);
-        fuelMore.setTextSize(22);
-        fuelMore.setContentDescription("Weitere Tankstellenaktionen anzeigen");
+        fuelRefreshButton = cockpitButton("↻", false);
+        fuelRefreshButton.setTextSize(20);
+        fuelRefreshButton.setContentDescription("Tankstellenpreise neu abrufen");
         fuelActions.addView(fuelButton, cockpitActionParams(1f, true));
-        fuelActions.addView(fuelMore, new LinearLayout.LayoutParams(
+        fuelActions.addView(fuelRefreshButton, new LinearLayout.LayoutParams(
             Ui.dp(this, 44), Ui.dp(this, 44)));
         panel.addView(fuelActions);
-        LinearLayout fuelExtraActions = Ui.row(this);
-        fuelExtraActions.setVisibility(View.GONE);
-        fuelRefreshButton = cockpitButton("↻ Aktualisieren", false);
-        Button fuelSettings = cockpitButton("⚙ Einstellungen", false);
-        fuelRefreshButton.setContentDescription("Tankstellenpreise neu abrufen");
-        fuelSettings.setContentDescription("Tankstellen-Einstellungen öffnen");
-        fuelExtraActions.addView(fuelRefreshButton, cockpitActionParams(1f, true));
-        fuelExtraActions.addView(fuelSettings, cockpitActionParams(1f, false));
-        panel.addView(fuelExtraActions);
-        fuelMore.setOnClickListener(v -> {
-            boolean open = fuelExtraActions.getVisibility() != View.VISIBLE;
-            fuelExtraActions.setVisibility(open ? View.VISIBLE : View.GONE);
-            fuelMore.setContentDescription(open
-                ? "Weitere Tankstellenaktionen schließen"
-                : "Weitere Tankstellenaktionen anzeigen");
-        });
         fuelInfo = Ui.text(this, "", 10, Ui.MUTED, false);
         fuelInfo.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
         fuelInfo.setMaxLines(2);
@@ -619,10 +603,6 @@ public final class IntegratedNavigationActivity extends Activity {
             fuelMarkersVisible = true;
             startQuickFuelSearch();
         });
-        fuelSettings.setOnClickListener(v -> startActivityForResult(
-            new Intent(this, FuelActivity.class)
-                .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
-            FUEL_PICK_REQUEST));
         Ui.gap(this, panel, 7);
         LinearLayout sapheHeader = Ui.row(this);
         TextView sapheLabel = Ui.text(this, "Saphe", 13, Ui.FG, true);
@@ -635,10 +615,8 @@ public final class IntegratedNavigationActivity extends Activity {
         refreshSapheStatus();
         LinearLayout sapheActions = Ui.row(this);
         Button saphe = cockpitButton("Saphe öffnen", false);
-        Button sapheCheck = cockpitButton("Diagnose", false);
-        sapheCheck.setContentDescription("Saphe-Diagnose und Warnanzeige testen");
-        sapheActions.addView(saphe, cockpitActionParams(1f, true));
-        sapheActions.addView(sapheCheck, cockpitActionParams(1f, false));
+        sapheActions.addView(saphe,
+            new LinearLayout.LayoutParams(-1, Ui.dp(this, 44)));
         panel.addView(sapheActions);
         saphe.setOnClickListener(v -> {
             Intent launch = getPackageManager().getLaunchIntentForPackage("my.saphelink");
@@ -648,16 +626,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 startActivity(launch);
             }
         });
-        sapheCheck.setOnClickListener(v -> showSapheProbeDialog());
-        // Explicitly opened, read-only update check. Never download or install
-        // anything automatically while driving or starting navigation.
-        Ui.gap(this, panel, 8);
-        Button appUpdate = cockpitButton("App aktualisieren", false);
-        appUpdate.setContentDescription("FahrCockpit-Updates prüfen und herunterladen");
-        appUpdate.setOnClickListener(v -> startActivity(
-            new Intent(this, UpdateActivity.class)));
-        panel.addView(appUpdate,
-            new LinearLayout.LayoutParams(-1, Ui.dp(this, 44)));
+        // Update and diagnostics are available from the persistent ⋮ menu.
         // Keep the navigation viewport free of billing prompt text.
         // Google route requests remain bound to explicit route actions
         // and the existing local NavigationRequestBudget limit.
