@@ -738,7 +738,7 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
   assert.match(shell,/tools\.addView\(voiceButton, new LinearLayout\.LayoutParams\(/);
-  assert.match(shell,/panel\.addView\(tools\)/);
+  assert.match(shell,/cockpitPane\.addView\(tools, 1,/);
   assert.doesNotMatch(shell,/mapPane\.addView\(voiceButton/);
   assert.match(shell,/DestinationStore\.recordRecent/);
   assert.match(shell,/DestinationStore\.saveFavorite/);
