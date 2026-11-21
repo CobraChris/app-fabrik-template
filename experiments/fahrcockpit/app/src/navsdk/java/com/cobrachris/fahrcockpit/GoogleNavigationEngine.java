@@ -141,8 +141,9 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                 NavigationProviderPolicy.Failure.LOCAL_REQUEST_LIMIT);
             return;
         }
-        // This call can consume billable Navigation Request quota. The native
-        // UI must have shown an explicit per-route confirmation first.
+        // This may consume a billable Navigation Request. The caller must
+        // be an explicit route-button press or a confirmed fuel destination;
+        // NavigationRequestBudget above still enforces the local limit.
         final Waypoint waypoint = Waypoint.builder()
             .setLatLng(latitude, longitude)
             .setTitle(title == null ? "FahrCockpit Ziel" : title)
