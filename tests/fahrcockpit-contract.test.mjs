@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 33/);
- assert.match(gradle,/versionName '0\.9\.31-beta'/);
+ assert.match(gradle,/versionCode 34/);
+ assert.match(gradle,/versionName '0\.9\.32-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -679,8 +679,8 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 33/);
- assert.match(gradle,/versionName '0\.9\.31-beta'/);
+ assert.match(gradle,/versionCode 34/);
+ assert.match(gradle,/versionName '0\.9\.32-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
@@ -732,8 +732,8 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 33/);
-  assert.match(gradle,/versionName '0\.9\.31-beta'/);
+  assert.match(gradle,/versionCode 34/);
+  assert.match(gradle,/versionName '0\.9\.32-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
@@ -801,8 +801,8 @@ test('v24 route menu collapses during active guidance while remaining reversible
   assert.match(cockpit,/toggleRoutes\.setOnClickListener/);
   assert.match(cockpit,/destinationActions\.addView\(remembered/);
   assert.match(cockpit,/destinationActions\.addView\(saveDestination/);
-  assert.match(cockpit,/setPositiveButton\(osm \? "Straßenroute planen"/);
-  assert.match(cockpit,/Nur nach Freigabe der Abrechnung fortfahren/);
+  assert.match(cockpit,/\.setPositiveButton\("Straßenroute planen"/);
+  assert.doesNotMatch(cockpit,/Nur nach Freigabe der Abrechnung fortfahren|Google Navigation: Route bestätigen/);
 });
 
 test('v24 portrait gives Google ETA extra room, landscape remains 70/30',()=>{
@@ -845,8 +845,8 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
   assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
-  assert.match(gradle,/versionCode 33/);
-  assert.match(gradle,/versionName '0\.9\.31-beta'/);
+  assert.match(gradle,/versionCode 34/);
+  assert.match(gradle,/versionName '0\.9\.32-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
 });
 
@@ -879,8 +879,8 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
   const marker=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 33/);
-  assert.match(gradle,/versionName '0\.9\.31-beta'/);
+  assert.match(gradle,/versionCode 34/);
+  assert.match(gradle,/versionName '0\.9\.32-beta'/);
   assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
   assert.match(fuel,/String\.format\(Locale\.GERMANY, "%.2f €\/l", price\)/);
   assert.match(cache,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
@@ -1008,8 +1008,8 @@ test('v31 Google voice defaults off and routine guidance haptics are omitted',()
 test('v33 neutral safety prototype retains Saphe events with visible timed map banner',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 33/);
-  assert.match(gradle,/versionName '0\.9\.31-beta'/);
+  assert.match(gradle,/versionCode 34/);
+  assert.match(gradle,/versionName '0\.9\.32-beta'/);
   assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
   assert.match(cockpit,/SapheDiagnosticSession\.lastSapheAt\(this\)/);
   assert.match(cockpit,/SapheNotificationProbe\.lastObservedAt\(this\)/);
@@ -1061,4 +1061,33 @@ test('v33 large red Safety alert lasts 3.2 seconds without flashing or claiming 
   assert.match(cockpit,/Safety-Ereignis · Typ nicht verifiziert/);
   assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
   assert.doesNotMatch(cockpit,/ObjectAnimator|ValueAnimator|AnimationUtils/);
+});
+
+
+test('v34 only shows native Google speedometer during guidance and GPS fallback otherwise',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  assert.match(google,/map\.setSpeedometerEnabled\(true\)/);
+  assert.match(google,/map\.setSpeedLimitIconEnabled\(true\)/);
+  assert.match(cockpit,/navigationGuidanceActive = active/);
+  assert.match(cockpit,/currentSpeedView\.setVisibility\(\s*active \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(cockpit,/if \(active\) \{\s*stopSpeedUpdates\(\);\s*collapseDestinationMenu\(\);\s*\} else \{\s*startSpeedUpdates\(\);/);
+  assert.match(cockpit,/if \(navigationGuidanceActive \|\| currentSpeedView == null/);
+  assert.match(cockpit,/stopSpeedUpdates\(\)/);
+  assert.match(cockpit,/showUnknownSpeed\(\)/);
+});
+
+test('v34 removes SDK billing dialog while retaining user-triggered bounded routes',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  assert.match(cockpit,/route\.setOnClickListener\(v -> resolveAndStartRoute\(\)\)/);
+  assert.match(cockpit,/private void resolveAndStartRoute\(\)/);
+  assert.match(cockpit,/NavigationDestinationResolver\.resolve\(this, target/);
+  assert.match(cockpit,/!target\.equals\(selectedNavigationTarget\(\)\)/);
+  assert.match(cockpit,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
+  assert.doesNotMatch(cockpit,/Google Navigation: Route bestätigen|Nur nach Freigabe der Abrechnung fortfahren|Google-SDK-Kontingent|Navigation-SDK-Quote/);
+  assert.match(cockpit,/\.setTitle\("Google Navigation: Tankstelle anfahren"\)/);
+  assert.match(cockpit,/\.setPositiveButton\("Route berechnen", \(dialog, which\) ->/);
+  assert.match(google,/NavigationRequestBudget\.reserve\(host\)/);
+  assert.match(google,/if \(calculating\)/);
 });
