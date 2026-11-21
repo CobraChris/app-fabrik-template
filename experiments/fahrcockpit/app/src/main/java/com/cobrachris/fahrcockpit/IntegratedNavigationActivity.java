@@ -619,6 +619,15 @@ public final class IntegratedNavigationActivity extends Activity {
             }
         });
         sapheCheck.setOnClickListener(v -> showSapheProbeDialog());
+        // Explicitly opened, read-only update check. Never download or install
+        // anything automatically while driving or starting navigation.
+        Ui.gap(this, panel, 8);
+        Button appUpdate = cockpitButton("App aktualisieren", false);
+        appUpdate.setContentDescription("FahrCockpit-Updates prüfen und herunterladen");
+        appUpdate.setOnClickListener(v -> startActivity(
+            new Intent(this, UpdateActivity.class)));
+        panel.addView(appUpdate,
+            new LinearLayout.LayoutParams(-1, Ui.dp(this, 44)));
         // Keep the navigation viewport free of billing prompt text.
         // Google route requests remain bound to explicit route actions
         // and the existing local NavigationRequestBudget limit.
