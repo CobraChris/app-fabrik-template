@@ -55,7 +55,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private NavigationEngine engine;
     private final Runnable expireFuelMarkers = () -> updateFuelMarkers();
     private TextView status, spotifyState, track, elapsed, duration, spotifyHeader, fuelInfo;
-    private LinearLayout mediaControls, mediaSkip;
+    private LinearLayout mediaControls, mediaSkip, spotifyHeaderRow, mediaProgressRow;
     private Button fuelButton, fuelRefreshButton;
     private FuelQuickSearch fuelQuickSearch;
     private boolean fuelMarkersVisible = true;
@@ -223,15 +223,16 @@ public final class IntegratedNavigationActivity extends Activity {
             mapPane.addView(placeholder, new FrameLayout.LayoutParams(-1, -1));
         }
 
-        // State the actual provider prominently: preview packages NEVER
-        // contain Google SDK. Google remains the shipping product target.
+        // Compact, single-line identity: preserve the provider distinction,
+        // but do not waste a separate row in the narrow driving cockpit.
         TextView cockpitTitle = Ui.text(this, BuildConfig.GOOGLE_ONLY
-            ? "FahrCockpit · Google Navigation"
+            ? "FahrCockpit"
             : (BuildConfig.VISUAL_PREVIEW
-                ? "FahrCockpit v21 · OSM-Sichttest"
-                : "FahrCockpit · Google-Navigation"), landscape ? 15 : 16, Ui.FG, true);
-        cockpitTitle.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
-        panel.addView(cockpitTitle);
+                ? "FahrCockpit · OSM-Test"
+                : "FahrCockpit"), landscape ? 13 : 14, Ui.FG, true);
+        cockpitTitle.setSingleLine(true);
+        cockpitTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        cockpitTitle.setPadding(0, 0, Ui.dp(this, 5), 0);
         if (BuildConfig.VISUAL_PREVIEW) {
             panel.addView(Ui.text(this,
                 "Dies ist NUR die separat installierte OSM-Kartenvorschau. "
@@ -282,17 +283,21 @@ public final class IntegratedNavigationActivity extends Activity {
         mapPane.addView(sapheBanner, sapheBannerPosition);
 
         LinearLayout tools = Ui.row(this);
+        tools.setPadding(0, 0, 0, Ui.dp(this, 3));
+        tools.addView(cockpitTitle, new LinearLayout.LayoutParams(0, -2, 1f));
         tools.addView(voiceButton, new LinearLayout.LayoutParams(
             Ui.dp(this, 44), Ui.dp(this, 44)));
-        Button sideToggle = Ui.button(this,
-            landscape ? "⇄ Seite" : CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
-        sideToggle.setTextSize(12);
-        sideToggle.setMinHeight(Ui.dp(this, 40));
+        Button sideToggle = cockpitButton("⇄", false);
+        sideToggle.setTextSize(19);
         sideToggle.setContentDescription(CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
         sideToggle.setEnabled(landscape);
         sideToggle.setVisibility(landscape ? View.VISIBLE : View.GONE);
-        if (landscape) tools.addView(sideToggle,
-            new LinearLayout.LayoutParams(0, -2, 1f));
+        if (landscape) {
+            LinearLayout.LayoutParams sideParams =
+                new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44));
+            sideParams.leftMargin = Ui.dp(this, 5);
+            tools.addView(sideToggle, sideParams);
+        }
         panel.addView(tools);
         sideToggle.setOnClickListener(v -> {
             // Layout reparenting, not Activity recreation: preserve the active
@@ -313,7 +318,7 @@ public final class IntegratedNavigationActivity extends Activity {
                     root.addView(cockpitPane, controlParams);
                 }
             }
-            sideToggle.setText(landscape ? "⇄ Seite"
+            sideToggle.setText(landscape ? "⇄"
                 : CockpitPanePreferences.toggleLabel(newLeft, landscape));
             sideToggle.setContentDescription(
                 CockpitPanePreferences.toggleLabel(newLeft, landscape));
@@ -323,15 +328,20 @@ public final class IntegratedNavigationActivity extends Activity {
             : (engine != null && engine.configured()
                 ? "Google Navigation SDK wird vorbereitet …"
                 : "Vorschau · Navigation SDK nicht aktiviert · keine Gebühren"),
-            12, Ui.WARN, false);
+            11, Ui.WARN, false);
+        status.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
         status.setMaxLines(3);
         // A routine success message is diagnostic, not permanent driving UI.
         status.setVisibility(engine != null && engine.configured()
             && BuildConfig.GOOGLE_ONLY ? View.GONE : View.VISIBLE);
         panel.addView(status);
-        safetyEventStatus = Ui.text(this, "Safety-Ereignisse: 0 · noch keine", 12, Ui.WARN, false);
-        safetyEventStatus.setVisibility(View.GONE);
-        panel.addView(safetyEventStatus);
+        // Saphe status is moved beside its own controls further below. An
+        // enabled notification probe is NOT proof of a connected device.
+        safetyEventStatus = Ui.text(this, "", 10, Ui.MUTED, false);
+        safetyEventStatus.setSingleLine(true);
+        safetyEventStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        safetyEventStatus.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        safetyEventStatus.setPadding(0, 0, 0, 0);
 
         // Route creation is intentionally collapsed during driving; Spotify
         // stays visible in the limited 30 % panel without manual searching.
@@ -624,6 +634,35 @@ public final class IntegratedNavigationActivity extends Activity {
             "com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
     }
 
+
+    // Shared touch-friendly styling; compact enough for the 30 % side pane
+    // without turning secondary controls into oversized gray default buttons.
+    private Button cockpitButton(String label, boolean primary) {
+        Button button = Ui.button(this, label);
+        button.setTextSize(getResources().getConfiguration().orientation
+            == Configuration.ORIENTATION_LANDSCAPE ? 12 : 13);
+        button.setTextColor(Ui.FG);
+        button.setMinHeight(Ui.dp(this, 44));
+        button.setSingleLine(true);
+        button.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        button.setGravity(Gravity.CENTER);
+        button.setContentDescription(label);
+        button.setPadding(Ui.dp(this, 6), 0, Ui.dp(this, 6), 0);
+        android.graphics.drawable.Drawable background =
+            Ui.background(this, primary ? 0xff315d6b : 0xff374452, 9);
+        button.setBackground(new android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(0x55ffffff),
+            background, null));
+        return button;
+    }
+
+    private LinearLayout.LayoutParams cockpitActionParams(float weight,
+                                                           boolean gapAfter) {
+        LinearLayout.LayoutParams params =
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 44), weight);
+        if (gapAfter) params.rightMargin = Ui.dp(this, 6);
+        return params;
+    }
 
     private void showUnknownSpeed() {
         if (currentSpeedView == null) return;
@@ -1503,7 +1542,8 @@ public final class IntegratedNavigationActivity extends Activity {
         // warnings and user actions remain visible (including Saphe feedback).
         boolean routine = BuildConfig.GOOGLE_ONLY && message != null
             && (message.contains("Echte Google-Abbiegenavigation")
-                || message.equals("Google Navigation SDK wird vorbereitet …"));
+                || message.equals("Google Navigation SDK wird vorbereitet …")
+                || message.startsWith("Google Navigation bereit"));
         status.setText(message);
         status.setVisibility(routine ? View.GONE : View.VISIBLE);
     }
