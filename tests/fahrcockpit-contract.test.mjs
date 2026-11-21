@@ -1129,6 +1129,10 @@ test('v35 Spotify has compact header, single progress row and retains all seek a
   assert.match(cockpit,/SpotifyMedia\.seekAbsolute\(/);
   assert.match(cockpit,/spotifySetup\.setOnClickListener\(v -> openSpotifyOrPermissions\(\)\)/);
   assert.match(cockpit,/play\.setContentDescription\("Wiedergabe starten oder pausieren"\)/);
+  assert.match(cockpit,/state\.playing \? "Spielt" : "Pausiert"/);
+  assert.match(cockpit,/spotifyState\.setContentDescription\(fullSpotifyStatus\)/);
+  assert.match(cockpit,/play\.setText\(state\.playing \? "❚❚" : "▶"\)/);
+  assert.match(cockpit,/play\.setContentDescription\(state\.playing/);
 });
 
 test('v35 secondary fuel tools are collapsible without losing a manual refresh or station handoff',()=>{
