@@ -240,7 +240,7 @@ test('v20 integrated native layout is a real fixed 70/30 shell with existing Spo
  assert.match(rules,/CONTROLS_WEIGHT = 3/);
  assert.match(shell,/FrameLayout mapPane/);
  assert.match(shell,/root.addView\(mapPane, mapParams\)/);
- assert.match(shell,/root.addView\(scroll, controlParams\)/);
+ assert.match(shell,/root.addView\(cockpitPane, controlParams\)/);
  assert.match(shell,/SpotifyMedia\.read\(this\)/);
  assert.match(shell,/SpotifyMedia\.send\(this, action\)/);
  assert.match(shell,/SpotifyMedia\.seekAbsolute/);
@@ -556,10 +556,10 @@ test('v21 permanent fixed 70/30 has persisted Spotify left-right switching',()=>
   assert.match(screen,/CockpitPanePreferences\.spotifyLeft\(this\)/);
   assert.match(screen,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
   assert.match(screen,/if \(landscape && spotifyLeft\)/);
-  assert.match(screen,/root\.addView\(scroll, controlParams\)/);
+  assert.match(screen,/root\.addView\(cockpitPane, controlParams\)/);
   assert.match(screen,/root\.addView\(mapPane, mapParams\)/);
   assert.match(screen,/root\.removeView\(mapPane\)/);
-  assert.match(screen,/root\.removeView\(scroll\)/);
+  assert.match(screen,/root\.removeView\(cockpitPane\)/);
   assert.doesNotMatch(screen,/sideToggle\.setOnClickListener\(v -> recreate\(\)/);
   assert.match(prefs,/getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
   assert.match(prefs,/putBoolean\(KEY_SPOTIFY_LEFT, left\)\.commit\(\)/);
@@ -684,7 +684,7 @@ test('v22 Google-only candidate preserves package and build identity',()=>{
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==32/);
+ assert.match(ci,/versionCode'\]==33/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
