@@ -66,6 +66,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private TextView sapheBanner;
     private TextView safetyEventStatus;
     private TextView currentSpeedView;
+    private boolean navigationGuidanceActive;
     private LocationManager speedLocationManager;
     private LocationListener speedLocationListener;
     private final Runnable expireSpeedReading = () -> showUnknownSpeed();
@@ -190,8 +191,20 @@ public final class IntegratedNavigationActivity extends Activity {
                     }
                     @Override public void onGuidanceStateChanged(boolean active) {
                         runOnUiThread(() -> {
+                            navigationGuidanceActive = active;
                             updateScreenAwake(active);
-                            if (active) collapseDestinationMenu();
+                            // During Google guidance the native map speedometer
+                            // is the sole speed display. Outside guidance the
+                            // cockpit shows its own GPS speed instead.
+                            if (currentSpeedView != null)
+                                currentSpeedView.setVisibility(
+                                    active ? View.GONE : View.VISIBLE);
+                            if (active) {
+                                stopSpeedUpdates();
+                                collapseDestinationMenu();
+                            } else {
+                                startSpeedUpdates();
+                            }
                         });
                     }
                 });
@@ -387,7 +400,7 @@ public final class IntegratedNavigationActivity extends Activity {
             : "Route berechnen");
         routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
-        route.setOnClickListener(v -> resolveAndConfirmRoute());
+        route.setOnClickListener(v -> resolveAndStartRoute());
         stopButton = Ui.button(this, "Navigation beenden");
         routePanel.addView(stopButton);
         stopButton.setEnabled(engine != null && engine.configured());
@@ -534,9 +547,9 @@ public final class IntegratedNavigationActivity extends Activity {
             }
         });
         sapheCheck.setOnClickListener(v -> showSapheProbeDialog());
-        // The Google billing disclaimer is already included in the explicit
-        // route-confirmation dialog. Do not permanently occupy the tiny
-        // Spotify viewport with redundant small-print during guidance.
+        // Keep the navigation viewport free of billing prompt text.
+        // Google route requests remain bound to explicit route actions
+        // and the existing local NavigationRequestBudget limit.
         if (isOsmPreview()) {
             panel.addView(Ui.text(this,
                 "OSM-Entwicklungstest: nicht als Fahrnavigation verwenden.",
@@ -640,7 +653,8 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void startSpeedUpdates() {
-        if (currentSpeedView == null || speedLocationListener != null) return;
+        if (navigationGuidanceActive || currentSpeedView == null
+                || speedLocationListener != null) return;
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             showUnknownSpeed();
@@ -1057,13 +1071,13 @@ public final class IntegratedNavigationActivity extends Activity {
             showStatus("Tankstelle übernommen. Navigation noch nicht bereit.");
             return;
         }
-        // No silent Google route switch or billable request: require consent.
+        // A fuel-station handoff is a separate user action. Confirm replacing
+        // an existing route; never silently start Google guidance.
         final String chosenName = name;
         new AlertDialog.Builder(this)
             .setTitle("Google Navigation: Tankstelle anfahren")
             .setMessage(chosenName + "\nZiel: " + coords
-                + "\n\nDie neue Route kann die bisherige ersetzen. "
-                + "Der Abruf zählt gegen dein Google-SDK-Kontingent.")
+                + "\n\nDie neue Route kann die bisherige ersetzen.")
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
             .setPositiveButton("Route berechnen", (dialog, which) -> {
                 if (engine != null && engine.ready()) {
@@ -1075,7 +1089,7 @@ public final class IntegratedNavigationActivity extends Activity {
             .show();
     }
 
-    private void resolveAndConfirmRoute() {
+    private void resolveAndStartRoute() {
         if (engine == null || !engine.ready()) {
             showStatus(isOsmPreview()
                 ? "BRouter noch nicht bereit: Offline-Daten, App und MapLibre prüfen."
@@ -1104,33 +1118,45 @@ public final class IntegratedNavigationActivity extends Activity {
                     showStatus("Ortssuche hat ungültige Koordinaten geliefert.");
                     return;
                 }
-                boolean osm = isOsmPreview();
-                new AlertDialog.Builder(IntegratedNavigationActivity.this)
-                    .setTitle(osm ? "OSM-Abbiegeführung (nicht für Fahrten freigegeben)"
-                        : "Google Navigation: Route bestätigen")
-                    .setMessage(osm
-                        ? ("OpenStreetMap / BRouter: " + name
+                if (isOsmPreview()) {
+                    // Historical development-only OSM preview still requires
+                    // its explicit warning and confirmation.
+                    new AlertDialog.Builder(IntegratedNavigationActivity.this)
+                        .setTitle("OSM-Abbiegeführung (nicht für Fahrten freigegeben)")
+                        .setMessage("OpenStreetMap / BRouter: " + name
                             + "\n\nZielkoordinaten: " + coords
                             + "\n\nEchte Offline-Straßenroute ohne Google-Cloud-Kosten. "
                             + "BRouter-Hinweise, GPS und deutsche Sprachausgabe werden "
                             + "im Entwicklungstest verwendet, falls verfügbar. "
                             + "Noch NICHT im Straßenverkehr geprüft.")
-                        : ("Google Navigation SDK: " + name
-                            + "\n\nZielkoordinaten: " + coords
-                            + "\n\nDer Routenabruf zählt gegen die Google-"
-                            + "Navigation-SDK-Quote. "
-                            + "Nur nach Freigabe der Abrechnung fortfahren."))
-                    .setNegativeButton("Abbrechen", (d,which) -> {})
-                    .setPositiveButton(osm ? "Straßenroute planen"
-                        : "Route berechnen", (d,which) -> {
-                        if (engine != null && engine.ready()) {
-                            DestinationStore.recordRecent(
-                                IntegratedNavigationActivity.this, readable, coords);
-                            engine.startConfirmedRoute(lat, lng, readable);
-                            collapseDestinationMenu();
-                        }
-                    })
-                    .show();
+                        .setNegativeButton("Abbrechen", (d,which) -> {})
+                        .setPositiveButton("Straßenroute planen", (d,which) -> {
+                            if (engine != null && engine.ready()) {
+                                DestinationStore.recordRecent(
+                                    IntegratedNavigationActivity.this, readable, coords);
+                                engine.startConfirmedRoute(lat, lng, readable);
+                                collapseDestinationMenu();
+                            }
+                        })
+                        .show();
+                    return;
+                }
+                // The user's deliberate 'Route berechnen' button press is the
+                // sole trigger for this Google Navigation SDK route request.
+                // Geocoding may be asynchronous: reject an obsolete target,
+                // and let the existing NavigationRequestBudget guard every call.
+                if (!target.equals(selectedNavigationTarget())) {
+                    showStatus("Ziel wurde geändert. Bitte Route erneut berechnen.");
+                    return;
+                }
+                if (engine != null && engine.ready()) {
+                    DestinationStore.recordRecent(
+                        IntegratedNavigationActivity.this, readable, coords);
+                    engine.startConfirmedRoute(lat, lng, readable);
+                    collapseDestinationMenu();
+                } else {
+                    showStatus("Google Navigation ist nicht mehr bereit.");
+                }
             }
             @Override public void failed(String message) {
                 showStatus(message);
