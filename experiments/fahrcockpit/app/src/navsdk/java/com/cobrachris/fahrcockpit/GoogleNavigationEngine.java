@@ -53,12 +53,12 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             apiKeyInitialized = true;
         }
         map = new NavigationView(host);
-        // Native Google controls use road speed limits only when reliable data
-        // exists. They do not create extra route or Places API requests.
-        map.setSpeedometerEnabled(true);
-        map.setSpeedLimitIconEnabled(true);
         priceMarkers = new GoogleFuelPriceMarkers(host);
         map.onCreate(saved);
+        // Navigation SDK controls are available during guided navigation.
+        // Show only Google-provided speed limits; never guess missing limits.
+        map.setSpeedometerEnabled(true);
+        map.setSpeedLimitIconEnabled(true);
         return map;
     }
 
