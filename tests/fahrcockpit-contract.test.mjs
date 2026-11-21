@@ -622,7 +622,7 @@ test('v21 OSM preview cannot appear to be the Google SDK product',()=>{
  const shell=java('IntegratedNavigationActivity');
  const manifest=read('app/src/main/AndroidManifest.xml');
  const gradle=read('app/build.gradle');
- assert.match(shell,/FahrCockpit v21 · OSM-Sichttest/);
+ assert.match(shell,/FahrCockpit · OSM-Test/);
  assert.match(shell,/Die fest integrierte Google-Navigation bleibt das Hauptziel/);
  assert.match(shell,/Hier ist kein Google-SDK enthalten/);
  assert.match(shell,/Google Maps separat öffnen \(Samsung-Splitscreen\)/);
@@ -1109,7 +1109,7 @@ test('v35 compact unified cockpit preserves Google 70/30, portrait split, and ac
   assert.match(cockpit,/new android\.graphics\.drawable\.RippleDrawable\(/);
   assert.match(cockpit,/cockpitButton\("Ziel \/ Route", true\)/);
   assert.match(cockpit,/getResources\(\)\.getConfiguration\(\)\.orientation/);
-  assert.match(layout,/static float mapWeight\(boolean/);
+  assert.match(layout,/static int mapWeight\(boolean/);
 });
 
 test('v35 Spotify has compact header, single progress row and retains all seek actions',()=>{
