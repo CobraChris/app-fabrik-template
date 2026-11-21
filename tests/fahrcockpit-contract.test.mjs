@@ -247,7 +247,7 @@ test('v20 integrated native layout is a real fixed 70/30 shell with existing Spo
  assert.match(shell,/FuelActivity.class/);
  assert.match(shell,/my\.saphelink/);
  assert.match(shell,/SplitCockpitActivity.class/);
- assert.match(shell,/Button route = Ui.button/);
+ assert.match(shell,/Button route = cockpitButton/);
  assert.match(shell,/Route berechnen/);
  assert.match(shell,/NavigationDestinationResolver\.resolve/);
  assert.match(shell,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
@@ -297,15 +297,15 @@ test('v20 SDK is not in the default signed variant and cannot route without expl
 test('v20 keeps primary Spotify controls visible before optional route form in 30 percent pane',()=>{
  const shell=java('IntegratedNavigationActivity');
  assert.match(shell,/routePanel\.setVisibility\(View\.GONE\)/);
- assert.match(shell,/toggleRoutes = Ui\.button\(this, "📍 Ziel \/ Route"\)/);
+ assert.match(shell,/toggleRoutes = cockpitButton\("Ziel \/ Route", true\)/);
  assert.match(shell,/toggleRoutes\.setOnClickListener/);
- assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(routePanel);'));
- assert.ok(shell.indexOf('panel.addView(skip);') < shell.indexOf('panel.addView(routePanel);'));
+ assert.ok(shell.indexOf('panel.addView(mediaControls);') < shell.indexOf('panel.addView(routePanel);'));
+ assert.ok(shell.indexOf('panel.addView(mediaSkip);') < shell.indexOf('panel.addView(routePanel);'));
  assert.match(shell,/scroll\.smoothScrollTo\(0,/);
  assert.match(shell,/SOFT_INPUT_ADJUST_RESIZE/);
  assert.match(shell,/panel\.addView\(fallback\)/);
  assert.doesNotMatch(shell,/routePanel\.addView\(fallback\)/);
- assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(fallback);'));
+ assert.ok(shell.indexOf('panel.addView(mediaControls);') < shell.indexOf('panel.addView(fallback);'));
 });
 
 
@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 34/);
- assert.match(gradle,/versionName '0\.9\.32-beta'/);
+ assert.match(gradle,/versionCode 35/);
+ assert.match(gradle,/versionName '0\.9\.33-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 34/);
- assert.match(gradle,/versionName '0\.9\.32-beta'/);
+ assert.match(gradle,/versionCode 35/);
+ assert.match(gradle,/versionName '0\.9\.33-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==34/);
+ assert.match(ci,/versionCode'\]==35/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -732,8 +732,8 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 34/);
-  assert.match(gradle,/versionName '0\.9\.32-beta'/);
+  assert.match(gradle,/versionCode 35/);
+  assert.match(gradle,/versionName '0\.9\.33-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
@@ -845,8 +845,8 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
   assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
-  assert.match(gradle,/versionCode 34/);
-  assert.match(gradle,/versionName '0\.9\.32-beta'/);
+  assert.match(gradle,/versionCode 35/);
+  assert.match(gradle,/versionName '0\.9\.33-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
 });
 
@@ -879,8 +879,8 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
   const marker=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 34/);
-  assert.match(gradle,/versionName '0\.9\.32-beta'/);
+  assert.match(gradle,/versionCode 35/);
+  assert.match(gradle,/versionName '0\.9\.33-beta'/);
   assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
   assert.match(fuel,/String\.format\(Locale\.GERMANY, "%.2f €\/l", price\)/);
   assert.match(cache,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
@@ -927,7 +927,7 @@ test('v29 direct fuel overlay is one tap, explicitly refreshed, and reuses saved
   const quick=java('FuelQuickSearch');
   const settings=java('FuelQuickSettings');
   const fuel=java('FuelActivity');
-  assert.match(activity,/fuelButton = Ui\.button\(this, "⛽ Preise anzeigen"\)/);
+  assert.match(activity,/fuelButton = cockpitButton\("Preise anzeigen", false\)/);
   assert.match(activity,/fuelButton\.setOnClickListener\(v ->/);
   assert.match(activity,/fuelRefreshButton\.setOnClickListener\(v ->/);
   assert.match(activity,/startQuickFuelSearch\(\)/);
@@ -1008,8 +1008,8 @@ test('v31 Google voice defaults off and routine guidance haptics are omitted',()
 test('v33 neutral safety prototype retains Saphe events with visible timed map banner',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 34/);
-  assert.match(gradle,/versionName '0\.9\.32-beta'/);
+  assert.match(gradle,/versionCode 35/);
+  assert.match(gradle,/versionName '0\.9\.33-beta'/);
   assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
   assert.match(cockpit,/SapheDiagnosticSession\.lastSapheAt\(this\)/);
   assert.match(cockpit,/SapheNotificationProbe\.lastObservedAt\(this\)/);
@@ -1090,4 +1090,86 @@ test('v34 removes SDK billing dialog while retaining user-triggered bounded rout
   assert.match(cockpit,/\.setPositiveButton\("Route berechnen", \(dialog, which\) ->/);
   assert.match(google,/NavigationRequestBudget\.reserve\(host\)/);
   assert.match(google,/if \(calculating\)/);
+});
+
+
+test('v35 compact unified cockpit preserves Google 70/30, portrait split, and accessibility',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const layout=java('CockpitLayoutRules');
+  assert.match(cockpit,/IntegratedNavigationRules\.MAP_WEIGHT/);
+  assert.match(cockpit,/IntegratedNavigationRules\.CONTROLS_WEIGHT/);
+  assert.match(cockpit,/CockpitLayoutRules\.mapWeight\(false\)/);
+  assert.match(cockpit,/CockpitLayoutRules\.controlsWeight\(false\)/);
+  assert.match(cockpit,/root\.addView\(mapPane, mapParams\)/);
+  assert.match(cockpit,/root\.addView\(cockpitPane, controlParams\)/);
+  assert.match(cockpit,/tools\.addView\(cockpitTitle, new LinearLayout\.LayoutParams\(0, -2, 1f\)\)/);
+  assert.match(cockpit,/cockpitTitle\.setSingleLine\(true\)/);
+  assert.match(cockpit,/sideToggle\.setContentDescription\(/);
+  assert.match(cockpit,/voiceButton\.setContentDescription\(/);
+  assert.match(cockpit,/new android\.graphics\.drawable\.RippleDrawable\(/);
+  assert.match(cockpit,/cockpitButton\("Ziel \/ Route", true\)/);
+  assert.match(cockpit,/getResources\(\)\.getConfiguration\(\)\.orientation/);
+  assert.match(layout,/static float mapWeight\(boolean/);
+});
+
+test('v35 Spotify has compact header, single progress row and retains all seek actions',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/spotifyHeaderRow = Ui\.row\(this\)/);
+  assert.match(cockpit,/spotifyHeaderRow\.addView\(spotifyState/);
+  assert.match(cockpit,/mediaProgressRow = Ui\.row\(this\)/);
+  assert.match(cockpit,/mediaProgressRow\.addView\(elapsed/);
+  assert.match(cockpit,/mediaProgressRow\.addView\(seek/);
+  assert.match(cockpit,/mediaProgressRow\.addView\(duration/);
+  assert.match(cockpit,/mediaProgressRow\.setVisibility\(showProgress \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(cockpit,/spotifyHeaderRow\.setVisibility\(showMedia \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(cockpit,/send\(SpotifyMedia\.Action\.PREVIOUS\)/);
+  assert.match(cockpit,/send\(SpotifyMedia\.Action\.NEXT\)/);
+  assert.match(cockpit,/send\(SpotifyMedia\.Action\.SEEK_BACK\)/);
+  assert.match(cockpit,/send\(SpotifyMedia\.Action\.SEEK_FORWARD\)/);
+  assert.match(cockpit,/SpotifyMedia\.seekAbsolute\(/);
+  assert.match(cockpit,/spotifySetup\.setOnClickListener\(v -> openSpotifyOrPermissions\(\)\)/);
+  assert.match(cockpit,/play\.setContentDescription\("Wiedergabe starten oder pausieren"\)/);
+});
+
+test('v35 secondary fuel tools are collapsible without losing a manual refresh or station handoff',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/fuelActions\.addView\(fuelButton, cockpitActionParams\(1f, true\)\)/);
+  assert.match(cockpit,/Button fuelMore = cockpitButton\("⋯", false\)/);
+  assert.match(cockpit,/fuelExtraActions\.setVisibility\(View\.GONE\)/);
+  assert.match(cockpit,/fuelMore\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/fuelExtraActions\.setVisibility\(open \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(cockpit,/fuelRefreshButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/fuelSettings\.setOnClickListener\(v -> startActivityForResult\(/);
+  assert.match(cockpit,/FuelActivity\.class/);
+  assert.match(cockpit,/fuelButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/engine\.showFuelPrices\(displayed,/);
+});
+
+test('v35 Saphe status is truthful and warnings and diagnostic remain available',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/sapheHeader = Ui\.row\(this\)/);
+  assert.match(cockpit,/sapheHeader\.addView\(safetyEventStatus/);
+  assert.match(cockpit,/refreshSapheStatus\(\)/);
+  assert.match(cockpit,/SapheNotificationProbe\.enabled\(this\)/);
+  assert.match(cockpit,/String summary = enabled \? "Erkennung an" : "Erkennung aus"/);
+  assert.match(cockpit,/sapheCheck\.setContentDescription\("Saphe-Diagnose und Warnanzeige testen"\)/);
+  assert.match(cockpit,/sapheCheck\.setOnClickListener\(v -> showSapheProbeDialog\(\)\)/);
+  assert.match(cockpit,/sapheBanner\.setBackground\(Ui\.background\(this, 0xffc91921, 12\)\)/);
+  assert.match(cockpit,/handler\.postDelayed\(hideSapheBanner, 3200L\)/);
+  assert.match(cockpit,/if \(!simulated\) refreshSapheStatus\(\)/);
+  assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
+  assert.doesNotMatch(cockpit,/Saphe verbunden|Blitzer erkannt/);
+});
+
+test('v35 removes routine success clutter and keeps route and Google-only cost guards',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  assert.match(cockpit,/message\.startsWith\("Google Navigation bereit"\)/);
+  assert.match(cockpit,/status\.setVisibility\(routine \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(cockpit,/currentSpeedView\.setVisibility\(\s*active \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(cockpit,/route\.setOnClickListener\(v -> resolveAndStartRoute\(\)\)/);
+  assert.match(cockpit,/NavigationDestinationResolver\.resolve\(this, target/);
+  assert.match(cockpit,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
+  assert.match(google,/NavigationRequestBudget\.reserve\(host\)/);
+  assert.doesNotMatch(cockpit,/Nur nach Freigabe der Abrechnung fortfahren|Google Navigation: Route bestätigen/);
 });
