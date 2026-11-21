@@ -424,7 +424,7 @@ public final class IntegratedNavigationActivity extends Activity {
 
         // Keep the free navigation visible even when the route form is collapsed.
         Button fallback = cockpitButton(
-            "Google Maps separat öffnen (Samsung-Splitscreen)");
+            "Google Maps separat öffnen (Samsung-Splitscreen)", false);
         fallback.setOnClickListener(v -> {
             String text = RouteTargetRules.clean(destination.getText().toString());
             Intent intent = new Intent(this, SplitCockpitActivity.class);
@@ -1452,16 +1452,31 @@ public final class IntegratedNavigationActivity extends Activity {
         sapheBanner.setVisibility(View.VISIBLE);
         handler.removeCallbacks(hideSapheBanner);
         handler.postDelayed(hideSapheBanner, 3200L);
-        if (!simulated && safetyEventStatus != null) {
+        if (!simulated) refreshSapheStatus();
+    }
+
+    private void refreshSapheStatus() {
+        if (safetyEventStatus == null) return;
+        boolean enabled = SapheNotificationProbe.enabled(this);
+        String summary = enabled ? "Erkennung an" : "Erkennung aus";
+        String accessibility = "Saphe: " + summary;
+        if (safetyEventCount > 0) {
             java.text.DateFormat clock = java.text.DateFormat.getTimeInstance(
                 java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
-            safetyEventStatus.setText("Safety-Ereignisse: " + safetyEventCount
-                + " · zuletzt " + clock.format(new java.util.Date(now)));
-            safetyEventStatus.setVisibility(View.VISIBLE);
+            String time = clock.format(new java.util.Date(lastSafetyShownAt));
+            summary = (enabled ? "An" : "Aus") + " · "
+                + safetyEventCount + " · " + time;
+            accessibility += ", " + safetyEventCount
+                + " empfangene Ereignisse, zuletzt " + time;
         }
+        // Enabled means that notification detection was enabled by the user,
+        // not that the hardware or real-world warning type was verified.
+        safetyEventStatus.setText(summary);
+        safetyEventStatus.setContentDescription(accessibility);
     }
 
     private void refreshSapheNotificationProbe() {
+        refreshSapheStatus();
         if (sapheBanner == null) return;
         long observedAt = SapheNotificationProbe.enabled(this)
             ? SapheNotificationProbe.lastObservedAt(this) : 0L;
