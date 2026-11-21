@@ -1306,11 +1306,18 @@ public final class IntegratedNavigationActivity extends Activity {
         track.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         mediaControls.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         mediaSkip.setVisibility(showMedia ? View.VISIBLE : View.GONE);
-        spotifyState.setText(state.connected
+        // Compact visual state, but keep the full status for accessibility.
+        String fullSpotifyStatus = state.connected
             ? SpotifyDisplayRules.connectedStatus(state.playing)
-            : SpotifyDisplayRules.notConnected(allowed));
+            : SpotifyDisplayRules.notConnected(allowed);
+        spotifyState.setText(state.connected
+            ? (state.playing ? "Spielt" : "Pausiert") : fullSpotifyStatus);
+        spotifyState.setContentDescription(fullSpotifyStatus);
         track.setText(state.line);
-        play.setText(state.playing ? "⏸" : "▶");
+        // Avoid Samsung's colorful emoji rendering for the pause icon.
+        play.setText(state.playing ? "❚❚" : "▶");
+        play.setContentDescription(state.playing
+            ? "Wiedergabe pausieren" : "Wiedergabe starten");
         play.setEnabled(state.connected);
         previous.setEnabled(state.canPrevious);
         next.setEnabled(state.canNext);
