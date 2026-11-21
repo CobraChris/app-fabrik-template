@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-21-fahrcockpit-v33-safety-speed",
-  "source_sha": "ce02953faeeaf0cb308196794d306c94c1dd2537",
-  "expected_version_code": 33,
+  "request_id": "2026-11-21-fahrcockpit-v34-one-speed-no-billing-dialog",
+  "source_sha": "45d80902a08daa320890ddb36306debed64c71f4",
+  "expected_version_code": 34,
   "variant": "google-sdk-only"
 }
