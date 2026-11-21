@@ -1,7 +1,7 @@
 package com.cobrachris.fahrcockpit;
 
 import android.app.Activity;
-import android.app.ActivityNotFoundException;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
