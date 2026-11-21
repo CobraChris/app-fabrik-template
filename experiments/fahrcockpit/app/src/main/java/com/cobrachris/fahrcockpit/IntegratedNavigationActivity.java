@@ -32,6 +32,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -46,6 +47,10 @@ public final class IntegratedNavigationActivity extends Activity {
     static final String EXTRA_FORCE_OSM_TEST = "integrated_force_osm_test";
     private static final int LOCATION_REQUEST = 420;
     private static final int FUEL_PICK_REQUEST = 421;
+    private static final int MENU_SWAP_PANE = 5101;
+    private static final int MENU_APP_UPDATE = 5102;
+    private static final int MENU_FUEL_SETTINGS = 5103;
+    private static final int MENU_SAPHE_DIAGNOSIS = 5104;
     private static final String STATE_TARGET = "target";
     private static final String STATE_SELECTED_DISPLAY = "selected_display";
     private static final String STATE_SELECTED_TARGET = "selected_target";
@@ -282,46 +287,71 @@ public final class IntegratedNavigationActivity extends Activity {
         sapheBannerPosition.topMargin = Ui.dp(this, landscape ? 100 : 120);
         mapPane.addView(sapheBanner, sapheBannerPosition);
 
+        // Keep options and navigation speech available while scrolling
+        // Spotify and destinations. This row stays in the cockpit pane,
+        // never on top of Google's turn banner, speedometer or ETA.
         LinearLayout tools = Ui.row(this);
-        tools.setPadding(0, 0, 0, Ui.dp(this, 3));
+        tools.setPadding(Ui.dp(this, 8), 0, Ui.dp(this, 8), 0);
         tools.addView(cockpitTitle, new LinearLayout.LayoutParams(0, -2, 1f));
         tools.addView(voiceButton, new LinearLayout.LayoutParams(
             Ui.dp(this, 44), Ui.dp(this, 44)));
-        Button sideToggle = cockpitButton("⇄", false);
-        sideToggle.setTextSize(19);
-        sideToggle.setContentDescription(CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
-        sideToggle.setEnabled(landscape);
-        sideToggle.setVisibility(landscape ? View.VISIBLE : View.GONE);
-        if (landscape) {
-            LinearLayout.LayoutParams sideParams =
-                new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44));
-            sideParams.leftMargin = Ui.dp(this, 5);
-            tools.addView(sideToggle, sideParams);
-        }
-        panel.addView(tools);
-        sideToggle.setOnClickListener(v -> {
-            // Layout reparenting, not Activity recreation: preserve the active
-            // navigation engine, the route state and Spotify playback.
-            boolean newLeft = !CockpitPanePreferences.spotifyLeft(this);
-            if (!CockpitPanePreferences.saveSpotifyLeft(this, newLeft)) {
-                showStatus("Spotify-Seite konnte nicht gespeichert werden.");
-                return;
-            }
+        Button optionsButton = cockpitButton("⋮", false);
+        optionsButton.setTextSize(22);
+        optionsButton.setContentDescription("FahrCockpit-Optionen öffnen");
+        LinearLayout.LayoutParams optionsParams =
+            new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44));
+        optionsParams.leftMargin = Ui.dp(this, 5);
+        tools.addView(optionsButton, optionsParams);
+        cockpitPane.addView(tools, 1,
+            new LinearLayout.LayoutParams(-1, Ui.dp(this, 48)));
+        optionsButton.setOnClickListener(v -> {
+            PopupMenu options = new PopupMenu(this, optionsButton);
             if (landscape) {
-                root.removeView(mapPane);
-                root.removeView(cockpitPane);
-                if (newLeft) {
-                    root.addView(cockpitPane, controlParams);
-                    root.addView(mapPane, mapParams);
-                } else {
-                    root.addView(mapPane, mapParams);
-                    root.addView(cockpitPane, controlParams);
-                }
+                boolean panelLeft = CockpitPanePreferences.spotifyLeft(this);
+                options.getMenu().add(0, MENU_SWAP_PANE, 0,
+                    panelLeft ? "Bedienfeld nach rechts" : "Bedienfeld nach links");
             }
-            sideToggle.setText(landscape ? "⇄"
-                : CockpitPanePreferences.toggleLabel(newLeft, landscape));
-            sideToggle.setContentDescription(
-                CockpitPanePreferences.toggleLabel(newLeft, landscape));
+            options.getMenu().add(0, MENU_APP_UPDATE, 1, "App aktualisieren");
+            options.getMenu().add(0, MENU_FUEL_SETTINGS, 2,
+                "Tankstellen-Einstellungen");
+            options.getMenu().add(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose");
+            options.setOnMenuItemClickListener(item -> {
+                switch (item.getItemId()) {
+                    case MENU_SWAP_PANE:
+                        // Reparent only the existing views: never recreate
+                        // navigation or interrupt Spotify playback.
+                        if (!landscape) return true;
+                        boolean newLeft = !CockpitPanePreferences.spotifyLeft(this);
+                        if (!CockpitPanePreferences.saveSpotifyLeft(this, newLeft)) {
+                            showStatus("Cockpit-Seite konnte nicht gespeichert werden.");
+                            return true;
+                        }
+                        root.removeView(mapPane);
+                        root.removeView(cockpitPane);
+                        if (newLeft) {
+                            root.addView(cockpitPane, controlParams);
+                            root.addView(mapPane, mapParams);
+                        } else {
+                            root.addView(mapPane, mapParams);
+                            root.addView(cockpitPane, controlParams);
+                        }
+                        return true;
+                    case MENU_APP_UPDATE:
+                        startActivity(new Intent(this, UpdateActivity.class));
+                        return true;
+                    case MENU_FUEL_SETTINGS:
+                        startActivityForResult(new Intent(this, FuelActivity.class)
+                            .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
+                            FUEL_PICK_REQUEST);
+                        return true;
+                    case MENU_SAPHE_DIAGNOSIS:
+                        showSapheProbeDialog();
+                        return true;
+                    default:
+                        return false;
+                }
+            });
+            options.show();
         });
         status = Ui.text(this, isOsmPreview()
             ? "OSM-Abbiegeführung (Entwicklungstest, nicht für reale Fahrten)"
