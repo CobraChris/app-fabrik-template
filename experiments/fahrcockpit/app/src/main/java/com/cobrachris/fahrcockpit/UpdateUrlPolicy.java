@@ -16,9 +16,17 @@ public final class UpdateUrlPolicy {
         } catch (NumberFormatException ignored) { return -1; }
     }
 
+    /** Limit every install candidate to the exact official release APK path. */
+    public static boolean isAllowed(String url) {
+        if (url == null || !url.startsWith(PREFIX) || !url.endsWith(ASSET))
+            return false;
+        String tag = url.substring(PREFIX.length(), url.length() - ASSET.length());
+        return versionCode(tag) > 0 && url.equals(PREFIX + tag + ASSET);
+    }
+
     public static boolean isForTag(String url, String tag) {
-        return url != null && versionCode(tag) > 0 &&
-            url.equals(PREFIX + tag + ASSET);
+        return versionCode(tag) > 0 && isAllowed(url)
+            && url.equals(PREFIX + tag + ASSET);
     }
 
     public static boolean isNewer(long published, long installed) {
