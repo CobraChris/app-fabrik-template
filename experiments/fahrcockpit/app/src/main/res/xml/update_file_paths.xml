@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Only verified APK in the app-private update cache can be shared. -->
+    <cache-path name="approved_updates" path="updates/" />
+</paths>

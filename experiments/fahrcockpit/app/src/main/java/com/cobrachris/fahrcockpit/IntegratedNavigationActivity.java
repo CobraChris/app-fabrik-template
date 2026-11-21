@@ -32,6 +32,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -46,6 +47,10 @@ public final class IntegratedNavigationActivity extends Activity {
     static final String EXTRA_FORCE_OSM_TEST = "integrated_force_osm_test";
     private static final int LOCATION_REQUEST = 420;
     private static final int FUEL_PICK_REQUEST = 421;
+    private static final int MENU_SWAP_PANE = 5101;
+    private static final int MENU_APP_UPDATE = 5102;
+    private static final int MENU_FUEL_SETTINGS = 5103;
+    private static final int MENU_SAPHE_DIAGNOSIS = 5104;
     private static final String STATE_TARGET = "target";
     private static final String STATE_SELECTED_DISPLAY = "selected_display";
     private static final String STATE_SELECTED_TARGET = "selected_target";
@@ -55,7 +60,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private NavigationEngine engine;
     private final Runnable expireFuelMarkers = () -> updateFuelMarkers();
     private TextView status, spotifyState, track, elapsed, duration, spotifyHeader, fuelInfo;
-    private LinearLayout mediaControls, mediaSkip;
+    private LinearLayout mediaControls, mediaSkip, spotifyHeaderRow, mediaProgressRow;
     private Button fuelButton, fuelRefreshButton;
     private FuelQuickSearch fuelQuickSearch;
     private boolean fuelMarkersVisible = true;
@@ -223,15 +228,16 @@ public final class IntegratedNavigationActivity extends Activity {
             mapPane.addView(placeholder, new FrameLayout.LayoutParams(-1, -1));
         }
 
-        // State the actual provider prominently: preview packages NEVER
-        // contain Google SDK. Google remains the shipping product target.
+        // Compact, single-line identity: preserve the provider distinction,
+        // but do not waste a separate row in the narrow driving cockpit.
         TextView cockpitTitle = Ui.text(this, BuildConfig.GOOGLE_ONLY
-            ? "FahrCockpit · Google Navigation"
+            ? "FahrCockpit"
             : (BuildConfig.VISUAL_PREVIEW
-                ? "FahrCockpit v21 · OSM-Sichttest"
-                : "FahrCockpit · Google-Navigation"), landscape ? 15 : 16, Ui.FG, true);
-        cockpitTitle.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
-        panel.addView(cockpitTitle);
+                ? "FahrCockpit · OSM-Test"
+                : "FahrCockpit"), landscape ? 13 : 14, Ui.FG, true);
+        cockpitTitle.setSingleLine(true);
+        cockpitTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        cockpitTitle.setPadding(0, 0, Ui.dp(this, 5), 0);
         if (BuildConfig.VISUAL_PREVIEW) {
             panel.addView(Ui.text(this,
                 "Dies ist NUR die separat installierte OSM-Kartenvorschau. "
@@ -281,61 +287,98 @@ public final class IntegratedNavigationActivity extends Activity {
         sapheBannerPosition.topMargin = Ui.dp(this, landscape ? 100 : 120);
         mapPane.addView(sapheBanner, sapheBannerPosition);
 
+        // Keep options and navigation speech available while scrolling
+        // Spotify and destinations. This row stays in the cockpit pane,
+        // never on top of Google's turn banner, speedometer or ETA.
         LinearLayout tools = Ui.row(this);
+        tools.setPadding(Ui.dp(this, 8), 0, Ui.dp(this, 8), 0);
+        tools.addView(cockpitTitle, new LinearLayout.LayoutParams(0, -2, 1f));
         tools.addView(voiceButton, new LinearLayout.LayoutParams(
             Ui.dp(this, 44), Ui.dp(this, 44)));
-        Button sideToggle = Ui.button(this,
-            landscape ? "⇄ Seite" : CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
-        sideToggle.setTextSize(12);
-        sideToggle.setMinHeight(Ui.dp(this, 40));
-        sideToggle.setContentDescription(CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
-        sideToggle.setEnabled(landscape);
-        sideToggle.setVisibility(landscape ? View.VISIBLE : View.GONE);
-        if (landscape) tools.addView(sideToggle,
-            new LinearLayout.LayoutParams(0, -2, 1f));
-        panel.addView(tools);
-        sideToggle.setOnClickListener(v -> {
-            // Layout reparenting, not Activity recreation: preserve the active
-            // navigation engine, the route state and Spotify playback.
-            boolean newLeft = !CockpitPanePreferences.spotifyLeft(this);
-            if (!CockpitPanePreferences.saveSpotifyLeft(this, newLeft)) {
-                showStatus("Spotify-Seite konnte nicht gespeichert werden.");
-                return;
-            }
+        Button optionsButton = cockpitButton("⋮", false);
+        optionsButton.setTextSize(22);
+        optionsButton.setContentDescription("FahrCockpit-Optionen öffnen");
+        LinearLayout.LayoutParams optionsParams =
+            new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44));
+        optionsParams.leftMargin = Ui.dp(this, 5);
+        tools.addView(optionsButton, optionsParams);
+        cockpitPane.addView(tools, 1,
+            new LinearLayout.LayoutParams(-1, Ui.dp(this, 48)));
+        optionsButton.setOnClickListener(v -> {
+            PopupMenu options = new PopupMenu(this, optionsButton);
             if (landscape) {
-                root.removeView(mapPane);
-                root.removeView(cockpitPane);
-                if (newLeft) {
-                    root.addView(cockpitPane, controlParams);
-                    root.addView(mapPane, mapParams);
-                } else {
-                    root.addView(mapPane, mapParams);
-                    root.addView(cockpitPane, controlParams);
-                }
+                boolean panelLeft = CockpitPanePreferences.spotifyLeft(this);
+                options.getMenu().add(0, MENU_SWAP_PANE, 0,
+                    panelLeft ? "Bedienfeld nach rechts" : "Bedienfeld nach links");
             }
-            sideToggle.setText(landscape ? "⇄ Seite"
-                : CockpitPanePreferences.toggleLabel(newLeft, landscape));
-            sideToggle.setContentDescription(
-                CockpitPanePreferences.toggleLabel(newLeft, landscape));
+            options.getMenu().add(0, MENU_APP_UPDATE, 1, "App aktualisieren");
+            options.getMenu().add(0, MENU_FUEL_SETTINGS, 2,
+                "Tankstellen-Einstellungen");
+            options.getMenu().add(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose");
+            options.setOnMenuItemClickListener(item -> {
+                switch (item.getItemId()) {
+                    case MENU_SWAP_PANE:
+                        // Reparent only the existing views: never recreate
+                        // navigation or interrupt Spotify playback.
+                        if (!landscape) return true;
+                        boolean newLeft = !CockpitPanePreferences.spotifyLeft(this);
+                        if (!CockpitPanePreferences.saveSpotifyLeft(this, newLeft)) {
+                            showStatus("Cockpit-Seite konnte nicht gespeichert werden.");
+                            return true;
+                        }
+                        root.removeView(mapPane);
+                        root.removeView(cockpitPane);
+                        if (newLeft) {
+                            root.addView(cockpitPane, controlParams);
+                            root.addView(mapPane, mapParams);
+                        } else {
+                            root.addView(mapPane, mapParams);
+                            root.addView(cockpitPane, controlParams);
+                        }
+                        return true;
+                    case MENU_APP_UPDATE:
+                        startActivity(new Intent(this, UpdateActivity.class));
+                        return true;
+                    case MENU_FUEL_SETTINGS:
+                        startActivityForResult(new Intent(this, FuelActivity.class)
+                            .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
+                            FUEL_PICK_REQUEST);
+                        return true;
+                    case MENU_SAPHE_DIAGNOSIS:
+                        showSapheProbeDialog();
+                        return true;
+                    default:
+                        return false;
+                }
+            });
+            options.show();
         });
         status = Ui.text(this, isOsmPreview()
             ? "OSM-Abbiegeführung (Entwicklungstest, nicht für reale Fahrten)"
             : (engine != null && engine.configured()
                 ? "Google Navigation SDK wird vorbereitet …"
                 : "Vorschau · Navigation SDK nicht aktiviert · keine Gebühren"),
-            12, Ui.WARN, false);
+            11, Ui.WARN, false);
+        status.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
         status.setMaxLines(3);
         // A routine success message is diagnostic, not permanent driving UI.
         status.setVisibility(engine != null && engine.configured()
             && BuildConfig.GOOGLE_ONLY ? View.GONE : View.VISIBLE);
         panel.addView(status);
-        safetyEventStatus = Ui.text(this, "Safety-Ereignisse: 0 · noch keine", 12, Ui.WARN, false);
-        safetyEventStatus.setVisibility(View.GONE);
-        panel.addView(safetyEventStatus);
+        // Saphe status is moved beside its own controls further below. An
+        // enabled notification probe is NOT proof of a connected device.
+        safetyEventStatus = Ui.text(this, "", 10, Ui.MUTED, false);
+        safetyEventStatus.setSingleLine(true);
+        safetyEventStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        safetyEventStatus.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        safetyEventStatus.setPadding(0, 0, 0, 0);
 
         // Route creation is intentionally collapsed during driving; Spotify
         // stays visible in the limited 30 % panel without manual searching.
         routePanel = Ui.column(this);
+        routePanel.setPadding(Ui.dp(this, 8), Ui.dp(this, 6),
+            Ui.dp(this, 8), Ui.dp(this, 8));
+        routePanel.setBackground(Ui.background(this, 0xff2b3643, 10));
         routePanel.setVisibility(View.GONE);
         destination = new EditText(this);
         destination.setSingleLine(true);
@@ -380,14 +423,14 @@ public final class IntegratedNavigationActivity extends Activity {
         // Two primary destination actions on one line instead of two large
         // full-width buttons: all actions remain accessible.
         LinearLayout destinationActions = Ui.row(this);
-        Button saveDestination = Ui.button(this, "☆ Speichern");
+        Button saveDestination = cockpitButton("☆ Speichern", false);
         saveDestination.setTextSize(12);
         saveDestination.setMinHeight(Ui.dp(this, 42));
         destinationActions.addView(saveDestination,
             new LinearLayout.LayoutParams(0, Ui.dp(this, 44), 1f));
         saveDestination.setOnClickListener(v -> saveCurrentDestination());
 
-        Button remembered = Ui.button(this, "★ Meine Ziele");
+        Button remembered = cockpitButton("★ Meine Ziele", false);
         remembered.setTextSize(12);
         remembered.setMinHeight(Ui.dp(this, 42));
         destinationActions.addView(remembered,
@@ -395,13 +438,12 @@ public final class IntegratedNavigationActivity extends Activity {
         remembered.setOnClickListener(v -> showSavedTargets());
         routePanel.addView(destinationActions);
 
-        Button route = Ui.button(this, isOsmPreview()
-            ? "OSM-Abbiegeführung zum Testen planen"
-            : "Route berechnen");
+        Button route = cockpitButton(isOsmPreview()
+            ? "OSM-Test planen" : "Route berechnen", true);
         routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
         route.setOnClickListener(v -> resolveAndStartRoute());
-        stopButton = Ui.button(this, "Navigation beenden");
+        stopButton = cockpitButton("Navigation beenden", false);
         routePanel.addView(stopButton);
         stopButton.setEnabled(engine != null && engine.configured());
         stopButton.setOnClickListener(v -> {
@@ -411,8 +453,8 @@ public final class IntegratedNavigationActivity extends Activity {
         });
 
         // Keep the free navigation visible even when the route form is collapsed.
-        Button fallback = Ui.button(this,
-            "Google Maps separat öffnen (Samsung-Splitscreen)");
+        Button fallback = cockpitButton(
+            "Google Maps separat öffnen (Samsung-Splitscreen)", false);
         fallback.setOnClickListener(v -> {
             String text = RouteTargetRules.clean(destination.getText().toString());
             Intent intent = new Intent(this, SplitCockpitActivity.class);
@@ -421,30 +463,48 @@ public final class IntegratedNavigationActivity extends Activity {
             startActivity(intent);
         });
 
-        spotifyHeader = Ui.text(this, "Spotify", 16, Ui.FG, true);
-        spotifyHeader.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
-        panel.addView(spotifyHeader);
-        spotifyState = Ui.text(this, "Spotify-Status wird geprüft …",
-            12, Ui.MUTED, false);
-        spotifyState.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
-        panel.addView(spotifyState);
-        spotifySetup = Ui.button(this, "Spotify öffnen und Musik starten");
-        panel.addView(spotifySetup);
+        Ui.gap(this, panel, 4);
+        spotifyHeaderRow = Ui.row(this);
+        spotifyHeader = Ui.text(this, "Spotify", 14, Ui.FG, true);
+        spotifyHeader.setPadding(0, 0, 0, 0);
+        spotifyState = Ui.text(this, "Status wird geprüft …",
+            10, Ui.MUTED, false);
+        spotifyState.setPadding(0, 0, 0, 0);
+        spotifyState.setSingleLine(true);
+        spotifyState.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        spotifyState.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        spotifyHeaderRow.addView(spotifyHeader,
+            new LinearLayout.LayoutParams(-2, Ui.dp(this, 30)));
+        spotifyHeaderRow.addView(spotifyState,
+            new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(spotifyHeaderRow);
+        spotifySetup = cockpitButton("Spotify öffnen", false);
+        panel.addView(spotifySetup, new LinearLayout.LayoutParams(-1, Ui.dp(this, 44)));
         spotifySetup.setOnClickListener(v -> openSpotifyOrPermissions());
-        track = Ui.text(this, "", 13, Ui.FG, true);
-        track.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
+        track = Ui.text(this, "", 12, Ui.FG, true);
+        track.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
         track.setMaxLines(2);
+        track.setEllipsize(android.text.TextUtils.TruncateAt.END);
         panel.addView(track);
 
+        mediaProgressRow = Ui.row(this);
+        elapsed = Ui.text(this, "0:00", 10, Ui.MUTED, false);
+        duration = Ui.text(this, "0:00", 10, Ui.MUTED, false);
+        elapsed.setPadding(0, 0, 0, 0);
+        duration.setPadding(0, 0, 0, 0);
+        elapsed.setSingleLine(true);
+        duration.setSingleLine(true);
+        duration.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         seek = new SeekBar(this);
         seek.setMax(TrackProgressRules.MAX);
-        panel.addView(seek);
-        LinearLayout timestamps = Ui.row(this);
-        elapsed = Ui.text(this, "0:00", 11, Ui.MUTED, false);
-        duration = Ui.text(this, "0:00", 11, Ui.MUTED, false);
-        timestamps.addView(elapsed, new LinearLayout.LayoutParams(0, -2, 1));
-        timestamps.addView(duration);
-        panel.addView(timestamps);
+        seek.setContentDescription("Wiedergabeposition");
+        mediaProgressRow.addView(elapsed,
+            new LinearLayout.LayoutParams(Ui.dp(this, 37), -2));
+        mediaProgressRow.addView(seek,
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 38), 1f));
+        mediaProgressRow.addView(duration,
+            new LinearLayout.LayoutParams(Ui.dp(this, 37), -2));
+        panel.addView(mediaProgressRow);
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onStartTrackingTouch(SeekBar bar) {
                 touchingSeek = true;
@@ -465,22 +525,28 @@ public final class IntegratedNavigationActivity extends Activity {
         });
 
         mediaControls = Ui.row(this);
-        previous = Ui.button(this, "⏮");
-        play = Ui.button(this, "▶");
-        next = Ui.button(this, "⏭");
-        mediaControls.addView(previous, new LinearLayout.LayoutParams(0, -2, 1f));
-        mediaControls.addView(play, new LinearLayout.LayoutParams(0, -2, 1f));
-        mediaControls.addView(next, new LinearLayout.LayoutParams(0, -2, 1f));
+        previous = cockpitButton("⏮", false);
+        play = cockpitButton("▶", true);
+        next = cockpitButton("⏭", false);
+        previous.setContentDescription("Vorheriger Titel");
+        play.setContentDescription("Wiedergabe starten oder pausieren");
+        next.setContentDescription("Nächster Titel");
+        mediaControls.addView(previous, cockpitActionParams(1f, true));
+        mediaControls.addView(play, cockpitActionParams(1f, true));
+        mediaControls.addView(next, cockpitActionParams(1f, false));
         panel.addView(mediaControls);
         previous.setOnClickListener(v -> send(SpotifyMedia.Action.PREVIOUS));
         play.setOnClickListener(v -> send(SpotifyMedia.Action.TOGGLE));
         next.setOnClickListener(v -> send(SpotifyMedia.Action.NEXT));
 
         mediaSkip = Ui.row(this);
-        backward = Ui.button(this, "−15 s");
-        forward = Ui.button(this, "+15 s");
-        mediaSkip.addView(backward, new LinearLayout.LayoutParams(0, -2, 1f));
-        mediaSkip.addView(forward, new LinearLayout.LayoutParams(0, -2, 1f));
+        backward = cockpitButton("−15 s", false);
+        forward = cockpitButton("+15 s", false);
+        backward.setContentDescription("15 Sekunden zurückspringen");
+        forward.setContentDescription("15 Sekunden vorspringen");
+        mediaSkip.addView(backward, cockpitActionParams(1f, true));
+        mediaSkip.addView(forward, cockpitActionParams(1f, false));
+        mediaSkip.setPadding(0, Ui.dp(this, 5), 0, Ui.dp(this, 3));
         panel.addView(mediaSkip);
         backward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_BACK));
         forward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_FORWARD));
@@ -488,28 +554,37 @@ public final class IntegratedNavigationActivity extends Activity {
         if (!BuildConfig.GOOGLE_ONLY) {
             panel.addView(fallback); // Legacy external Samsung split only.
         }
-        toggleRoutes = Ui.button(this, "📍 Ziel / Route");
-        panel.addView(toggleRoutes);
+        Ui.gap(this, panel, 7);
+        toggleRoutes = cockpitButton("Ziel / Route", true);
+        toggleRoutes.setContentDescription("Zielmenü öffnen und Route berechnen");
+        panel.addView(toggleRoutes,
+            new LinearLayout.LayoutParams(-1, Ui.dp(this, 46)));
         panel.addView(routePanel);
         toggleRoutes.setOnClickListener(v -> {
             boolean open = routePanel.getVisibility() != View.VISIBLE;
             routePanel.setVisibility(open ? View.VISIBLE : View.GONE);
-            toggleRoutes.setText(open ? "▲ Zielmenü schließen" : "📍 Ziel / Route");
+            toggleRoutes.setText(open ? "Zielmenü schließen" : "Ziel / Route");
+            toggleRoutes.setContentDescription(open
+                ? "Zielmenü schließen" : "Zielmenü öffnen und Route berechnen");
             if (open) scroll.post(() -> scroll.smoothScrollTo(0,
                 routePanel.getTop()));
         });
 
+        Ui.gap(this, panel, 5);
         LinearLayout fuelActions = Ui.row(this);
-        fuelButton = Ui.button(this, "⛽ Preise anzeigen");
-        fuelRefreshButton = Ui.button(this, "↻");
-        Button fuelSettings = Ui.button(this, "⚙");
+        fuelButton = cockpitButton("Preise anzeigen", false);
+        fuelButton.setContentDescription("Tankstellenpreise auf Karte anzeigen oder ausblenden");
+        fuelRefreshButton = cockpitButton("↻", false);
+        fuelRefreshButton.setTextSize(20);
         fuelRefreshButton.setContentDescription("Tankstellenpreise neu abrufen");
-        fuelSettings.setContentDescription("Tankstellen-Einstellungen öffnen");
-        fuelActions.addView(fuelButton, new LinearLayout.LayoutParams(0, -2, 3f));
-        fuelActions.addView(fuelRefreshButton, new LinearLayout.LayoutParams(0, -2, 1f));
-        fuelActions.addView(fuelSettings, new LinearLayout.LayoutParams(0, -2, 1f));
+        fuelActions.addView(fuelButton, cockpitActionParams(1f, true));
+        fuelActions.addView(fuelRefreshButton, new LinearLayout.LayoutParams(
+            Ui.dp(this, 44), Ui.dp(this, 44)));
         panel.addView(fuelActions);
-        fuelInfo = Ui.text(this, "", 11, Ui.MUTED, false);
+        fuelInfo = Ui.text(this, "", 10, Ui.MUTED, false);
+        fuelInfo.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
+        fuelInfo.setMaxLines(2);
+        fuelInfo.setEllipsize(android.text.TextUtils.TruncateAt.END);
         panel.addView(fuelInfo);
         fuelButton.setOnClickListener(v -> {
             if (fuelQuickSearch.isSearching()) return;
@@ -528,15 +603,20 @@ public final class IntegratedNavigationActivity extends Activity {
             fuelMarkersVisible = true;
             startQuickFuelSearch();
         });
-        fuelSettings.setOnClickListener(v -> startActivityForResult(
-            new Intent(this, FuelActivity.class)
-                .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
-            FUEL_PICK_REQUEST));
+        Ui.gap(this, panel, 7);
+        LinearLayout sapheHeader = Ui.row(this);
+        TextView sapheLabel = Ui.text(this, "Saphe", 13, Ui.FG, true);
+        sapheLabel.setPadding(0, 0, 0, 0);
+        sapheHeader.addView(sapheLabel,
+            new LinearLayout.LayoutParams(-2, Ui.dp(this, 28)));
+        sapheHeader.addView(safetyEventStatus,
+            new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(sapheHeader);
+        refreshSapheStatus();
         LinearLayout sapheActions = Ui.row(this);
-        Button saphe = Ui.button(this, "Saphe öffnen");
-        Button sapheCheck = Ui.button(this, "Meldung testen");
-        sapheActions.addView(saphe, new LinearLayout.LayoutParams(0, -2, 1f));
-        sapheActions.addView(sapheCheck, new LinearLayout.LayoutParams(0, -2, 1f));
+        Button saphe = cockpitButton("Saphe öffnen", false);
+        sapheActions.addView(saphe,
+            new LinearLayout.LayoutParams(-1, Ui.dp(this, 44)));
         panel.addView(sapheActions);
         saphe.setOnClickListener(v -> {
             Intent launch = getPackageManager().getLaunchIntentForPackage("my.saphelink");
@@ -546,7 +626,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 startActivity(launch);
             }
         });
-        sapheCheck.setOnClickListener(v -> showSapheProbeDialog());
+        // Update and diagnostics are available from the persistent ⋮ menu.
         // Keep the navigation viewport free of billing prompt text.
         // Google route requests remain bound to explicit route actions
         // and the existing local NavigationRequestBudget limit.
@@ -624,6 +704,35 @@ public final class IntegratedNavigationActivity extends Activity {
             "com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
     }
 
+
+    // Shared touch-friendly styling; compact enough for the 30 % side pane
+    // without turning secondary controls into oversized gray default buttons.
+    private Button cockpitButton(String label, boolean primary) {
+        Button button = Ui.button(this, label);
+        button.setTextSize(getResources().getConfiguration().orientation
+            == Configuration.ORIENTATION_LANDSCAPE ? 12 : 13);
+        button.setTextColor(Ui.FG);
+        button.setMinHeight(Ui.dp(this, 44));
+        button.setSingleLine(true);
+        button.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        button.setGravity(Gravity.CENTER);
+        button.setContentDescription(label);
+        button.setPadding(Ui.dp(this, 6), 0, Ui.dp(this, 6), 0);
+        android.graphics.drawable.Drawable background =
+            Ui.background(this, primary ? 0xff315d6b : 0xff374452, 9);
+        button.setBackground(new android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(0x55ffffff),
+            background, null));
+        return button;
+    }
+
+    private LinearLayout.LayoutParams cockpitActionParams(float weight,
+                                                           boolean gapAfter) {
+        LinearLayout.LayoutParams params =
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 44), weight);
+        if (gapAfter) params.rightMargin = Ui.dp(this, 6);
+        return params;
+    }
 
     private void showUnknownSpeed() {
         if (currentSpeedView == null) return;
@@ -1192,20 +1301,31 @@ public final class IntegratedNavigationActivity extends Activity {
         boolean allowed = Permissions.isMediaListenerEnabled(this);
         String nextAction = SpotifyDisplayRules.nextAction(allowed, state.connected);
         spotifySetup.setVisibility(nextAction == null ? View.GONE : View.VISIBLE);
-        if (nextAction != null) spotifySetup.setText(nextAction);
+        if (nextAction != null) {
+            spotifySetup.setText(nextAction);
+            spotifySetup.setContentDescription(nextAction);
+        }
         // When Spotify is unavailable, reclaim its disabled transport controls
         // without removing the one-tap Spotify launch action.
         boolean showMedia = state.connected;
+        spotifyHeaderRow.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         spotifyHeader.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         spotifyState.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         track.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         mediaControls.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         mediaSkip.setVisibility(showMedia ? View.VISIBLE : View.GONE);
-        spotifyState.setText(state.connected
+        // Compact visual state, but keep the full status for accessibility.
+        String fullSpotifyStatus = state.connected
             ? SpotifyDisplayRules.connectedStatus(state.playing)
-            : SpotifyDisplayRules.notConnected(allowed));
+            : SpotifyDisplayRules.notConnected(allowed);
+        spotifyState.setText(state.connected
+            ? (state.playing ? "Spielt" : "Pausiert") : fullSpotifyStatus);
+        spotifyState.setContentDescription(fullSpotifyStatus);
         track.setText(state.line);
-        play.setText(state.playing ? "⏸" : "▶");
+        // Avoid Samsung's colorful emoji rendering for the pause icon.
+        play.setText(state.playing ? "❚❚" : "▶");
+        play.setContentDescription(state.playing
+            ? "Wiedergabe pausieren" : "Wiedergabe starten");
         play.setEnabled(state.connected);
         previous.setEnabled(state.canPrevious);
         next.setEnabled(state.canNext);
@@ -1214,6 +1334,7 @@ public final class IntegratedNavigationActivity extends Activity {
         boolean showProgress = TrackProgressRules.hasDuration(state.durationMs)
             && state.positionMs >= 0;
         totalDuration = state.durationMs;
+        mediaProgressRow.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         seek.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         elapsed.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         duration.setVisibility(showProgress ? View.VISIBLE : View.GONE);
@@ -1228,7 +1349,7 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private void startQuickFuelSearch() {
         if (fuelQuickSearch == null || fuelQuickSearch.isSearching()) return;
-        fuelButton.setText("⛽ Preise werden geladen …");
+        fuelButton.setText("Preise laden …");
         fuelButton.setEnabled(false);
         fuelRefreshButton.setEnabled(false);
         fuelInfo.setVisibility(View.VISIBLE);
@@ -1265,7 +1386,7 @@ public final class IntegratedNavigationActivity extends Activity {
         }
         if (fuelButton != null) {
             fuelButton.setText(fuelMarkersVisible && valid
-                ? "⛽ Preise ausblenden" : "⛽ Preise anzeigen");
+                ? "Preise ausblenden" : "Preise anzeigen");
         }
         if (fuelInfo != null) {
             if (valid && fuelMarkersVisible) {
@@ -1304,7 +1425,10 @@ public final class IntegratedNavigationActivity extends Activity {
         if (routePanel == null || routePanel.getVisibility() != View.VISIBLE)
             return;
         routePanel.setVisibility(View.GONE);
-        if (toggleRoutes != null) toggleRoutes.setText("📍 Ziel / Route");
+        if (toggleRoutes != null) {
+            toggleRoutes.setText("Ziel / Route");
+            toggleRoutes.setContentDescription("Zielmenü öffnen und Route berechnen");
+        }
         if (controlsScroll != null)
             controlsScroll.post(() -> controlsScroll.smoothScrollTo(0, 0));
     }
@@ -1343,16 +1467,31 @@ public final class IntegratedNavigationActivity extends Activity {
         sapheBanner.setVisibility(View.VISIBLE);
         handler.removeCallbacks(hideSapheBanner);
         handler.postDelayed(hideSapheBanner, 3200L);
-        if (!simulated && safetyEventStatus != null) {
+        if (!simulated) refreshSapheStatus();
+    }
+
+    private void refreshSapheStatus() {
+        if (safetyEventStatus == null) return;
+        boolean enabled = SapheNotificationProbe.enabled(this);
+        String summary = enabled ? "Erkennung an" : "Erkennung aus";
+        String accessibility = "Saphe: " + summary;
+        if (safetyEventCount > 0) {
             java.text.DateFormat clock = java.text.DateFormat.getTimeInstance(
                 java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
-            safetyEventStatus.setText("Safety-Ereignisse: " + safetyEventCount
-                + " · zuletzt " + clock.format(new java.util.Date(now)));
-            safetyEventStatus.setVisibility(View.VISIBLE);
+            String time = clock.format(new java.util.Date(lastSafetyShownAt));
+            summary = (enabled ? "An" : "Aus") + " · "
+                + safetyEventCount + " · " + time;
+            accessibility += ", " + safetyEventCount
+                + " empfangene Ereignisse, zuletzt " + time;
         }
+        // Enabled means that notification detection was enabled by the user,
+        // not that the hardware or real-world warning type was verified.
+        safetyEventStatus.setText(summary);
+        safetyEventStatus.setContentDescription(accessibility);
     }
 
     private void refreshSapheNotificationProbe() {
+        refreshSapheStatus();
         if (sapheBanner == null) return;
         long observedAt = SapheNotificationProbe.enabled(this)
             ? SapheNotificationProbe.lastObservedAt(this) : 0L;
@@ -1503,7 +1642,8 @@ public final class IntegratedNavigationActivity extends Activity {
         // warnings and user actions remain visible (including Saphe feedback).
         boolean routine = BuildConfig.GOOGLE_ONLY && message != null
             && (message.contains("Echte Google-Abbiegenavigation")
-                || message.equals("Google Navigation SDK wird vorbereitet …"));
+                || message.equals("Google Navigation SDK wird vorbereitet …")
+                || message.startsWith("Google Navigation bereit"));
         status.setText(message);
         status.setVisibility(routine ? View.GONE : View.VISIBLE);
     }

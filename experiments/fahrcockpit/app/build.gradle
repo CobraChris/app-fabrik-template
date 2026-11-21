@@ -47,8 +47,8 @@ android {
                 ? 'FahrCockpit' : 'FahrCockpit (Test)')]
         minSdk 30
         targetSdk withGoogleNavSdk ? 36 : 35
-        versionCode 34
-        versionName '0.9.32-beta'
+        versionCode 35
+        versionName '0.9.33-beta'
         buildConfigField 'String', 'NAVSDK_API_KEY', '"' + googleNavKey + '"'
         buildConfigField 'boolean', 'VISUAL_PREVIEW', visualPreview.toString()
         buildConfigField 'boolean', 'GOOGLE_ONLY', googleOnly.toString()
@@ -84,6 +84,8 @@ android {
     }
 }
 dependencies {
+    // Same FileProvider implementation used by Sanftwecker's verified updater.
+    implementation 'androidx.core:core:1.13.1'
     testImplementation 'junit:junit:4.13.2'
     if (withGoogleNavSdk) {
         implementation 'com.google.android.libraries.navigation:navigation:7.6.1'
