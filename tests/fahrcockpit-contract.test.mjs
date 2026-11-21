@@ -605,7 +605,7 @@ test('v21 landscape still 70/30 while portrait keeps Spotify usable; OSM centers
  assert.match(policy,/IntegratedNavigationRules.CONTROLS_WEIGHT/);
  assert.match(screen,/CockpitLayoutRules.mapWeight\(false\)/);
  assert.match(screen,/CockpitLayoutRules.controlsWeight\(false\)/);
- assert.match(screen,/sideToggle.setVisibility\(landscape \? View.VISIBLE : View.GONE\)/);
+ assert.match(screen,/if \(landscape\) \{\s*boolean panelLeft = CockpitPanePreferences\.spotifyLeft\(this\)/);
  assert.match(osm,/◎ Meine Position/);
  assert.match(osm,/centerOnAndroidPosition\(false\)/);
  assert.match(osm,/centerOnAndroidPosition\(true\)/);
@@ -765,7 +765,7 @@ test('v24 speaker is monochrome icon-only, never a Samsung emoji or text button'
   assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
   assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
   assert.match(cockpit,/tools\.addView\(voiceButton, new LinearLayout\.LayoutParams\(/);
-  assert.match(cockpit,/panel\.addView\(tools\)/);
+  assert.match(cockpit,/cockpitPane\.addView\(tools, 1,/);
   assert.doesNotMatch(cockpit,/mapPane\.addView\(voiceButton/);
   assert.doesNotMatch(cockpit,/voiceButton\.setText\(/);
   assert.doesNotMatch(icon,/\uD83D\uDD0A|\uD83D\uDD07|Emoji/);
@@ -837,7 +837,7 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(probe,/putLong\(KEY_LAST_EVENT, System\.currentTimeMillis\(\)\)/);
   assert.match(probe,/return prefs\(ctx\)\.getBoolean\(KEY_ENABLED, false\)/);
   assert.doesNotMatch(probe,/BluetoothGatt|Network|HttpURLConnection|Notification\.EXTRA|getExtras\(\)/);
-  assert.match(ui,/sapheCheck\.setOnClickListener\(v -> showSapheProbeDialog\(\)\)/);
+  assert.match(ui,/case MENU_SAPHE_DIAGNOSIS:\s*showSapheProbeDialog\(\)/);
   assert.match(ui,/showSapheBanner\(true\)/);
   assert.match(ui,/SapheNotificationProbe\.lastObservedAt\(this\)/);
   assert.match(ui,/Safety-Ereignis · Typ nicht verifiziert/);
@@ -856,11 +856,11 @@ test('v27 compact cockpit keeps navigation voice accessible without masking Goog
   const layout=java('CockpitLayoutRules');
   const weights=java('IntegratedNavigationRules');
   assert.match(cockpit,/tools\.addView\(voiceButton, new LinearLayout\.LayoutParams\(/);
-  assert.match(cockpit,/panel\.addView\(tools\)/);
+  assert.match(cockpit,/cockpitPane\.addView\(tools, 1,/);
   assert.doesNotMatch(cockpit,/mapPane\.addView\(voiceButton/);
   assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
   assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
-  assert.match(cockpit,/sideToggle\.setContentDescription\(/);
+  assert.match(cockpit,/optionsButton\.setContentDescription\("FahrCockpit-Optionen öffnen"\)/);
   assert.match(cockpit,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
   assert.match(cockpit,/status\.setVisibility\(routine \? View\.GONE : View\.VISIBLE\)/);
   assert.match(cockpit,/CockpitLayoutRules\.mapWeight\(false\)/);
@@ -1104,7 +1104,7 @@ test('v35 compact unified cockpit preserves Google 70/30, portrait split, and ac
   assert.match(cockpit,/root\.addView\(cockpitPane, controlParams\)/);
   assert.match(cockpit,/tools\.addView\(cockpitTitle, new LinearLayout\.LayoutParams\(0, -2, 1f\)\)/);
   assert.match(cockpit,/cockpitTitle\.setSingleLine\(true\)/);
-  assert.match(cockpit,/sideToggle\.setContentDescription\(/);
+  assert.match(cockpit,/optionsButton\.setContentDescription\("FahrCockpit-Optionen öffnen"\)/);
   assert.match(cockpit,/voiceButton\.setContentDescription\(/);
   assert.match(cockpit,/new android\.graphics\.drawable\.RippleDrawable\(/);
   assert.match(cockpit,/cockpitButton\("Ziel \/ Route", true\)/);
@@ -1138,12 +1138,10 @@ test('v35 Spotify has compact header, single progress row and retains all seek a
 test('v35 secondary fuel tools are collapsible without losing a manual refresh or station handoff',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   assert.match(cockpit,/fuelActions\.addView\(fuelButton, cockpitActionParams\(1f, true\)\)/);
-  assert.match(cockpit,/Button fuelMore = cockpitButton\("⋯", false\)/);
-  assert.match(cockpit,/fuelExtraActions\.setVisibility\(View\.GONE\)/);
-  assert.match(cockpit,/fuelMore\.setOnClickListener\(v ->/);
-  assert.match(cockpit,/fuelExtraActions\.setVisibility\(open \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(cockpit,/fuelActions\.addView\(fuelRefreshButton, new LinearLayout\.LayoutParams\(/);
   assert.match(cockpit,/fuelRefreshButton\.setOnClickListener\(v ->/);
-  assert.match(cockpit,/fuelSettings\.setOnClickListener\(v -> startActivityForResult\(/);
+  assert.match(cockpit,/case MENU_FUEL_SETTINGS:\s*startActivityForResult\(new Intent\(this, FuelActivity\.class\)/);
+  assert.doesNotMatch(cockpit,/fuelExtraActions|fuelMore/);
   assert.match(cockpit,/FuelActivity\.class/);
   assert.match(cockpit,/fuelButton\.setOnClickListener\(v ->/);
   assert.match(cockpit,/engine\.showFuelPrices\(displayed,/);
@@ -1156,8 +1154,8 @@ test('v35 Saphe status is truthful and warnings and diagnostic remain available'
   assert.match(cockpit,/refreshSapheStatus\(\)/);
   assert.match(cockpit,/SapheNotificationProbe\.enabled\(this\)/);
   assert.match(cockpit,/String summary = enabled \? "Erkennung an" : "Erkennung aus"/);
-  assert.match(cockpit,/sapheCheck\.setContentDescription\("Saphe-Diagnose und Warnanzeige testen"\)/);
-  assert.match(cockpit,/sapheCheck\.setOnClickListener\(v -> showSapheProbeDialog\(\)\)/);
+  assert.match(cockpit,/options\.getMenu\(\)\.add\(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose"\)/);
+  assert.match(cockpit,/case MENU_SAPHE_DIAGNOSIS:\s*showSapheProbeDialog\(\)/);
   assert.match(cockpit,/sapheBanner\.setBackground\(Ui\.background\(this, 0xffc91921, 12\)\)/);
   assert.match(cockpit,/handler\.postDelayed\(hideSapheBanner, 3200L\)/);
   assert.match(cockpit,/if \(!simulated\) refreshSapheStatus\(\)/);
@@ -1188,7 +1186,7 @@ test('v35 in-app updater reuses Sanftwecker verified APK path without background
   const policy=java('VerifiedUpdatePolicy');
   const urls=java('UpdateUrlPolicy');
   const paths=read('app/src/main/res/xml/update_file_paths.xml');
-  assert.match(ui,/appUpdate = cockpitButton\("App aktualisieren", false\)/);
+  assert.match(ui,/options\.getMenu\(\)\.add\(0, MENU_APP_UPDATE, 1, "App aktualisieren"\)/);
   assert.match(ui,/new Intent\(this, UpdateActivity\.class\)/);
   assert.match(update,/RELEASES =\s*"https:\/\/api\.github\.com\/repos\/CobraChris\/app-fabrik-template\/releases\?per_page=100"/);
   assert.match(update,/newestSignedAsset\(String response\)/);
@@ -1219,4 +1217,34 @@ test('v35 in-app updater reuses Sanftwecker verified APK path without background
   assert.match(downloader,/Arrays\.equals\(current\[0\]\.toByteArray\(\),incoming\[0\]\.toByteArray\(\)\)/);
   assert.match(downloader,/FileProvider\.getUriForFile/);
   assert.doesNotMatch(downloader,/deletePackage|pm install|Runtime\.getRuntime\(\)/);
+});
+
+
+test('v35 permanent options menu consolidates updater, side swap, fuel settings and Saphe diagnosis',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const preferences=java('CockpitPanePreferences');
+  assert.match(cockpit,/import android\.widget\.PopupMenu/);
+  assert.match(cockpit,/Button optionsButton = cockpitButton\("⋮", false\)/);
+  assert.match(cockpit,/optionsButton\.setContentDescription\("FahrCockpit-Optionen öffnen"\)/);
+  assert.match(cockpit,/cockpitPane\.addView\(tools, 1,\s*new LinearLayout\.LayoutParams\(-1, Ui\.dp\(this, 48\)\)\)/);
+  assert.doesNotMatch(cockpit,/panel\.addView\(tools\)/);
+  assert.match(cockpit,/optionsButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/new PopupMenu\(this, optionsButton\)/);
+  assert.match(cockpit,/if \(landscape\) \{\s*boolean panelLeft = CockpitPanePreferences\.spotifyLeft\(this\)/);
+  assert.match(cockpit,/panelLeft \? "Bedienfeld nach rechts" : "Bedienfeld nach links"/);
+  assert.match(cockpit,/case MENU_SWAP_PANE:/);
+  assert.match(cockpit,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
+  assert.match(cockpit,/root\.removeView\(mapPane\)/);
+  assert.match(cockpit,/root\.removeView\(cockpitPane\)/);
+  assert.match(cockpit,/root\.addView\(cockpitPane, controlParams\)/);
+  assert.match(preferences,/putBoolean\(KEY_SPOTIFY_LEFT, left\)\.commit\(\)/);
+  assert.match(cockpit,/options\.getMenu\(\)\.add\(0, MENU_APP_UPDATE, 1, "App aktualisieren"\)/);
+  assert.match(cockpit,/case MENU_APP_UPDATE:\s*startActivity\(new Intent\(this, UpdateActivity\.class\)\)/);
+  assert.match(cockpit,/case MENU_FUEL_SETTINGS:/);
+  assert.match(cockpit,/FuelActivity\.EXTRA_RETURN_TO_COCKPIT/);
+  assert.match(cockpit,/case MENU_SAPHE_DIAGNOSIS:\s*showSapheProbeDialog\(\)/);
+  assert.doesNotMatch(cockpit,/sapheCheck =|Button appUpdate =|sideToggle =/);
+  assert.doesNotMatch(cockpit,/fuelExtraActions|Button fuelMore/);
+  assert.match(cockpit,/fuelRefreshButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
 });
