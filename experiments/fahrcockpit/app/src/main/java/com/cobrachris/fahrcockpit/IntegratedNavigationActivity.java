@@ -431,30 +431,48 @@ public final class IntegratedNavigationActivity extends Activity {
             startActivity(intent);
         });
 
-        spotifyHeader = Ui.text(this, "Spotify", 16, Ui.FG, true);
-        spotifyHeader.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
-        panel.addView(spotifyHeader);
-        spotifyState = Ui.text(this, "Spotify-Status wird geprüft …",
-            12, Ui.MUTED, false);
-        spotifyState.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
-        panel.addView(spotifyState);
-        spotifySetup = Ui.button(this, "Spotify öffnen und Musik starten");
-        panel.addView(spotifySetup);
+        Ui.gap(this, panel, 4);
+        spotifyHeaderRow = Ui.row(this);
+        spotifyHeader = Ui.text(this, "Spotify", 14, Ui.FG, true);
+        spotifyHeader.setPadding(0, 0, 0, 0);
+        spotifyState = Ui.text(this, "Status wird geprüft …",
+            10, Ui.MUTED, false);
+        spotifyState.setPadding(0, 0, 0, 0);
+        spotifyState.setSingleLine(true);
+        spotifyState.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        spotifyState.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        spotifyHeaderRow.addView(spotifyHeader,
+            new LinearLayout.LayoutParams(-2, Ui.dp(this, 30)));
+        spotifyHeaderRow.addView(spotifyState,
+            new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(spotifyHeaderRow);
+        spotifySetup = cockpitButton("Spotify öffnen", false);
+        panel.addView(spotifySetup, new LinearLayout.LayoutParams(-1, Ui.dp(this, 44)));
         spotifySetup.setOnClickListener(v -> openSpotifyOrPermissions());
-        track = Ui.text(this, "", 13, Ui.FG, true);
-        track.setPadding(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
+        track = Ui.text(this, "", 12, Ui.FG, true);
+        track.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
         track.setMaxLines(2);
+        track.setEllipsize(android.text.TextUtils.TruncateAt.END);
         panel.addView(track);
 
+        mediaProgressRow = Ui.row(this);
+        elapsed = Ui.text(this, "0:00", 10, Ui.MUTED, false);
+        duration = Ui.text(this, "0:00", 10, Ui.MUTED, false);
+        elapsed.setPadding(0, 0, 0, 0);
+        duration.setPadding(0, 0, 0, 0);
+        elapsed.setSingleLine(true);
+        duration.setSingleLine(true);
+        duration.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         seek = new SeekBar(this);
         seek.setMax(TrackProgressRules.MAX);
-        panel.addView(seek);
-        LinearLayout timestamps = Ui.row(this);
-        elapsed = Ui.text(this, "0:00", 11, Ui.MUTED, false);
-        duration = Ui.text(this, "0:00", 11, Ui.MUTED, false);
-        timestamps.addView(elapsed, new LinearLayout.LayoutParams(0, -2, 1));
-        timestamps.addView(duration);
-        panel.addView(timestamps);
+        seek.setContentDescription("Wiedergabeposition");
+        mediaProgressRow.addView(elapsed,
+            new LinearLayout.LayoutParams(Ui.dp(this, 37), -2));
+        mediaProgressRow.addView(seek,
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 38), 1f));
+        mediaProgressRow.addView(duration,
+            new LinearLayout.LayoutParams(Ui.dp(this, 37), -2));
+        panel.addView(mediaProgressRow);
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onStartTrackingTouch(SeekBar bar) {
                 touchingSeek = true;
@@ -475,22 +493,28 @@ public final class IntegratedNavigationActivity extends Activity {
         });
 
         mediaControls = Ui.row(this);
-        previous = Ui.button(this, "⏮");
-        play = Ui.button(this, "▶");
-        next = Ui.button(this, "⏭");
-        mediaControls.addView(previous, new LinearLayout.LayoutParams(0, -2, 1f));
-        mediaControls.addView(play, new LinearLayout.LayoutParams(0, -2, 1f));
-        mediaControls.addView(next, new LinearLayout.LayoutParams(0, -2, 1f));
+        previous = cockpitButton("⏮", false);
+        play = cockpitButton("▶", true);
+        next = cockpitButton("⏭", false);
+        previous.setContentDescription("Vorheriger Titel");
+        play.setContentDescription("Wiedergabe starten oder pausieren");
+        next.setContentDescription("Nächster Titel");
+        mediaControls.addView(previous, cockpitActionParams(1f, true));
+        mediaControls.addView(play, cockpitActionParams(1f, true));
+        mediaControls.addView(next, cockpitActionParams(1f, false));
         panel.addView(mediaControls);
         previous.setOnClickListener(v -> send(SpotifyMedia.Action.PREVIOUS));
         play.setOnClickListener(v -> send(SpotifyMedia.Action.TOGGLE));
         next.setOnClickListener(v -> send(SpotifyMedia.Action.NEXT));
 
         mediaSkip = Ui.row(this);
-        backward = Ui.button(this, "−15 s");
-        forward = Ui.button(this, "+15 s");
-        mediaSkip.addView(backward, new LinearLayout.LayoutParams(0, -2, 1f));
-        mediaSkip.addView(forward, new LinearLayout.LayoutParams(0, -2, 1f));
+        backward = cockpitButton("−15 s", false);
+        forward = cockpitButton("+15 s", false);
+        backward.setContentDescription("15 Sekunden zurückspringen");
+        forward.setContentDescription("15 Sekunden vorspringen");
+        mediaSkip.addView(backward, cockpitActionParams(1f, true));
+        mediaSkip.addView(forward, cockpitActionParams(1f, false));
+        mediaSkip.setPadding(0, Ui.dp(this, 5), 0, Ui.dp(this, 3));
         panel.addView(mediaSkip);
         backward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_BACK));
         forward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_FORWARD));
@@ -1231,10 +1255,14 @@ public final class IntegratedNavigationActivity extends Activity {
         boolean allowed = Permissions.isMediaListenerEnabled(this);
         String nextAction = SpotifyDisplayRules.nextAction(allowed, state.connected);
         spotifySetup.setVisibility(nextAction == null ? View.GONE : View.VISIBLE);
-        if (nextAction != null) spotifySetup.setText(nextAction);
+        if (nextAction != null) {
+            spotifySetup.setText(nextAction);
+            spotifySetup.setContentDescription(nextAction);
+        }
         // When Spotify is unavailable, reclaim its disabled transport controls
         // without removing the one-tap Spotify launch action.
         boolean showMedia = state.connected;
+        spotifyHeaderRow.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         spotifyHeader.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         spotifyState.setVisibility(showMedia ? View.VISIBLE : View.GONE);
         track.setVisibility(showMedia ? View.VISIBLE : View.GONE);
@@ -1253,6 +1281,7 @@ public final class IntegratedNavigationActivity extends Activity {
         boolean showProgress = TrackProgressRules.hasDuration(state.durationMs)
             && state.positionMs >= 0;
         totalDuration = state.durationMs;
+        mediaProgressRow.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         seek.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         elapsed.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         duration.setVisibility(showProgress ? View.VISIBLE : View.GONE);
