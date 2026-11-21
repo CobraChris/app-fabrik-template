@@ -1177,3 +1177,46 @@ test('v35 removes routine success clutter and keeps route and Google-only cost g
   assert.match(google,/NavigationRequestBudget\.reserve\(host\)/);
   assert.doesNotMatch(cockpit,/Nur nach Freigabe der Abrechnung fortfahren|Google Navigation: Route bestätigen/);
 });
+
+
+test('v35 in-app updater reuses Sanftwecker verified APK path without background installs',()=>{
+  const ui=java('IntegratedNavigationActivity');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  const gradle=read('app/build.gradle');
+  const update=java('UpdateActivity');
+  const downloader=java('VerifiedApkDownloader');
+  const policy=java('VerifiedUpdatePolicy');
+  const urls=java('UpdateUrlPolicy');
+  const paths=read('app/src/main/res/xml/update_file_paths.xml');
+  assert.match(ui,/appUpdate = cockpitButton\("App aktualisieren", false\)/);
+  assert.match(ui,/new Intent\(this, UpdateActivity\.class\)/);
+  assert.match(update,/RELEASES =\s*"https:\/\/api\.github\.com\/repos\/CobraChris\/app-fabrik-template\/releases\?per_page=100"/);
+  assert.match(update,/newestSignedAsset\(String response\)/);
+  assert.match(update,/asset\.optString\("digest", ""\)/);
+  assert.match(update,/VerifiedUpdatePolicy\.parseSha256\(digest\)/);
+  assert.match(update,/UpdateUrlPolicy\.isForTag\(url, tag\)/);
+  assert.match(update,/size <= 0L \|\| size > MAX_APK_BYTES/);
+  assert.match(update,/verified = VerifiedApkDownloader\.download\(/);
+  assert.match(update,/getPackageManager\(\)\.canRequestPackageInstalls\(\)/);
+  assert.match(update,/ACTION_MANAGE_UNKNOWN_APP_SOURCES/);
+  assert.match(update,/Intent\.FLAG_GRANT_READ_URI_PERMISSION/);
+  assert.match(update,/APK im Browser öffnen/);
+  assert.doesNotMatch(update,/AlarmManager|WorkManager|JobScheduler|onResume\(\).*checkForUpdate/s);
+  assert.match(manifest,/android\.permission\.REQUEST_INSTALL_PACKAGES/);
+  assert.match(manifest,/android:name="androidx\.core\.content\.FileProvider"/);
+  assert.match(manifest,/android:exported="false"\s+android:grantUriPermissions="true"/);
+  assert.match(manifest,/@xml\/update_file_paths/);
+  assert.match(paths,/<cache-path name="approved_updates" path="updates\/" \/>/);
+  assert.match(gradle,/implementation 'androidx\.core:core:1\.13\.1'/);
+  assert.match(policy,/release-assets\.githubusercontent\.com/);
+  assert.match(policy,/isTrustedDownloadHop/);
+  assert.match(policy,/isApproved/);
+  assert.match(urls,/isAllowed\(String url\)/);
+  assert.match(downloader,/MAX_BYTES=180L\*1024\*1024/);
+  assert.match(downloader,/MessageDigest\.getInstance\("SHA-256"\)/);
+  assert.match(downloader,/verifyPackageAndCertificate\(context,ready,expectedCode\)/);
+  assert.match(downloader,/PackageManager\.GET_SIGNING_CERTIFICATES/);
+  assert.match(downloader,/Arrays\.equals\(current\[0\]\.toByteArray\(\),incoming\[0\]\.toByteArray\(\)\)/);
+  assert.match(downloader,/FileProvider\.getUriForFile/);
+  assert.doesNotMatch(downloader,/deletePackage|pm install|Runtime\.getRuntime\(\)/);
+});
