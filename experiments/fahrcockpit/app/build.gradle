@@ -84,6 +84,8 @@ android {
     }
 }
 dependencies {
+    // Same FileProvider implementation used by Sanftwecker's verified updater.
+    implementation 'androidx.core:core:1.13.1'
     testImplementation 'junit:junit:4.13.2'
     if (withGoogleNavSdk) {
         implementation 'com.google.android.libraries.navigation:navigation:7.6.1'
