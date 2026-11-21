@@ -346,6 +346,9 @@ public final class IntegratedNavigationActivity extends Activity {
         // Route creation is intentionally collapsed during driving; Spotify
         // stays visible in the limited 30 % panel without manual searching.
         routePanel = Ui.column(this);
+        routePanel.setPadding(Ui.dp(this, 8), Ui.dp(this, 6),
+            Ui.dp(this, 8), Ui.dp(this, 8));
+        routePanel.setBackground(Ui.background(this, 0xff2b3643, 10));
         routePanel.setVisibility(View.GONE);
         destination = new EditText(this);
         destination.setSingleLine(true);
@@ -390,14 +393,14 @@ public final class IntegratedNavigationActivity extends Activity {
         // Two primary destination actions on one line instead of two large
         // full-width buttons: all actions remain accessible.
         LinearLayout destinationActions = Ui.row(this);
-        Button saveDestination = Ui.button(this, "☆ Speichern");
+        Button saveDestination = cockpitButton("☆ Speichern", false);
         saveDestination.setTextSize(12);
         saveDestination.setMinHeight(Ui.dp(this, 42));
         destinationActions.addView(saveDestination,
             new LinearLayout.LayoutParams(0, Ui.dp(this, 44), 1f));
         saveDestination.setOnClickListener(v -> saveCurrentDestination());
 
-        Button remembered = Ui.button(this, "★ Meine Ziele");
+        Button remembered = cockpitButton("★ Meine Ziele", false);
         remembered.setTextSize(12);
         remembered.setMinHeight(Ui.dp(this, 42));
         destinationActions.addView(remembered,
@@ -405,13 +408,12 @@ public final class IntegratedNavigationActivity extends Activity {
         remembered.setOnClickListener(v -> showSavedTargets());
         routePanel.addView(destinationActions);
 
-        Button route = Ui.button(this, isOsmPreview()
-            ? "OSM-Abbiegeführung zum Testen planen"
-            : "Route berechnen");
+        Button route = cockpitButton(isOsmPreview()
+            ? "OSM-Test planen" : "Route berechnen", true);
         routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
         route.setOnClickListener(v -> resolveAndStartRoute());
-        stopButton = Ui.button(this, "Navigation beenden");
+        stopButton = cockpitButton("Navigation beenden", false);
         routePanel.addView(stopButton);
         stopButton.setEnabled(engine != null && engine.configured());
         stopButton.setOnClickListener(v -> {
@@ -421,7 +423,7 @@ public final class IntegratedNavigationActivity extends Activity {
         });
 
         // Keep the free navigation visible even when the route form is collapsed.
-        Button fallback = Ui.button(this,
+        Button fallback = cockpitButton(
             "Google Maps separat öffnen (Samsung-Splitscreen)");
         fallback.setOnClickListener(v -> {
             String text = RouteTargetRules.clean(destination.getText().toString());
@@ -522,28 +524,53 @@ public final class IntegratedNavigationActivity extends Activity {
         if (!BuildConfig.GOOGLE_ONLY) {
             panel.addView(fallback); // Legacy external Samsung split only.
         }
-        toggleRoutes = Ui.button(this, "📍 Ziel / Route");
-        panel.addView(toggleRoutes);
+        Ui.gap(this, panel, 7);
+        toggleRoutes = cockpitButton("Ziel / Route", true);
+        toggleRoutes.setContentDescription("Zielmenü öffnen und Route berechnen");
+        panel.addView(toggleRoutes,
+            new LinearLayout.LayoutParams(-1, Ui.dp(this, 46)));
         panel.addView(routePanel);
         toggleRoutes.setOnClickListener(v -> {
             boolean open = routePanel.getVisibility() != View.VISIBLE;
             routePanel.setVisibility(open ? View.VISIBLE : View.GONE);
-            toggleRoutes.setText(open ? "▲ Zielmenü schließen" : "📍 Ziel / Route");
+            toggleRoutes.setText(open ? "Zielmenü schließen" : "Ziel / Route");
+            toggleRoutes.setContentDescription(open
+                ? "Zielmenü schließen" : "Zielmenü öffnen und Route berechnen");
             if (open) scroll.post(() -> scroll.smoothScrollTo(0,
                 routePanel.getTop()));
         });
 
+        Ui.gap(this, panel, 5);
         LinearLayout fuelActions = Ui.row(this);
-        fuelButton = Ui.button(this, "⛽ Preise anzeigen");
-        fuelRefreshButton = Ui.button(this, "↻");
-        Button fuelSettings = Ui.button(this, "⚙");
+        fuelButton = cockpitButton("Preise anzeigen", false);
+        fuelButton.setContentDescription("Tankstellenpreise auf Karte anzeigen oder ausblenden");
+        Button fuelMore = cockpitButton("⋯", false);
+        fuelMore.setTextSize(22);
+        fuelMore.setContentDescription("Weitere Tankstellenaktionen anzeigen");
+        fuelActions.addView(fuelButton, cockpitActionParams(1f, true));
+        fuelActions.addView(fuelMore, new LinearLayout.LayoutParams(
+            Ui.dp(this, 44), Ui.dp(this, 44)));
+        panel.addView(fuelActions);
+        LinearLayout fuelExtraActions = Ui.row(this);
+        fuelExtraActions.setVisibility(View.GONE);
+        fuelRefreshButton = cockpitButton("↻ Aktualisieren", false);
+        Button fuelSettings = cockpitButton("⚙ Einstellungen", false);
         fuelRefreshButton.setContentDescription("Tankstellenpreise neu abrufen");
         fuelSettings.setContentDescription("Tankstellen-Einstellungen öffnen");
-        fuelActions.addView(fuelButton, new LinearLayout.LayoutParams(0, -2, 3f));
-        fuelActions.addView(fuelRefreshButton, new LinearLayout.LayoutParams(0, -2, 1f));
-        fuelActions.addView(fuelSettings, new LinearLayout.LayoutParams(0, -2, 1f));
-        panel.addView(fuelActions);
-        fuelInfo = Ui.text(this, "", 11, Ui.MUTED, false);
+        fuelExtraActions.addView(fuelRefreshButton, cockpitActionParams(1f, true));
+        fuelExtraActions.addView(fuelSettings, cockpitActionParams(1f, false));
+        panel.addView(fuelExtraActions);
+        fuelMore.setOnClickListener(v -> {
+            boolean open = fuelExtraActions.getVisibility() != View.VISIBLE;
+            fuelExtraActions.setVisibility(open ? View.VISIBLE : View.GONE);
+            fuelMore.setContentDescription(open
+                ? "Weitere Tankstellenaktionen schließen"
+                : "Weitere Tankstellenaktionen anzeigen");
+        });
+        fuelInfo = Ui.text(this, "", 10, Ui.MUTED, false);
+        fuelInfo.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
+        fuelInfo.setMaxLines(2);
+        fuelInfo.setEllipsize(android.text.TextUtils.TruncateAt.END);
         panel.addView(fuelInfo);
         fuelButton.setOnClickListener(v -> {
             if (fuelQuickSearch.isSearching()) return;
@@ -566,11 +593,22 @@ public final class IntegratedNavigationActivity extends Activity {
             new Intent(this, FuelActivity.class)
                 .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
             FUEL_PICK_REQUEST));
+        Ui.gap(this, panel, 7);
+        LinearLayout sapheHeader = Ui.row(this);
+        TextView sapheLabel = Ui.text(this, "Saphe", 13, Ui.FG, true);
+        sapheLabel.setPadding(0, 0, 0, 0);
+        sapheHeader.addView(sapheLabel,
+            new LinearLayout.LayoutParams(-2, Ui.dp(this, 28)));
+        sapheHeader.addView(safetyEventStatus,
+            new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(sapheHeader);
+        refreshSapheStatus();
         LinearLayout sapheActions = Ui.row(this);
-        Button saphe = Ui.button(this, "Saphe öffnen");
-        Button sapheCheck = Ui.button(this, "Meldung testen");
-        sapheActions.addView(saphe, new LinearLayout.LayoutParams(0, -2, 1f));
-        sapheActions.addView(sapheCheck, new LinearLayout.LayoutParams(0, -2, 1f));
+        Button saphe = cockpitButton("Saphe öffnen", false);
+        Button sapheCheck = cockpitButton("Diagnose", false);
+        sapheCheck.setContentDescription("Saphe-Diagnose und Warnanzeige testen");
+        sapheActions.addView(saphe, cockpitActionParams(1f, true));
+        sapheActions.addView(sapheCheck, cockpitActionParams(1f, false));
         panel.addView(sapheActions);
         saphe.setOnClickListener(v -> {
             Intent launch = getPackageManager().getLaunchIntentForPackage("my.saphelink");
@@ -1296,7 +1334,7 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private void startQuickFuelSearch() {
         if (fuelQuickSearch == null || fuelQuickSearch.isSearching()) return;
-        fuelButton.setText("⛽ Preise werden geladen …");
+        fuelButton.setText("Preise laden …");
         fuelButton.setEnabled(false);
         fuelRefreshButton.setEnabled(false);
         fuelInfo.setVisibility(View.VISIBLE);
@@ -1333,7 +1371,7 @@ public final class IntegratedNavigationActivity extends Activity {
         }
         if (fuelButton != null) {
             fuelButton.setText(fuelMarkersVisible && valid
-                ? "⛽ Preise ausblenden" : "⛽ Preise anzeigen");
+                ? "Preise ausblenden" : "Preise anzeigen");
         }
         if (fuelInfo != null) {
             if (valid && fuelMarkersVisible) {
@@ -1372,7 +1410,10 @@ public final class IntegratedNavigationActivity extends Activity {
         if (routePanel == null || routePanel.getVisibility() != View.VISIBLE)
             return;
         routePanel.setVisibility(View.GONE);
-        if (toggleRoutes != null) toggleRoutes.setText("📍 Ziel / Route");
+        if (toggleRoutes != null) {
+            toggleRoutes.setText("Ziel / Route");
+            toggleRoutes.setContentDescription("Zielmenü öffnen und Route berechnen");
+        }
         if (controlsScroll != null)
             controlsScroll.post(() -> controlsScroll.smoothScrollTo(0, 0));
     }
