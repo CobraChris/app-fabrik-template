@@ -240,7 +240,7 @@ test('v20 integrated native layout is a real fixed 70/30 shell with existing Spo
  assert.match(rules,/CONTROLS_WEIGHT = 3/);
  assert.match(shell,/FrameLayout mapPane/);
  assert.match(shell,/root.addView\(mapPane, mapParams\)/);
- assert.match(shell,/root.addView\(scroll, controlParams\)/);
+ assert.match(shell,/root.addView\(cockpitPane, controlParams\)/);
  assert.match(shell,/SpotifyMedia\.read\(this\)/);
  assert.match(shell,/SpotifyMedia\.send\(this, action\)/);
  assert.match(shell,/SpotifyMedia\.seekAbsolute/);
@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 32/);
- assert.match(gradle,/versionName '0\.9\.30-beta'/);
+ assert.match(gradle,/versionCode 33/);
+ assert.match(gradle,/versionName '0\.9\.31-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -556,10 +556,10 @@ test('v21 permanent fixed 70/30 has persisted Spotify left-right switching',()=>
   assert.match(screen,/CockpitPanePreferences\.spotifyLeft\(this\)/);
   assert.match(screen,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
   assert.match(screen,/if \(landscape && spotifyLeft\)/);
-  assert.match(screen,/root\.addView\(scroll, controlParams\)/);
+  assert.match(screen,/root\.addView\(cockpitPane, controlParams\)/);
   assert.match(screen,/root\.addView\(mapPane, mapParams\)/);
   assert.match(screen,/root\.removeView\(mapPane\)/);
-  assert.match(screen,/root\.removeView\(scroll\)/);
+  assert.match(screen,/root\.removeView\(cockpitPane\)/);
   assert.doesNotMatch(screen,/sideToggle\.setOnClickListener\(v -> recreate\(\)/);
   assert.match(prefs,/getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
   assert.match(prefs,/putBoolean\(KEY_SPOTIFY_LEFT, left\)\.commit\(\)/);
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 32/);
- assert.match(gradle,/versionName '0\.9\.30-beta'/);
+ assert.match(gradle,/versionCode 33/);
+ assert.match(gradle,/versionName '0\.9\.31-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==32/);
+ assert.match(ci,/versionCode'\]==33/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -732,8 +732,8 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 32/);
-  assert.match(gradle,/versionName '0\.9\.30-beta'/);
+  assert.match(gradle,/versionCode 33/);
+  assert.match(gradle,/versionName '0\.9\.31-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
@@ -845,8 +845,8 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
   assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
-  assert.match(gradle,/versionCode 32/);
-  assert.match(gradle,/versionName '0\.9\.30-beta'/);
+  assert.match(gradle,/versionCode 33/);
+  assert.match(gradle,/versionName '0\.9\.31-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
 });
 
@@ -879,8 +879,8 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
   const marker=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 32/);
-  assert.match(gradle,/versionName '0\.9\.30-beta'/);
+  assert.match(gradle,/versionCode 33/);
+  assert.match(gradle,/versionName '0\.9\.31-beta'/);
   assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
   assert.match(fuel,/String\.format\(Locale\.GERMANY, "%.2f €\/l", price\)/);
   assert.match(cache,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
@@ -1005,19 +1005,60 @@ test('v31 Google voice defaults off and routine guidance haptics are omitted',()
   assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
 });
 
-test('v32 neutral safety prototype reuses Saphe events with visible timed map banner',()=>{
+test('v33 neutral safety prototype retains Saphe events with visible timed map banner',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 32/);
-  assert.match(gradle,/versionName '0\.9\.30-beta'/);
+  assert.match(gradle,/versionCode 33/);
+  assert.match(gradle,/versionName '0\.9\.31-beta'/);
   assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
   assert.match(cockpit,/SapheDiagnosticSession\.lastSapheAt\(this\)/);
   assert.match(cockpit,/SapheNotificationProbe\.lastObservedAt\(this\)/);
   assert.match(cockpit,/Math\.max\(observedAt, diagnosticAt\)/);
   assert.match(cockpit,/title = simulated \? "TEST · ACHTUNG" : "ACHTUNG"/);
   assert.match(cockpit,/Safety-Ereignis · Typ nicht verifiziert/);
-  assert.match(cockpit,/handler\.postDelayed\(hideSapheBanner, 2200L\)/);
+  assert.match(cockpit,/handler\.postDelayed\(hideSapheBanner, 3200L\)/);
   assert.match(cockpit,/safetyEventCount\+\+/);
   assert.match(cockpit,/showSapheBanner\(true\)/);
   assert.doesNotMatch(cockpit,/sapheBanner\.setText\("Blitzer"/);
+});
+
+test('v33 Google-only navigation enables native speed and speed limits without extra APIs',()=>{
+  const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  assert.match(engine,/map\.setSpeedometerEnabled\(true\)/);
+  assert.match(engine,/map\.setSpeedLimitIconEnabled\(true\)/);
+  assert.match(engine,/map\.onCreate\(saved\)/);
+  assert.ok(engine.indexOf('map.onCreate(saved)') < engine.indexOf('map.setSpeedometerEnabled(true)'));
+  assert.doesNotMatch(engine,/SpeedLimitsApi|RoadsApi|SpeedLimitLookup|requestSpeedLimit/);
+  assert.doesNotMatch(manifest,/ACCESS_BACKGROUND_LOCATION/);
+});
+
+test('v33 sticky cockpit speed clears stale GPS readings and stops location on pause',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/cockpitPane\.addView\(currentSpeedView/);
+  assert.match(cockpit,/cockpitPane\.addView\(scroll/);
+  assert.match(cockpit,/root\.addView\(cockpitPane, controlParams\)/);
+  assert.match(cockpit,/currentSpeedView\.setText\("GPS — km\/h"\)/);
+  assert.match(cockpit,/location\.hasSpeed\(\)/);
+  assert.match(cockpit,/location\.hasAccuracy\(\)/);
+  assert.match(cockpit,/location\.getAccuracy\(\) > 80f/);
+  assert.match(cockpit,/location\.getElapsedRealtimeNanos\(\)/);
+  assert.match(cockpit,/location\.getSpeedAccuracyMetersPerSecond\(\) > 8f/);
+  assert.match(cockpit,/Math\.round\(metersPerSecond \* 3\.6f\)/);
+  assert.match(cockpit,/handler\.postDelayed\(expireSpeedReading, 8000L\)/);
+  assert.match(cockpit,/manager\.requestLocationUpdates\(LocationManager\.GPS_PROVIDER/);
+  assert.match(cockpit,/manager\.requestLocationUpdates\(LocationManager\.NETWORK_PROVIDER/);
+  assert.match(cockpit,/speedLocationManager\.removeUpdates\(speedLocationListener\)/);
+  assert.match(cockpit,/onPause\(\) \{\s*stopSpeedUpdates\(\)/);
+  assert.doesNotMatch(cockpit,/getLastKnownLocation\(/);
+});
+
+test('v33 large red Safety alert lasts 3.2 seconds without flashing or claiming blitzer identity',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/sapheBanner = Ui\.text\(this, "", 28, 0xffffffff, true\)/);
+  assert.match(cockpit,/sapheBanner\.setBackground\(Ui\.background\(this, 0xffc91921, 12\)\)/);
+  assert.match(cockpit,/handler\.postDelayed\(hideSapheBanner, 3200L\)/);
+  assert.match(cockpit,/Safety-Ereignis · Typ nicht verifiziert/);
+  assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
+  assert.doesNotMatch(cockpit,/ObjectAnimator|ValueAnimator|AnimationUtils/);
 });

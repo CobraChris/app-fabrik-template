@@ -55,6 +55,10 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         map = new NavigationView(host);
         priceMarkers = new GoogleFuelPriceMarkers(host);
         map.onCreate(saved);
+        // Navigation SDK controls are available during guided navigation.
+        // Show only Google-provided speed limits; never guess missing limits.
+        map.setSpeedometerEnabled(true);
+        map.setSpeedLimitIconEnabled(true);
         return map;
     }
 

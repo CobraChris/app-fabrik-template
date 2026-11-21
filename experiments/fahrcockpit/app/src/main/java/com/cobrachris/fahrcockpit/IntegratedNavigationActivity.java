@@ -13,6 +13,10 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -61,6 +65,10 @@ public final class IntegratedNavigationActivity extends Activity {
     private ImageButton voiceButton;
     private TextView sapheBanner;
     private TextView safetyEventStatus;
+    private TextView currentSpeedView;
+    private LocationManager speedLocationManager;
+    private LocationListener speedLocationListener;
+    private final Runnable expireSpeedReading = () -> showUnknownSpeed();
     private long sapheLastShownAt;
     private long lastSafetyShownAt;
     private int safetyEventCount;
@@ -137,17 +145,31 @@ public final class IntegratedNavigationActivity extends Activity {
         controlsScroll = scroll;
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(Ui.PANEL);
+        // Keep the GPS speed visible above the scrollable cockpit controls.
+        // The 70/30 pane weights and native Google map controls stay intact.
+        LinearLayout cockpitPane = new LinearLayout(this);
+        cockpitPane.setOrientation(LinearLayout.VERTICAL);
+        cockpitPane.setBackgroundColor(Ui.PANEL);
+        currentSpeedView = Ui.text(this, "GPS — km/h",
+            landscape ? 20 : 23, Ui.FG, true);
+        currentSpeedView.setContentDescription("GPS-Geschwindigkeit nicht verfügbar");
+        currentSpeedView.setGravity(Gravity.CENTER_VERTICAL);
+        currentSpeedView.setPadding(Ui.dp(this, 12), Ui.dp(this, 7),
+            Ui.dp(this, 12), Ui.dp(this, 7));
+        cockpitPane.addView(currentSpeedView,
+            new LinearLayout.LayoutParams(-1, -2));
+        cockpitPane.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
         LinearLayout.LayoutParams controlParams = landscape
             ? new LinearLayout.LayoutParams(0, -1,
                 IntegratedNavigationRules.CONTROLS_WEIGHT)
             : new LinearLayout.LayoutParams(-1, 0,
                 CockpitLayoutRules.controlsWeight(false));
         if (landscape && spotifyLeft) {
-            root.addView(scroll, controlParams);
+            root.addView(cockpitPane, controlParams);
             root.addView(mapPane, mapParams);
         } else {
             root.addView(mapPane, mapParams);
-            root.addView(scroll, controlParams);
+            root.addView(cockpitPane, controlParams);
         }
 
         LinearLayout panel = Ui.column(this);
@@ -231,12 +253,12 @@ public final class IntegratedNavigationActivity extends Activity {
 
         // Map-local diagnostic banner; never overlays the Spotify area and
         // never represents itself as a verified speed-camera or hazard alert.
-        sapheBanner = Ui.text(this, "", 22, 0xff211200, true);
+        sapheBanner = Ui.text(this, "", 28, 0xffffffff, true);
         sapheBanner.setGravity(Gravity.CENTER);
         sapheBanner.setMaxLines(3);
-        sapheBanner.setPadding(Ui.dp(this, 16), Ui.dp(this, 19),
-            Ui.dp(this, 16), Ui.dp(this, 19));
-        sapheBanner.setBackground(Ui.background(this, 0xffffbe29, 12));
+        sapheBanner.setPadding(Ui.dp(this, 18), Ui.dp(this, 22),
+            Ui.dp(this, 18), Ui.dp(this, 22));
+        sapheBanner.setBackground(Ui.background(this, 0xffc91921, 12));
         sapheBanner.setElevation(Ui.dp(this, 6));
         sapheBanner.setVisibility(View.GONE);
         FrameLayout.LayoutParams sapheBannerPosition = new FrameLayout.LayoutParams(
@@ -269,13 +291,13 @@ public final class IntegratedNavigationActivity extends Activity {
             }
             if (landscape) {
                 root.removeView(mapPane);
-                root.removeView(scroll);
+                root.removeView(cockpitPane);
                 if (newLeft) {
-                    root.addView(scroll, controlParams);
+                    root.addView(cockpitPane, controlParams);
                     root.addView(mapPane, mapParams);
                 } else {
                     root.addView(mapPane, mapParams);
-                    root.addView(scroll, controlParams);
+                    root.addView(cockpitPane, controlParams);
                 }
             }
             sideToggle.setText(landscape ? "⇄ Seite"
@@ -589,6 +611,79 @@ public final class IntegratedNavigationActivity extends Activity {
             "com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
     }
 
+
+    private void showUnknownSpeed() {
+        if (currentSpeedView == null) return;
+        currentSpeedView.setText("GPS — km/h");
+        currentSpeedView.setContentDescription("GPS-Geschwindigkeit nicht verfügbar");
+    }
+
+    private void onSpeedLocation(Location location) {
+        if (currentSpeedView == null || location == null
+                || !location.hasSpeed() || !location.hasAccuracy()
+                || location.getAccuracy() > 80f) return;
+        long ageNanos = SystemClock.elapsedRealtimeNanos()
+            - location.getElapsedRealtimeNanos();
+        if (ageNanos < 0L || ageNanos > 5_000_000_000L) return;
+        float metersPerSecond = location.getSpeed();
+        if (Float.isNaN(metersPerSecond) || Float.isInfinite(metersPerSecond)
+                || metersPerSecond < 0f || metersPerSecond > 85f) return;
+        if (android.os.Build.VERSION.SDK_INT >= 26
+                && location.hasSpeedAccuracy()
+                && location.getSpeedAccuracyMetersPerSecond() > 8f) return;
+        int kph = Math.round(metersPerSecond * 3.6f);
+        currentSpeedView.setText("GPS " + kph + " km/h");
+        currentSpeedView.setContentDescription(
+            "GPS-Geschwindigkeit " + kph + " Kilometer pro Stunde");
+        handler.removeCallbacks(expireSpeedReading);
+        handler.postDelayed(expireSpeedReading, 8000L);
+    }
+
+    private void startSpeedUpdates() {
+        if (currentSpeedView == null || speedLocationListener != null) return;
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            showUnknownSpeed();
+            return;
+        }
+        LocationManager manager =
+            (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (manager == null) { showUnknownSpeed(); return; }
+        LocationListener listener = this::onSpeedLocation;
+        try {
+            boolean registered = false;
+            if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                manager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+                    1000L, 0f, listener, Looper.getMainLooper());
+                registered = true;
+            }
+            if (manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                manager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,
+                    2000L, 0f, listener, Looper.getMainLooper());
+                registered = true;
+            }
+            if (registered) {
+                speedLocationManager = manager;
+                speedLocationListener = listener;
+            } else {
+                showUnknownSpeed();
+            }
+        } catch (SecurityException | IllegalArgumentException failure) {
+            manager.removeUpdates(listener);
+            showUnknownSpeed();
+        }
+    }
+
+    private void stopSpeedUpdates() {
+        if (speedLocationManager != null && speedLocationListener != null) {
+            speedLocationManager.removeUpdates(speedLocationListener);
+        }
+        speedLocationManager = null;
+        speedLocationListener = null;
+        handler.removeCallbacks(expireSpeedReading);
+        showUnknownSpeed();
+    }
+
     private void askLocationThenInitialize() {
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -606,7 +701,9 @@ public final class IntegratedNavigationActivity extends Activity {
             if (grants.length > 0
                     && grants[0] == PackageManager.PERMISSION_GRANTED) {
                 engine.initializeAfterLocationPermission();
+                startSpeedUpdates();
             } else {
+                showUnknownSpeed();
                 showStatus("Standortberechtigung fehlt · keine SDK-Navigation.");
             }
         }
@@ -1212,14 +1309,14 @@ public final class IntegratedNavigationActivity extends Activity {
             : "Safety-Ereignis · Typ nicht verifiziert";
         String message = title + "\n" + subtitle;
         android.text.SpannableString styled = new android.text.SpannableString(message);
-        styled.setSpan(new android.text.style.RelativeSizeSpan(0.64f),
+        styled.setSpan(new android.text.style.RelativeSizeSpan(0.59f),
             title.length() + 1, message.length(),
             android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         sapheBanner.setText(styled);
         sapheBanner.setContentDescription(message);
         sapheBanner.setVisibility(View.VISIBLE);
         handler.removeCallbacks(hideSapheBanner);
-        handler.postDelayed(hideSapheBanner, 2200L);
+        handler.postDelayed(hideSapheBanner, 3200L);
         if (!simulated && safetyEventStatus != null) {
             java.text.DateFormat clock = java.text.DateFormat.getTimeInstance(
                 java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
@@ -1411,6 +1508,7 @@ public final class IntegratedNavigationActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
+        startSpeedUpdates();
         if (engine != null) {
             engine.onResume();
             // Only display prices previously requested via the Tankerkoenig
@@ -1419,6 +1517,7 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
     @Override protected void onPause() {
+        stopSpeedUpdates();
         if (engine != null) engine.onPause();
         super.onPause();
     }
@@ -1430,6 +1529,7 @@ public final class IntegratedNavigationActivity extends Activity {
         super.onStop();
     }
     @Override protected void onDestroy() {
+        stopSpeedUpdates();
         handler.removeCallbacksAndMessages(null);
         if (placesAutocomplete != null) placesAutocomplete.reset();
         if (engine != null) engine.onDestroy(isFinishing());
