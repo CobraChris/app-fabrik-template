@@ -13,10 +13,12 @@ import java.util.Locale;
 /**
  * Small local snapshot of a user-triggered Tankerkoenig search.
  * Does not store the key, user coordinates, or location history.
- * No background network calls; data expires after 15 minutes.
+ * No background network calls. Data are fresh for 15 minutes; for a
+ * disconnected drive they may remain visible up to 24 hours, clearly stale.
  */
 final class FuelMapSnapshot {
     static final long MAX_AGE_MS = 15 * 60 * 1000L;
+    static final long MAX_DISPLAY_AGE_MS = 24 * 60 * 60 * 1000L;
     private static final String PREFS = "fahrcockpit_fuel_map_v1";
     private static final String STATIONS = "stations";
     private static final String SAVED_AT = "saved_at";
@@ -81,11 +83,25 @@ final class FuelMapSnapshot {
     }
 
     static Snapshot read(Context context) {
+        return readWithin(context, MAX_AGE_MS);
+    }
+
+    /** Cache retained for display only: stale prices are NEVER described as live. */
+    static Snapshot readForDisplay(Context context) {
+        return readWithin(context, MAX_DISPLAY_AGE_MS);
+    }
+
+    static boolean isStale(Snapshot snapshot, long now) {
+        return snapshot == null || snapshot.fetchedAt <= 0L
+            || snapshot.fetchedAt > now || now - snapshot.fetchedAt >= MAX_AGE_MS;
+    }
+
+    private static Snapshot readWithin(Context context, long maxAgeMs) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         long fetched = prefs.getLong(SAVED_AT, 0L);
         long now = System.currentTimeMillis();
         String type = prefs.getString(TYPE, "");
-        if (fetched <= 0L || fetched > now || now - fetched > MAX_AGE_MS
+        if (fetched <= 0L || fetched > now || now - fetched > maxAgeMs
                 || !validType(type)) {
             return new Snapshot("", 0L, new ArrayList<>());
         }
