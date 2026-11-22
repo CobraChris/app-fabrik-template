@@ -39,7 +39,9 @@ public final class FuelRateRules {
 
     public static String remainingLabel(long remainingMillis) {
         long seconds = Math.max(1L, (remainingMillis + 999L) / 1000L);
-        if (seconds >= 60L) return ((seconds + 59L) / 60L) + " Min.";
+        if (seconds >= 3_600L) return ((seconds + 59L) / 60L) + " Min.";
+        if (seconds >= 60L)
+            return (seconds / 60L) + " Min. " + (seconds % 60L) + " Sek.";
         return seconds + " Sek.";
     }
 }
