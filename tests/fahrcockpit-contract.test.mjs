@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 35/);
- assert.match(gradle,/versionName '0\.9\.33-beta'/);
+ assert.match(gradle,/versionCode 36/);
+ assert.match(gradle,/versionName '0\.9\.34-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 35/);
- assert.match(gradle,/versionName '0\.9\.33-beta'/);
+ assert.match(gradle,/versionCode 36/);
+ assert.match(gradle,/versionName '0\.9\.34-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==35/);
+ assert.match(ci,/versionCode'\]==36/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -732,8 +732,8 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 35/);
-  assert.match(gradle,/versionName '0\.9\.33-beta'/);
+  assert.match(gradle,/versionCode 36/);
+  assert.match(gradle,/versionName '0\.9\.34-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
@@ -845,8 +845,8 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
   assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
-  assert.match(gradle,/versionCode 35/);
-  assert.match(gradle,/versionName '0\.9\.33-beta'/);
+  assert.match(gradle,/versionCode 36/);
+  assert.match(gradle,/versionName '0\.9\.34-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
 });
 
@@ -879,8 +879,8 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
   const marker=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 35/);
-  assert.match(gradle,/versionName '0\.9\.33-beta'/);
+  assert.match(gradle,/versionCode 36/);
+  assert.match(gradle,/versionName '0\.9\.34-beta'/);
   assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
   assert.match(fuel,/String\.format\(Locale\.GERMANY, "%.2f €\/l", price\)/);
   assert.match(cache,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
@@ -1008,8 +1008,8 @@ test('v31 Google voice defaults off and routine guidance haptics are omitted',()
 test('v33 neutral safety prototype retains Saphe events with visible timed map banner',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 35/);
-  assert.match(gradle,/versionName '0\.9\.33-beta'/);
+  assert.match(gradle,/versionCode 36/);
+  assert.match(gradle,/versionName '0\.9\.34-beta'/);
   assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
   assert.match(cockpit,/SapheDiagnosticSession\.lastSapheAt\(this\)/);
   assert.match(cockpit,/SapheNotificationProbe\.lastObservedAt\(this\)/);
@@ -1247,4 +1247,40 @@ test('v35 permanent options menu consolidates updater, side swap, fuel settings 
   assert.doesNotMatch(cockpit,/fuelExtraActions|Button fuelMore/);
   assert.match(cockpit,/fuelRefreshButton\.setOnClickListener\(v ->/);
   assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
+});
+
+
+test('v36 tank price requests share one persistent fail-closed limit with no automatic polling',()=>{
+  const quick=java('FuelQuickSearch');
+  const full=java('FuelActivity');
+  const gate=java('FuelRequestGate');
+  const rules=java('FuelRateRules');
+  const gradle=read('app/build.gradle');
+  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+  assert.match(gradle,/versionCode 36/);
+  assert.match(gradle,/versionName '0\.9\.34-beta'/);
+  assert.match(ci,/feature\/fahrcockpit-v36-tankerkoenig-rate-guard/);
+  assert.match(quick,/FuelRequestGate\.tryBegin\(host\)/);
+  assert.match(full,/FuelRequestGate\.tryBegin\(this\)/);
+  assert.match(quick,/FuelRequestGate\.reportHttp\(host, httpStatus\)/);
+  assert.match(full,/FuelRequestGate\.reportHttp\(this, httpStatus\)/);
+  assert.match(quick,/FuelRequestGate\.reportTransportFailure\(host\)/);
+  assert.match(full,/FuelRequestGate\.reportTransportFailure\(this\)/);
+  assert.match(quick,/callback\.onSuccess\(cache\)/);
+  assert.match(quick,/if \(!permit\.allowed\)/);
+  assert.match(full,/if \(!permit\.allowed\)/);
+  assert.match(gate,/private static final Object LOCK = new Object\(\)/);
+  assert.match(gate,/synchronized \(LOCK\)/);
+  assert.match(gate,/getApplicationContext\(\)\.getSharedPreferences\(/);
+  assert.match(gate,/\.putLong\(LAST_ATTEMPT, now\)\.commit\(\)/);
+  assert.match(gate,/FuelRateRules\.remainingMillis/);
+  assert.match(gate,/Math\.max\(previous, now \+ millis\)/);
+  assert.match(rules,/MIN_REQUEST_INTERVAL_MS = 65_000L/);
+  assert.match(rules,/MIN_APPROVED_AUTO_INTERVAL_MS = 300_000L/);
+  assert.match(rules,/RATE_LIMIT_BACKOFF_MS = 3_600_000L/);
+  assert.match(rules,/TRANSIENT_BACKOFF_MS = 300_000L/);
+  assert.match(rules,/httpCode == 503 \|\| httpCode == 429/);
+  assert.doesNotMatch(gate,/AlarmManager|WorkManager|JobScheduler|setInterval/);
+  assert.doesNotMatch(full,/startPolling|scheduleAutomaticRefresh|postDelayed\(.*fetch\(/);
+  assert.doesNotMatch(quick,/startPolling|scheduleAutomaticRefresh|postDelayed\(.*fetch\(/);
 });
