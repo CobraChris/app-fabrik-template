@@ -1284,3 +1284,62 @@ test('v36 tank price requests share one persistent fail-closed limit with no aut
   assert.doesNotMatch(full,/startPolling|scheduleAutomaticRefresh|postDelayed\(.*fetch\(/);
   assert.doesNotMatch(quick,/startPolling|scheduleAutomaticRefresh|postDelayed\(.*fetch\(/);
 });
+
+
+test('v36 always-on fuel price display retains explicitly labeled stale cache without hidden refresh',()=>{
+  const cached=java('FuelMapSnapshot');
+  const markers=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
+  const cockpit=java('IntegratedNavigationActivity');
+  const quick=java('FuelQuickSearch');
+  assert.match(cached,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
+  assert.match(cached,/MAX_DISPLAY_AGE_MS = 24 \* 60 \* 60 \* 1000L/);
+  assert.match(cached,/static Snapshot readForDisplay\(Context context\)/);
+  assert.match(cached,/readWithin\(context, MAX_DISPLAY_AGE_MS\)/);
+  assert.match(cached,/static boolean isStale\(Snapshot snapshot, long now\)/);
+  assert.match(cockpit,/FuelMapSnapshot\.readForDisplay\(this\)/);
+  assert.match(cockpit,/fuelInfo\.setText\(snapshot\.stations\.size\(\) \+ " Preise · "/);
+  assert.match(cockpit,/stale \? " · ALT, kein Live-Preis" : " · aktuell"/);
+  assert.match(cockpit,/stale \? FuelMapSnapshot\.MAX_DISPLAY_AGE_MS/);
+  assert.match(cockpit,/handler\.postDelayed\(expireFuelMarkers, delay\)/);
+  assert.match(quick,/FuelMapSnapshot\.readForDisplay\(host\)/);
+  assert.match(markers,/boolean stale = FuelMapSnapshot\.isStale\(snapshot, System\.currentTimeMillis\(\)\)/);
+  assert.match(markers,/stale \? Color\.rgb\(117, 122, 133\) : tierColor/);
+  assert.match(markers,/\.snippet\(\(stale \? "VERALTETER PREIS · " : "Preisstand "\)/);
+  assert.match(markers,/canvas\.drawText\("ALT", 8\*d, 9\*d, paint\)/);
+});
+
+test('v36 navigation-only automatic scheduler is prepared but hard blocked without permission',()=>{
+  const policy=java('FuelAutoRefreshPolicy');
+  const pref=java('FuelAutoRefreshPreferences');
+  const controller=java('FuelAutoRefreshController');
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(policy,/static final boolean PROVIDER_APPROVED = false/);
+  assert.match(policy,/REGULAR_INTERVAL_MS = 15L \* 60_000L/);
+  assert.match(policy,/DISTANCE_MIN_INTERVAL_MS = 5L \* 60_000L/);
+  assert.match(policy,/DISTANCE_TRIGGER_METERS = 5_000f/);
+  assert.match(policy,/LOCATION_MAX_AGE_MS = 120_000L/);
+  assert.match(policy,/locationUsable\(/);
+  assert.match(policy,/distanceMeters\(/);
+  assert.match(pref,/FuelAutoRefreshPolicy\.PROVIDER_APPROVED\s*&&/);
+  assert.match(pref,/getBoolean\(ENABLED, false\)/);
+  assert.match(pref,/if \(enabled && !FuelAutoRefreshPolicy\.PROVIDER_APPROVED\)/);
+  assert.match(controller,/FuelAutoRefreshPolicy\.PROVIDER_APPROVED\s*&& FuelAutoRefreshPreferences\.enabled\(host\)/);
+  assert.match(controller,/&& visible && active && !host\.isFinishing\(\)/);
+  assert.match(controller,/FuelAutoRefreshPolicy\.isDue\(/);
+  assert.match(controller,/FuelAutoRefreshPolicy\.locationUsable\(/);
+  assert.match(controller,/handler\.postDelayed\(this, FuelAutoRefreshPolicy\.UI_TICK_INTERVAL_MS\)/);
+  assert.match(controller,/if \(!permitted\) \{\s*stop\(\);\s*return;/);
+  assert.match(controller,/requestPrices\.run\(\)/);
+  assert.match(controller,/locationManager\.removeUpdates\(listener\)/);
+  assert.match(cockpit,/new FuelAutoRefreshController\(this, this::startQuickFuelSearch\)/);
+  assert.match(cockpit,/autoFuelRefreshController\.setNavigationActive\(active\)/);
+  assert.match(cockpit,/autoFuelRefreshController\.setVisible\(true\)/);
+  assert.match(cockpit,/autoFuelRefreshController\.setVisible\(false\)/);
+  assert.match(cockpit,/autoFuelRefreshController\.shutdown\(\)/);
+  assert.match(cockpit,/MENU_FUEL_AUTO/);
+  assert.match(cockpit,/Auto-Preise: Freigabe ausstehend/);
+  assert.match(cockpit,/case MENU_FUEL_AUTO:/);
+  assert.match(cockpit,/if \(!FuelAutoRefreshPolicy\.PROVIDER_APPROVED\)/);
+  assert.match(cockpit,/FuelAutoRefreshPreferences\.saveEnabled\(this, enabled\)/);
+  assert.doesNotMatch(controller,/Service|JobScheduler|AlarmManager|WorkManager/);
+});
