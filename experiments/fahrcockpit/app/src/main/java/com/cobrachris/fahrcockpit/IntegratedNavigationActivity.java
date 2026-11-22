@@ -1432,8 +1432,9 @@ public final class IntegratedNavigationActivity extends Activity {
         }
         if (fuelInfo != null) {
             if (valid && fuelMarkersVisible) {
-                java.text.DateFormat time = java.text.DateFormat.getTimeInstance(
-                    java.text.DateFormat.SHORT);
+                java.text.DateFormat time = java.text.DateFormat.getDateTimeInstance(
+                    java.text.DateFormat.SHORT, java.text.DateFormat.SHORT,
+                    java.util.Locale.GERMANY);
                 fuelInfo.setText(snapshot.stations.size() + " Preise · "
                     + snapshot.type.toUpperCase(java.util.Locale.GERMANY)
                     + (stale ? " · ALT, kein Live-Preis" : " · aktuell")
