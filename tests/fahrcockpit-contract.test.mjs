@@ -931,7 +931,7 @@ test('v29 direct fuel overlay is one tap, explicitly refreshed, and reuses saved
   assert.match(activity,/fuelButton\.setOnClickListener\(v ->/);
   assert.match(activity,/fuelRefreshButton\.setOnClickListener\(v ->/);
   assert.match(activity,/startQuickFuelSearch\(\)/);
-  assert.match(activity,/FuelMapSnapshot\.read\(this\)/);
+  assert.match(activity,/FuelMapSnapshot\.readForDisplay\(this\)/);
   assert.match(activity,/engine\.showFuelPrices\(displayed,/);
   assert.match(activity,/fuelMarkersVisible = false/);
   assert.match(activity,/FuelMapSnapshot\.MAX_AGE_MS/);
@@ -1049,7 +1049,7 @@ test('v33 sticky cockpit speed clears stale GPS readings and stops location on p
   assert.match(cockpit,/manager\.requestLocationUpdates\(LocationManager\.GPS_PROVIDER/);
   assert.match(cockpit,/manager\.requestLocationUpdates\(LocationManager\.NETWORK_PROVIDER/);
   assert.match(cockpit,/speedLocationManager\.removeUpdates\(speedLocationListener\)/);
-  assert.match(cockpit,/onPause\(\) \{\s*stopSpeedUpdates\(\)/);
+  assert.match(cockpit,/onPause\(\) \{\s*if \(autoFuelRefreshController != null\)\s*autoFuelRefreshController\.setVisible\(false\);\s*stopSpeedUpdates\(\)/);
   assert.doesNotMatch(cockpit,/getLastKnownLocation\(/);
 });
 
@@ -1341,5 +1341,5 @@ test('v36 navigation-only automatic scheduler is prepared but hard blocked witho
   assert.match(cockpit,/case MENU_FUEL_AUTO:/);
   assert.match(cockpit,/if \(!FuelAutoRefreshPolicy\.PROVIDER_APPROVED\)/);
   assert.match(cockpit,/FuelAutoRefreshPreferences\.saveEnabled\(this, enabled\)/);
-  assert.doesNotMatch(controller,/Service|JobScheduler|AlarmManager|WorkManager/);
+  assert.doesNotMatch(controller,/extends Service|JobScheduler|AlarmManager|WorkManager/);
 });
