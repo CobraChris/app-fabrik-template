@@ -39,8 +39,8 @@ public final class FuelRateRulesTest {
             > FuelRateRules.MIN_REQUEST_INTERVAL_MS);
     }
     @Test public void rateLimitMessageIsHumanReadable() {
-        assertEquals("65 Sek.", FuelRateRules.remainingLabel(65_000L));
-        assertEquals("2 Min.", FuelRateRules.remainingLabel(66_000L));
+        assertEquals("1 Min. 5 Sek.", FuelRateRules.remainingLabel(65_000L));
+        assertEquals("1 Min. 6 Sek.", FuelRateRules.remainingLabel(66_000L));
         assertEquals("60 Min.", FuelRateRules.remainingLabel(3_600_000L));
     }
 }
