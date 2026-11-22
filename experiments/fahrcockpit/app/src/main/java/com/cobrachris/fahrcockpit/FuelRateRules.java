@@ -22,8 +22,10 @@ public final class FuelRateRules {
         long wait = 0L;
         if (previousAttempt > 0) {
             // After a backward clock jump, fail closed until time is sane.
-            if (previousAttempt > now) return MIN_REQUEST_INTERVAL_MS;
-            wait = Math.max(0L, MIN_REQUEST_INTERVAL_MS - (now - previousAttempt));
+            if (previousAttempt > now)
+                wait = MIN_REQUEST_INTERVAL_MS;
+            else
+                wait = Math.max(0L, MIN_REQUEST_INTERVAL_MS - (now - previousAttempt));
         }
         if (blockedUntil > now) wait = Math.max(wait, blockedUntil - now);
         return wait;
