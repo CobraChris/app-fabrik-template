@@ -51,6 +51,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private static final int MENU_APP_UPDATE = 5102;
     private static final int MENU_FUEL_SETTINGS = 5103;
     private static final int MENU_SAPHE_DIAGNOSIS = 5104;
+    private static final int MENU_FUEL_AUTO = 5105;
     private static final String STATE_TARGET = "target";
     private static final String STATE_SELECTED_DISPLAY = "selected_display";
     private static final String STATE_SELECTED_TARGET = "selected_target";
@@ -63,6 +64,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private LinearLayout mediaControls, mediaSkip, spotifyHeaderRow, mediaProgressRow;
     private Button fuelButton, fuelRefreshButton;
     private FuelQuickSearch fuelQuickSearch;
+    private FuelAutoRefreshController autoFuelRefreshController;
     private boolean fuelMarkersVisible = true;
     private EditText destination;
     private SeekBar seek;
@@ -129,6 +131,8 @@ public final class IntegratedNavigationActivity extends Activity {
         }
         engine = loadEngine();
         fuelQuickSearch = new FuelQuickSearch(this);
+        autoFuelRefreshController =
+            new FuelAutoRefreshController(this, this::startQuickFuelSearch);
         placesAutocomplete = PlacesAutocompleteBridge.approved(this);
 
         boolean landscape = getResources().getConfiguration().orientation
@@ -197,6 +201,8 @@ public final class IntegratedNavigationActivity extends Activity {
                     @Override public void onGuidanceStateChanged(boolean active) {
                         runOnUiThread(() -> {
                             navigationGuidanceActive = active;
+                            if (autoFuelRefreshController != null)
+                                autoFuelRefreshController.setNavigationActive(active);
                             updateScreenAwake(active);
                             // During Google guidance the native map speedometer
                             // is the sole speed display. Outside guidance the
@@ -315,6 +321,11 @@ public final class IntegratedNavigationActivity extends Activity {
             options.getMenu().add(0, MENU_FUEL_SETTINGS, 2,
                 "Tankstellen-Einstellungen");
             options.getMenu().add(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose");
+            options.getMenu().add(0, MENU_FUEL_AUTO, 4,
+                !FuelAutoRefreshPolicy.PROVIDER_APPROVED
+                    ? "Auto-Preise: Freigabe ausstehend"
+                    : (FuelAutoRefreshPreferences.enabled(this)
+                        ? "Auto-Preise ausschalten" : "Auto-Preise einschalten"));
             options.setOnMenuItemClickListener(item -> {
                 switch (item.getItemId()) {
                     case MENU_SWAP_PANE:
@@ -346,6 +357,27 @@ public final class IntegratedNavigationActivity extends Activity {
                         return true;
                     case MENU_SAPHE_DIAGNOSIS:
                         showSapheProbeDialog();
+                        return true;
+                    case MENU_FUEL_AUTO:
+                        if (!FuelAutoRefreshPolicy.PROVIDER_APPROVED) {
+                            new AlertDialog.Builder(this)
+                                .setTitle("Automatische Tankstellenpreise")
+                                .setMessage("Die automatische Aktualisierung während der "
+                                    + "Navigation ist vorbereitet, aber für die kostenlose "
+                                    + "Tankerkönig-API noch nicht ausdrücklich genehmigt. "
+                                    + "Bis zur schriftlichen Anbieterfreigabe bleiben "
+                                    + "regelmäßige automatische API-Abfragen gesperrt. "
+                                    + "Bereits gespeicherte Preise sind mit Zeitstempel "
+                                    + "weiterhin sichtbar.")
+                                .setPositiveButton("Verstanden", null).show();
+                        } else {
+                            boolean enabled = !FuelAutoRefreshPreferences.enabled(this);
+                            if (!FuelAutoRefreshPreferences.saveEnabled(this, enabled)) {
+                                showStatus("Auto-Preis-Einstellung konnte nicht gespeichert werden.");
+                            } else if (autoFuelRefreshController != null) {
+                                autoFuelRefreshController.refreshUserSetting();
+                            }
+                        }
                         return true;
                     default:
                         return false;
