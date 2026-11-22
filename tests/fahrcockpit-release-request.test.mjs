@@ -461,8 +461,8 @@ test('v36 gated price cache release requires exact pinned Google-only source, au
   assert.equal(GOOGLE_V36_SOURCE_REF,'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe');
   assert.deepEqual(validateRequest(request36),{sha:pinned,code:36,variant:'google-sdk-only'});
   assert.equal(sourceRefFor('google-sdk-only',36),GOOGLE_V36_SOURCE_REF);
-  assert.doesNotThrow(()=>validateSource(pinned,pinned+'\\t'+GOOGLE_V36_SOURCE_REF+'\\n','google-sdk-only',36));
-  assert.throws(()=>validateSource(pinned,'0'.repeat(40)+'\\t'+GOOGLE_V36_SOURCE_REF+'\\n','google-sdk-only',36));
+  assert.doesNotThrow(()=>validateSource(pinned,pinned+'\t'+GOOGLE_V36_SOURCE_REF+'\n','google-sdk-only',36));
+  assert.throws(()=>validateSource(pinned,'0'.repeat(40)+'\t'+GOOGLE_V36_SOURCE_REF+'\n','google-sdk-only',36));
   assert.throws(()=>validateRequest({...request36,source_sha:'0'.repeat(40)}));
   assert.throws(()=>validateRequest({...request36,request_id:'2026-11-22-fahrcockpit-v36-unreviewed'}));
   assert.throws(()=>validateRequest({...request36,expected_version_code:37}));
