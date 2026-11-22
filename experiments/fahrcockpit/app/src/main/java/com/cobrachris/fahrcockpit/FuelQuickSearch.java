@@ -145,11 +145,29 @@ final class FuelQuickSearch {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
+                FuelRequestGate.Permit permit = FuelRequestGate.tryBegin(host);
+                if (!permit.allowed) {
+                    main.post(() -> {
+                        if (token != generation || !searching
+                                || host.isFinishing() || host.isDestroyed()) return;
+                        FuelMapSnapshot.Snapshot cache = FuelMapSnapshot.readForDisplay(host);
+                        if (!cache.stations.isEmpty() && type.equals(cache.type)) {
+                            searching = false;
+                            callback.onSuccess(cache); // Reuse data; do NOT retry the API.
+                        } else {
+                            fail(token, permit.explanation(), callback);
+                        }
+                    });
+                    return;
+                }
                 connection = (HttpURLConnection) new URL(url).openConnection();
                 connection.setConnectTimeout(9000);
                 connection.setReadTimeout(9000);
                 connection.setRequestProperty("Accept", "application/json");
-                if (connection.getResponseCode() != 200) throw new IllegalStateException("HTTP error");
+                int httpStatus = connection.getResponseCode();
+                FuelRequestGate.reportHttp(host, httpStatus);
+                if (httpStatus != 200)
+                    throw new IllegalStateException("Tankerkönig HTTP-Fehler");
                 StringBuilder json = new StringBuilder();
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                         connection.getInputStream(), StandardCharsets.UTF_8))) {
@@ -171,9 +189,13 @@ final class FuelQuickSearch {
                     callback.onSuccess(FuelMapSnapshot.read(host));
                 });
             } catch (Exception ignored) {
+                // No automatic retry. A transient cooldown protects the API,
+                // while a preceding 503/429 keeps its full one-hour cooldown.
+                FuelRequestGate.reportTransportFailure(host);
                 // Never reveal URLs, location coordinates or API keys in logs/UI.
                 main.post(() -> fail(token,
-                    "Preisabruf fehlgeschlagen. Verbindung oder API-Schlüssel prüfen.", callback));
+                    "Preisabruf fehlgeschlagen oder API-Sperre aktiv. "
+                    + "Bitte später erneut versuchen.", callback));
             } finally {
                 if (connection != null) connection.disconnect();
             }

@@ -51,6 +51,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private static final int MENU_APP_UPDATE = 5102;
     private static final int MENU_FUEL_SETTINGS = 5103;
     private static final int MENU_SAPHE_DIAGNOSIS = 5104;
+    private static final int MENU_FUEL_AUTO = 5105;
     private static final String STATE_TARGET = "target";
     private static final String STATE_SELECTED_DISPLAY = "selected_display";
     private static final String STATE_SELECTED_TARGET = "selected_target";
@@ -63,6 +64,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private LinearLayout mediaControls, mediaSkip, spotifyHeaderRow, mediaProgressRow;
     private Button fuelButton, fuelRefreshButton;
     private FuelQuickSearch fuelQuickSearch;
+    private FuelAutoRefreshController autoFuelRefreshController;
     private boolean fuelMarkersVisible = true;
     private EditText destination;
     private SeekBar seek;
@@ -129,6 +131,8 @@ public final class IntegratedNavigationActivity extends Activity {
         }
         engine = loadEngine();
         fuelQuickSearch = new FuelQuickSearch(this);
+        autoFuelRefreshController =
+            new FuelAutoRefreshController(this, this::startQuickFuelSearch);
         placesAutocomplete = PlacesAutocompleteBridge.approved(this);
 
         boolean landscape = getResources().getConfiguration().orientation
@@ -197,6 +201,8 @@ public final class IntegratedNavigationActivity extends Activity {
                     @Override public void onGuidanceStateChanged(boolean active) {
                         runOnUiThread(() -> {
                             navigationGuidanceActive = active;
+                            if (autoFuelRefreshController != null)
+                                autoFuelRefreshController.setNavigationActive(active);
                             updateScreenAwake(active);
                             // During Google guidance the native map speedometer
                             // is the sole speed display. Outside guidance the
@@ -315,6 +321,11 @@ public final class IntegratedNavigationActivity extends Activity {
             options.getMenu().add(0, MENU_FUEL_SETTINGS, 2,
                 "Tankstellen-Einstellungen");
             options.getMenu().add(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose");
+            options.getMenu().add(0, MENU_FUEL_AUTO, 4,
+                !FuelAutoRefreshPolicy.PROVIDER_APPROVED
+                    ? "Auto-Preise: Freigabe ausstehend"
+                    : (FuelAutoRefreshPreferences.enabled(this)
+                        ? "Auto-Preise ausschalten" : "Auto-Preise einschalten"));
             options.setOnMenuItemClickListener(item -> {
                 switch (item.getItemId()) {
                     case MENU_SWAP_PANE:
@@ -346,6 +357,27 @@ public final class IntegratedNavigationActivity extends Activity {
                         return true;
                     case MENU_SAPHE_DIAGNOSIS:
                         showSapheProbeDialog();
+                        return true;
+                    case MENU_FUEL_AUTO:
+                        if (!FuelAutoRefreshPolicy.PROVIDER_APPROVED) {
+                            new AlertDialog.Builder(this)
+                                .setTitle("Automatische Tankstellenpreise")
+                                .setMessage("Die automatische Aktualisierung während der "
+                                    + "Navigation ist vorbereitet, aber für die kostenlose "
+                                    + "Tankerkönig-API noch nicht ausdrücklich genehmigt. "
+                                    + "Bis zur schriftlichen Anbieterfreigabe bleiben "
+                                    + "regelmäßige automatische API-Abfragen gesperrt. "
+                                    + "Bereits gespeicherte Preise sind mit Zeitstempel "
+                                    + "weiterhin sichtbar.")
+                                .setPositiveButton("Verstanden", null).show();
+                        } else {
+                            boolean enabled = !FuelAutoRefreshPreferences.enabled(this);
+                            if (!FuelAutoRefreshPreferences.saveEnabled(this, enabled)) {
+                                showStatus("Auto-Preis-Einstellung konnte nicht gespeichert werden.");
+                            } else if (autoFuelRefreshController != null) {
+                                autoFuelRefreshController.refreshUserSetting();
+                            }
+                        }
                         return true;
                     default:
                         return false;
@@ -588,15 +620,23 @@ public final class IntegratedNavigationActivity extends Activity {
         panel.addView(fuelInfo);
         fuelButton.setOnClickListener(v -> {
             if (fuelQuickSearch.isSearching()) return;
-            if (fuelMarkersVisible && !FuelMapSnapshot.read(this).stations.isEmpty()) {
+            if (fuelMarkersVisible
+                    && !FuelMapSnapshot.readForDisplay(this).stations.isEmpty()) {
                 fuelMarkersVisible = false;
                 updateFuelMarkers();
             } else {
                 fuelMarkersVisible = true;
-                FuelMapSnapshot.Snapshot cached = FuelMapSnapshot.read(this);
-                if (cached.stations.isEmpty() || !cached.type.equals(FuelQuickSettings.type(this)))
+                FuelMapSnapshot.Snapshot cached = FuelMapSnapshot.readForDisplay(this);
+                if (cached.stations.isEmpty()
+                        || !cached.type.equals(FuelQuickSettings.type(this))) {
                     startQuickFuelSearch();
-                else updateFuelMarkers();
+                } else {
+                    updateFuelMarkers();
+                    // This is an explicit user gesture. Show cached prices at
+                    // once; if old, try to refresh subject to shared rate guard.
+                    if (FuelMapSnapshot.isStale(cached, System.currentTimeMillis()))
+                        startQuickFuelSearch();
+                }
             }
         });
         fuelRefreshButton.setOnClickListener(v -> {
@@ -1375,9 +1415,11 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void updateFuelMarkers() {
-        FuelMapSnapshot.Snapshot snapshot = FuelMapSnapshot.read(this);
+        FuelMapSnapshot.Snapshot snapshot = FuelMapSnapshot.readForDisplay(this);
         boolean valid = !snapshot.stations.isEmpty()
             && snapshot.type.equals(FuelQuickSettings.type(this));
+        long now = System.currentTimeMillis();
+        boolean stale = valid && FuelMapSnapshot.isStale(snapshot, now);
         if (engine != null) {
             FuelMapSnapshot.Snapshot displayed = fuelMarkersVisible && valid
                 ? snapshot : new FuelMapSnapshot.Snapshot("", 0L, new ArrayList<>());
@@ -1390,14 +1432,18 @@ public final class IntegratedNavigationActivity extends Activity {
         }
         if (fuelInfo != null) {
             if (valid && fuelMarkersVisible) {
-                java.text.DateFormat time = java.text.DateFormat.getTimeInstance(
-                    java.text.DateFormat.SHORT);
+                java.text.DateFormat time = java.text.DateFormat.getDateTimeInstance(
+                    java.text.DateFormat.SHORT, java.text.DateFormat.SHORT,
+                    java.util.Locale.GERMANY);
                 fuelInfo.setText(snapshot.stations.size() + " Preise · "
                     + snapshot.type.toUpperCase(java.util.Locale.GERMANY)
-                    + " · abgerufen " + time.format(new java.util.Date(snapshot.fetchedAt)));
+                    + (stale ? " · ALT, kein Live-Preis" : " · aktuell")
+                    + " · Stand " + time.format(new java.util.Date(snapshot.fetchedAt)));
+                fuelInfo.setTextColor(stale ? Ui.WARN : Ui.MUTED);
                 fuelInfo.setVisibility(View.VISIBLE);
             } else if (valid) {
                 fuelInfo.setText("Preise ausgeblendet · ↻ zum Aktualisieren");
+                fuelInfo.setTextColor(Ui.MUTED);
                 fuelInfo.setVisibility(View.VISIBLE);
             } else {
                 fuelInfo.setVisibility(View.GONE);
@@ -1405,8 +1451,11 @@ public final class IntegratedNavigationActivity extends Activity {
         }
         handler.removeCallbacks(expireFuelMarkers);
         if (valid && fuelMarkersVisible) {
-            long delay = Math.max(1000L, FuelMapSnapshot.MAX_AGE_MS
-                - (System.currentTimeMillis() - snapshot.fetchedAt) + 100L);
+            // Update the age indicator after 15 min; remove the display only
+            // after the separate 24h retained-cache deadline. Never poll here.
+            long deadline = stale ? FuelMapSnapshot.MAX_DISPLAY_AGE_MS
+                : FuelMapSnapshot.MAX_AGE_MS;
+            long delay = Math.max(1000L, deadline - (now - snapshot.fetchedAt) + 100L);
             handler.postDelayed(expireFuelMarkers, delay);
         }
     }
@@ -1675,6 +1724,8 @@ public final class IntegratedNavigationActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         startSpeedUpdates();
+        if (autoFuelRefreshController != null)
+            autoFuelRefreshController.setVisible(true);
         if (engine != null) {
             engine.onResume();
             // Only display prices previously requested via the Tankerkoenig
@@ -1683,11 +1734,15 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
     @Override protected void onPause() {
+        if (autoFuelRefreshController != null)
+            autoFuelRefreshController.setVisible(false);
         stopSpeedUpdates();
         if (engine != null) engine.onPause();
         super.onPause();
     }
     @Override protected void onStop() {
+        if (autoFuelRefreshController != null)
+            autoFuelRefreshController.setVisible(false);
         handler.removeCallbacks(musicRefresh);
         handler.removeCallbacks(expireFuelMarkers);
         if (fuelQuickSearch != null) fuelQuickSearch.cancel();
@@ -1695,6 +1750,8 @@ public final class IntegratedNavigationActivity extends Activity {
         super.onStop();
     }
     @Override protected void onDestroy() {
+        if (autoFuelRefreshController != null)
+            autoFuelRefreshController.shutdown();
         stopSpeedUpdates();
         handler.removeCallbacksAndMessages(null);
         if (placesAutocomplete != null) placesAutocomplete.reset();

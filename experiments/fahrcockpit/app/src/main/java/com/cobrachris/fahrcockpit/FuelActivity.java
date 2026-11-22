@@ -374,12 +374,21 @@ public final class FuelActivity extends Activity {
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
+                // Same persisted rate gate as the map's quick-price button.
+                // Every click is explicit; no background refresh is scheduled.
+                FuelRequestGate.Permit permit = FuelRequestGate.tryBegin(this);
+                if (!permit.allowed) {
+                    main.post(() -> fail(permit.explanation()));
+                    return;
+                }
                 connection = (HttpURLConnection) new URL(url).openConnection();
                 connection.setConnectTimeout(9000);
                 connection.setReadTimeout(9000);
                 connection.setRequestProperty("Accept", "application/json");
-                if (connection.getResponseCode() != 200)
-                    throw new IllegalStateException("HTTP " + connection.getResponseCode());
+                int httpStatus = connection.getResponseCode();
+                FuelRequestGate.reportHttp(this, httpStatus);
+                if (httpStatus != 200)
+                    throw new IllegalStateException("Tankerkönig HTTP-Fehler");
                 StringBuilder json = new StringBuilder();
                 try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
@@ -402,9 +411,10 @@ public final class FuelActivity extends Activity {
                     showStations(stations);
                 });
             } catch (Exception e) {
+                FuelRequestGate.reportTransportFailure(this);
                 // Don't log URLs, as they contain the private API key.
-                main.post(() -> fail("Preisabruf fehlgeschlagen. " +
-                    "Schlüssel, Internetverbindung und API-Freigabe prüfen."));
+                main.post(() -> fail("Preisabruf fehlgeschlagen oder API-Sperre aktiv. " +
+                    "Bitte später erneut versuchen."));
             } finally {
                 if (connection != null) connection.disconnect();
             }
