@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA,GOOGLE_V27_SOURCE_REF,GOOGLE_V27_APPROVED_SHA,GOOGLE_V28_SOURCE_REF,GOOGLE_V28_APPROVED_SHA,GOOGLE_V29_SOURCE_REF,GOOGLE_V29_APPROVED_SHA,GOOGLE_V31_SOURCE_REF,GOOGLE_V31_APPROVED_SHA,GOOGLE_V32_SOURCE_REF,GOOGLE_V32_APPROVED_SHA,GOOGLE_V33_SOURCE_REF,GOOGLE_V33_APPROVED_SHA,GOOGLE_V34_SOURCE_REF,GOOGLE_V34_APPROVED_SHA,GOOGLE_V35_SOURCE_REF,GOOGLE_V35_APPROVED_SHA}
+import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA,GOOGLE_V27_SOURCE_REF,GOOGLE_V27_APPROVED_SHA,GOOGLE_V28_SOURCE_REF,GOOGLE_V28_APPROVED_SHA,GOOGLE_V29_SOURCE_REF,GOOGLE_V29_APPROVED_SHA,GOOGLE_V31_SOURCE_REF,GOOGLE_V31_APPROVED_SHA,GOOGLE_V32_SOURCE_REF,GOOGLE_V32_APPROVED_SHA,GOOGLE_V33_SOURCE_REF,GOOGLE_V33_APPROVED_SHA,GOOGLE_V34_SOURCE_REF,GOOGLE_V34_APPROVED_SHA,GOOGLE_V35_SOURCE_REF,GOOGLE_V35_APPROVED_SHA,GOOGLE_V36_SOURCE_REF,GOOGLE_V36_APPROVED_SHA}
   from '../scripts/fahrcockpit-release-request.mjs';
 const sha='e6da2f64b027848d001b0f8f6158c5d5768171b0';
 const request={schema:1,intent:'fahrcockpit-signed-beta',request_id:'2026-11-07-signed-fahr',
@@ -449,4 +449,26 @@ test('v35 complete UX, verified in-app updater and overflow menu require exact s
   assert.throws(()=>validateRequest({...request35,variant:'google-places-activated'}));
   assert.throws(()=>validateRequest({...request35,extra:true}));
   assert.throws(()=>validateRequest({...request35,schema:1}));
+});
+
+
+test('v36 gated price cache release requires exact pinned Google-only source, auto API remains off',()=>{
+  const pinned='0ed2862aa7379f8aaccc86d99ce288627ecaf877';
+  const request36={schema:2,intent:'fahrcockpit-signed-beta',
+    request_id:'2026-11-22-fahrcockpit-v36-fuel-guard-offline-no-auto',
+    source_sha:pinned,expected_version_code:36,variant:'google-sdk-only'};
+  assert.equal(GOOGLE_V36_APPROVED_SHA,pinned);
+  assert.equal(GOOGLE_V36_SOURCE_REF,'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe');
+  assert.deepEqual(validateRequest(request36),{sha:pinned,code:36,variant:'google-sdk-only'});
+  assert.equal(sourceRefFor('google-sdk-only',36),GOOGLE_V36_SOURCE_REF);
+  assert.doesNotThrow(()=>validateSource(pinned,pinned+'\t'+GOOGLE_V36_SOURCE_REF+'\n','google-sdk-only',36));
+  assert.throws(()=>validateSource(pinned,'0'.repeat(40)+'\t'+GOOGLE_V36_SOURCE_REF+'\n','google-sdk-only',36));
+  assert.throws(()=>validateRequest({...request36,source_sha:'0'.repeat(40)}));
+  assert.throws(()=>validateRequest({...request36,request_id:'2026-11-22-fahrcockpit-v36-unreviewed'}));
+  assert.throws(()=>validateRequest({...request36,expected_version_code:37}));
+  assert.throws(()=>validateRequest({...request36,expected_version_code:30}));
+  assert.throws(()=>validateRequest({...request36,variant:'google-osm-integrated'}));
+  assert.throws(()=>validateRequest({...request36,variant:'google-places-activated'}));
+  assert.throws(()=>validateRequest({...request36,extra:true}));
+  assert.throws(()=>validateRequest({...request36,schema:1}));
 });
