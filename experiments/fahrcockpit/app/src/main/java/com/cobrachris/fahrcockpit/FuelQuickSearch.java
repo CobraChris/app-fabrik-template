@@ -150,7 +150,7 @@ final class FuelQuickSearch {
                     main.post(() -> {
                         if (token != generation || !searching
                                 || host.isFinishing() || host.isDestroyed()) return;
-                        FuelMapSnapshot.Snapshot cache = FuelMapSnapshot.read(host);
+                        FuelMapSnapshot.Snapshot cache = FuelMapSnapshot.readForDisplay(host);
                         if (!cache.stations.isEmpty() && type.equals(cache.type)) {
                             searching = false;
                             callback.onSuccess(cache); // Reuse data; do NOT retry the API.
