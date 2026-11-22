@@ -32,6 +32,10 @@ final class GoogleFuelPriceMarkers {
         clear();
         map = active;
         if (active == null || snapshot == null || snapshot.stations.isEmpty()) return;
+        boolean stale = FuelMapSnapshot.isStale(snapshot, System.currentTimeMillis());
+        String checked = java.text.DateFormat.getDateTimeInstance(
+            java.text.DateFormat.SHORT, java.text.DateFormat.SHORT,
+            java.util.Locale.GERMANY).format(new java.util.Date(snapshot.fetchedAt));
         double min = Double.POSITIVE_INFINITY;
         double max = Double.NEGATIVE_INFINITY;
         for (FuelMapSnapshot.Station s : snapshot.stations) {
@@ -39,15 +43,17 @@ final class GoogleFuelPriceMarkers {
             max = Math.max(max, s.price);
         }
         for (FuelMapSnapshot.Station s : snapshot.stations) {
-            int color = tierColor(s, min, max);
+            int color = stale ? Color.rgb(117, 122, 133) : tierColor(s, min, max);
             try {
                 Marker marker = active.addMarker(new MarkerOptions()
                     .position(new LatLng(s.lat, s.lng))
                     .title(s.name)
-                    .snippet(s.priceLabel() + "/l · " + snapshot.type.toUpperCase(
+                    .snippet((stale ? "VERALTETER PREIS · " : "Preisstand ") + checked
+                        + " · " + s.priceLabel() + "/l · " + snapshot.type.toUpperCase(
                         java.util.Locale.GERMANY) + " · " + s.address
                         + "\nTippen: als Navigationsziel auswählen")
-                    .icon(BitmapDescriptorFactory.fromBitmap(priceBitmap(s.priceLabel(), color)))
+                    .icon(BitmapDescriptorFactory.fromBitmap(
+                        priceBitmap(s.priceLabel(), color, stale)))
                     .anchor(0.5f, 1.0f)
                     .zIndex(9.0f));
                 if (marker != null) {
@@ -79,7 +85,7 @@ final class GoogleFuelPriceMarkers {
         return Color.rgb(171, 67, 56);
     }
 
-    private Bitmap priceBitmap(String label, int color) {
+    private Bitmap priceBitmap(String label, int color, boolean stale) {
         float d = context.getResources().getDisplayMetrics().density;
         int width = Math.max(1, Math.round(91 * d));
         int height = Math.max(1, Math.round(37 * d));
@@ -100,6 +106,13 @@ final class GoogleFuelPriceMarkers {
         Paint.FontMetrics fm = paint.getFontMetrics();
         float baseline = (height - 5*d)/2f - (fm.ascent + fm.descent)/2f;
         canvas.drawText(label, (width - paint.measureText(label))/2f, baseline, paint);
+        if (stale) {
+            // Visible monochrome warning; never present a cached old
+            // price as a current live quotation on the map.
+            paint.setTextSize(8*d);
+            paint.setColor(Color.rgb(105, 109, 120));
+            canvas.drawText("ALT", 8*d, 9*d, paint);
+        }
         return bitmap;
     }
 
