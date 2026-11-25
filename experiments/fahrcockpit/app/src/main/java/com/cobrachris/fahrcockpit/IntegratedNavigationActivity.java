@@ -1525,9 +1525,13 @@ public final class IntegratedNavigationActivity extends Activity {
     private void showCompactEta(int seconds, int meters) {
         // The full native ETA always stays visible in portrait, or when
         // guidance/data is unavailable. Avoid silently losing arrival data.
-        if (!landscapeCockpit || !navigationGuidanceActive || compactEtaView == null
-                || seconds < 0 || seconds > 7 * 24 * 3600
-                || meters < 0 || meters > 2_000_000) return;
+        if (!landscapeCockpit || !navigationGuidanceActive || compactEtaView == null)
+            return;
+        if (seconds < 0 || seconds > 7 * 24 * 3600
+                || meters < 0 || meters > 2_000_000) {
+            hideCompactEta(); // Fall back to Google instead of stale local ETA.
+            return;
+        }
         java.text.DateFormat time = java.text.DateFormat.getTimeInstance(
             java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
         String arrival = time.format(new java.util.Date(
