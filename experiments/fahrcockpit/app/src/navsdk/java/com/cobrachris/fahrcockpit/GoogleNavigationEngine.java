@@ -25,6 +25,7 @@ public final class GoogleNavigationEngine implements NavigationEngine {
     private GoogleFuelPriceMarkers priceMarkers;
     private int fuelMarkerGeneration;
     private Navigator navigator;
+    private Navigator.ArrivalListener arrivalListener;
     private Status status = value -> {};
     private boolean startedRoute;
     private boolean calculating;
@@ -69,6 +70,15 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             @Override public void onNavigatorReady(Navigator result) {
                 if (closed || host.isFinishing() || host.isDestroyed()) return;
                 navigator = result;
+                // Listen only to the final destination. This is a passive
+                // SDK event; do not stop/restart guidance or issue route calls.
+                if (arrivalListener != null)
+                    navigator.removeArrivalListener(arrivalListener);
+                arrivalListener = event -> {
+                    if (!closed && startedRoute && event.isFinalDestination())
+                        status.onFinalDestinationArrived();
+                };
+                navigator.addArrivalListener(arrivalListener);
                 // Navigator is a singleton and may still guide after rotation.
                 startedRoute = navigator.isGuidanceRunning();
                 status.onGuidanceStateChanged(startedRoute);
@@ -247,6 +257,10 @@ public final class GoogleNavigationEngine implements NavigationEngine {
     @Override public void onPause() {if (map != null) map.onPause();}
     @Override public void onStop() {if (map != null) map.onStop();}
     @Override public void onDestroy(boolean activityFinishing) {
+        if (navigator != null && arrivalListener != null) {
+            navigator.removeArrivalListener(arrivalListener);
+            arrivalListener = null;
+        }
         closed = true;
         ++fuelMarkerGeneration;
         if (priceMarkers != null) priceMarkers.clear();
