@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA,GOOGLE_V27_SOURCE_REF,GOOGLE_V27_APPROVED_SHA,GOOGLE_V28_SOURCE_REF,GOOGLE_V28_APPROVED_SHA,GOOGLE_V29_SOURCE_REF,GOOGLE_V29_APPROVED_SHA,GOOGLE_V31_SOURCE_REF,GOOGLE_V31_APPROVED_SHA,GOOGLE_V32_SOURCE_REF,GOOGLE_V32_APPROVED_SHA,GOOGLE_V33_SOURCE_REF,GOOGLE_V33_APPROVED_SHA,GOOGLE_V34_SOURCE_REF,GOOGLE_V34_APPROVED_SHA,GOOGLE_V35_SOURCE_REF,GOOGLE_V35_APPROVED_SHA,GOOGLE_V36_SOURCE_REF,GOOGLE_V36_APPROVED_SHA}
+import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA,GOOGLE_V27_SOURCE_REF,GOOGLE_V27_APPROVED_SHA,GOOGLE_V28_SOURCE_REF,GOOGLE_V28_APPROVED_SHA,GOOGLE_V29_SOURCE_REF,GOOGLE_V29_APPROVED_SHA,GOOGLE_V31_SOURCE_REF,GOOGLE_V31_APPROVED_SHA,GOOGLE_V32_SOURCE_REF,GOOGLE_V32_APPROVED_SHA,GOOGLE_V33_SOURCE_REF,GOOGLE_V33_APPROVED_SHA,GOOGLE_V34_SOURCE_REF,GOOGLE_V34_APPROVED_SHA,GOOGLE_V35_SOURCE_REF,GOOGLE_V35_APPROVED_SHA,GOOGLE_V36_SOURCE_REF,GOOGLE_V36_APPROVED_SHA,GOOGLE_V37_SOURCE_REF,GOOGLE_V37_APPROVED_SHA}
   from '../scripts/fahrcockpit-release-request.mjs';
 const sha='e6da2f64b027848d001b0f8f6158c5d5768171b0';
 const request={schema:1,intent:'fahrcockpit-signed-beta',request_id:'2026-11-07-signed-fahr',
@@ -471,4 +471,35 @@ test('v36 gated price cache release requires exact pinned Google-only source, au
   assert.throws(()=>validateRequest({...request36,variant:'google-places-activated'}));
   assert.throws(()=>validateRequest({...request36,extra:true}));
   assert.throws(()=>validateRequest({...request36,schema:1}));
+});
+
+
+test('v37 parking and enlarged Saphe alert release uses exact Google-only approved source',()=>{
+  const pinned='14ee53d42f8a3602287f6c327e3121f14fb606b9';
+  const request37={schema:2,intent:'fahrcockpit-signed-beta',
+    request_id:'2026-11-25-fahrcockpit-v37-parking-saphe-large-safety',
+    source_sha:pinned,expected_version_code:37,variant:'google-sdk-only'};
+  assert.equal(GOOGLE_V37_APPROVED_SHA,pinned);
+  assert.equal(GOOGLE_V37_SOURCE_REF,
+    'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe');
+  assert.deepEqual(validateRequest(request37),
+    {sha:pinned,code:37,variant:'google-sdk-only'});
+  assert.equal(sourceRefFor('google-sdk-only',37),GOOGLE_V37_SOURCE_REF);
+  assert.doesNotThrow(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V37_SOURCE_REF+'\n','google-sdk-only',37));
+  assert.throws(()=>validateSource(pinned,
+    '0'.repeat(40)+'\t'+GOOGLE_V37_SOURCE_REF+'\n','google-sdk-only',37));
+  assert.throws(()=>validateSource(pinned,
+    pinned+'\trefs/heads/feature/fahrcockpit-v37-parking-large-saphe-alert\n',
+    'google-sdk-only',37));
+  assert.throws(()=>validateRequest({...request37,source_sha:'0'.repeat(40)}));
+  assert.throws(()=>validateRequest({...request37,request_id:
+    '2026-11-25-fahrcockpit-v37-unreviewed'}));
+  assert.throws(()=>validateRequest({...request37,expected_version_code:38}));
+  assert.throws(()=>validateRequest({...request37,expected_version_code:30}));
+  assert.throws(()=>validateRequest({...request37,variant:'legacy'}));
+  assert.throws(()=>validateRequest({...request37,variant:'google-osm-integrated'}));
+  assert.throws(()=>validateRequest({...request37,variant:'google-places-activated'}));
+  assert.throws(()=>validateRequest({...request37,extra:true}));
+  assert.throws(()=>validateRequest({...request37,schema:1}));
 });
