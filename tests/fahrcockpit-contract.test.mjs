@@ -1423,6 +1423,7 @@ test('v38 landscape ETA replaces only bottom Google card, preserving all turn gu
   assert.match(cockpit,/compactEtaView\.setVisibility\(View\.VISIBLE\)/);
   assert.match(cockpit,/engine\.setNativeEtaVisible\(false\)/);
   assert.match(cockpit,/private void hideCompactEta\(\)/);
+  assert.match(cockpit,/hideCompactEta\(\); \/\/ Fall back to Google instead of stale local ETA/);
   assert.match(cockpit,/engine\.setNativeEtaVisible\(true\)/);
   assert.match(cockpit,/new LinearLayout\.LayoutParams\(-1, -2\)/);
   assert.match(nav,/onRouteProgress\(int remainingSeconds, int remainingMeters\)/);
@@ -1431,6 +1432,7 @@ test('v38 landscape ETA replaces only bottom Google card, preserving all turn gu
   assert.match(google,/navigator\.removeRemainingTimeOrDistanceChangedListener\(/);
   assert.match(google,/navigator\.getCurrentTimeAndDistance\(\)/);
   assert.match(google,/notifyRemainingProgress\(\)/);
+  assert.match(google,/status\.onRouteProgress\(-1, -1\)/);
   assert.doesNotMatch(google,/setHeaderEnabled\(false\)|setNavigationUiEnabled\(false\)/);
   assert.doesNotMatch(google,/setDestination\([^;]*onRemainingTimeOrDistanceChanged/);
 });
