@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-25-fahrcockpit-v37-parking-saphe-large-safety",
-  "source_sha": "14ee53d42f8a3602287f6c327e3121f14fb606b9",
-  "expected_version_code": 37,
+  "request_id": "2026-11-25-fahrcockpit-v38-compact-landscape-eta",
+  "source_sha": "fef22d8ed7fda86262a0efa47ffca9fd072b075f",
+  "expected_version_code": 38,
   "variant": "google-sdk-only"
 }
