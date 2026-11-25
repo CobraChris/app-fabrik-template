@@ -217,7 +217,7 @@ public final class IntegratedNavigationActivity extends Activity {
                             if (!active && wasActive) {
                                 ParkingTripTracker.Spot spot =
                                     parkingTrip.finish(SystemClock.elapsedRealtime());
-                                if (spot != null && ParkingLocationStore.save(this, spot, true))
+                                if (spot != null && ParkingLocationStore.save(IntegratedNavigationActivity.this, spot, true))
                                     showStatus("Parkplatz nach Fahrtende automatisch gemerkt.");
                             }
                             if (autoFuelRefreshController != null)
