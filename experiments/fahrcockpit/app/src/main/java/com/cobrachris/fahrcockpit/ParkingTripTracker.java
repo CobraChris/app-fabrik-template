@@ -63,7 +63,9 @@ final class ParkingTripTracker {
     Spot takeArrivedParking(long elapsedMs) {
         if (!active || arrivalAt <= 0L || elapsedMs < arrivalAt
             || elapsedMs - arrivalAt > 180_000L || lastSpeed > 1.2f
-            || !fresh(elapsedMs, 20_000L, 50f)) return null;
+            || !fresh(elapsedMs, 20_000L, 50f)
+            || elapsedMs - startedAt < 60_000L
+            || distanceMeters < 350d || movingFixes < 5) return null;
         return finish(elapsedMs);
     }
 
