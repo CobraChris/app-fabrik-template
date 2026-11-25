@@ -1386,3 +1386,21 @@ test('v37 safety notification is visibly enlarged without falsely claiming speed
   assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
   assert.doesNotMatch(cockpit,/Saphe verbunden|Blitzer erkannt/);
 });
+
+
+test('v37 official Google arrival event arms parking without altering routing or launching billable calls',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const nav=java('NavigationEngine');
+  const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  const parking=java('ParkingTripTracker');
+  assert.match(nav,/default void onFinalDestinationArrived\(\) \{\}/);
+  assert.match(google,/navigator\.addArrivalListener\(arrivalListener\)/);
+  assert.match(google,/event\.isFinalDestination\(\)/);
+  assert.match(google,/status\.onFinalDestinationArrived\(\)/);
+  assert.match(google,/navigator\.removeArrivalListener\(arrivalListener\)/);
+  assert.match(cockpit,/parkingTrip\.onFinalArrival\(SystemClock\.elapsedRealtime\(\)\)/);
+  assert.match(cockpit,/parkingTrip\.takeArrivedParking\(/);
+  assert.match(parking,/elapsedMs - arrivalAt > 180_000L/);
+  assert.match(parking,/lastSpeed > 1\.2f/);
+  assert.doesNotMatch(google,/onArrival.*\bsetDestination\b/);
+});
