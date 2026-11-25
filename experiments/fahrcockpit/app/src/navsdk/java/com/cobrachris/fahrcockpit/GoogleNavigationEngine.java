@@ -10,6 +10,7 @@ import com.google.android.libraries.navigation.NavigationApi;
 import com.google.android.libraries.navigation.NavigationView;
 import com.google.android.libraries.navigation.Navigator;
 import com.google.android.libraries.navigation.RoutingOptions;
+import com.google.android.libraries.navigation.TimeAndDistance;
 import com.google.android.libraries.navigation.Waypoint;
 
 /**
@@ -26,6 +27,7 @@ public final class GoogleNavigationEngine implements NavigationEngine {
     private int fuelMarkerGeneration;
     private Navigator navigator;
     private Navigator.ArrivalListener arrivalListener;
+    private Navigator.RemainingTimeOrDistanceChangedListener progressListener;
     private Status status = value -> {};
     private boolean startedRoute;
     private boolean calculating;
@@ -79,9 +81,17 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                         status.onFinalDestinationArrived();
                 };
                 navigator.addArrivalListener(arrivalListener);
+                // Passive arrival estimates, event-driven: no additional
+                // setDestination(), poller, billing API or route requests.
+                if (progressListener != null)
+                    navigator.removeRemainingTimeOrDistanceChangedListener(progressListener);
+                progressListener = GoogleNavigationEngine.this::notifyRemainingProgress;
+                navigator.addRemainingTimeOrDistanceChangedListener(
+                    30, 100, progressListener);
                 // Navigator is a singleton and may still guide after rotation.
                 startedRoute = navigator.isGuidanceRunning();
                 status.onGuidanceStateChanged(startedRoute);
+                if (startedRoute) notifyRemainingProgress();
                 applyAudioPreference();
                 map.getMapAsync(googleMap -> {
                     if (host.checkSelfPermission(
@@ -178,6 +188,7 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                 navigator.startGuidance();
                 startedRoute = true;
                 status.onGuidanceStateChanged(true);
+                notifyRemainingProgress();
                 status.onStatus("Echte Google-Abbiegenavigation in FahrCockpit aktiv.");
             } else {
                 startedRoute = navigator.isGuidanceRunning();
@@ -200,6 +211,18 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             status.onGoogleFailure(
                 NavigationProviderPolicy.Failure.GOOGLE_SERVICE_UNAVAILABLE);
         }
+    }
+
+    private void notifyRemainingProgress() {
+        if (closed || !startedRoute || navigator == null) return;
+        TimeAndDistance estimate = navigator.getCurrentTimeAndDistance();
+        if (estimate != null && estimate.getSeconds() >= 0
+                && estimate.getMeters() >= 0)
+            status.onRouteProgress(estimate.getSeconds(), estimate.getMeters());
+    }
+
+    @Override public void setNativeEtaVisible(boolean visible) {
+        if (map != null && !closed) map.setEtaCardEnabled(visible);
     }
 
     private void applyAudioPreference() {
@@ -252,11 +275,16 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         if (navigator != null && !closed) {
             startedRoute = navigator.isGuidanceRunning();
             status.onGuidanceStateChanged(startedRoute);
+            if (startedRoute) notifyRemainingProgress();
         }
     }
     @Override public void onPause() {if (map != null) map.onPause();}
     @Override public void onStop() {if (map != null) map.onStop();}
     @Override public void onDestroy(boolean activityFinishing) {
+        if (navigator != null && progressListener != null) {
+            navigator.removeRemainingTimeOrDistanceChangedListener(progressListener);
+            progressListener = null;
+        }
         if (navigator != null && arrivalListener != null) {
             navigator.removeArrivalListener(arrivalListener);
             arrivalListener = null;
