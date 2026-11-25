@@ -208,6 +208,12 @@ public final class IntegratedNavigationActivity extends Activity {
                             NavigationProviderPolicy.Failure reason) {
                         runOnUiThread(() -> showProviderFailure(reason));
                     }
+                    @Override public void onFinalDestinationArrived() {
+                        runOnUiThread(() -> {
+                            parkingTrip.onFinalArrival(SystemClock.elapsedRealtime());
+                            trySaveArrivedParking();
+                        });
+                    }
                     @Override public void onGuidanceStateChanged(boolean active) {
                         runOnUiThread(() -> {
                             boolean wasActive = navigationGuidanceActive;
@@ -821,6 +827,7 @@ public final class IntegratedNavigationActivity extends Activity {
                 && location.getSpeedAccuracyMetersPerSecond() > 8f) return;
         parkingTrip.observe(SystemClock.elapsedRealtime(), location.getLatitude(),
             location.getLongitude(), location.getAccuracy(), metersPerSecond);
+        trySaveArrivedParking();
         if (navigationGuidanceActive) return; // Google's single native speedometer.
         int kph = Math.round(metersPerSecond * 3.6f);
         currentSpeedView.setText("GPS " + kph + " km/h");
@@ -1518,6 +1525,13 @@ public final class IntegratedNavigationActivity extends Activity {
         } else {
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+    }
+
+    private void trySaveArrivedParking() {
+        ParkingTripTracker.Spot spot = parkingTrip.takeArrivedParking(
+            SystemClock.elapsedRealtime());
+        if (spot != null && ParkingLocationStore.save(this, spot, true))
+            showStatus("Parkplatz bei Ankunft automatisch gemerkt.");
     }
 
     private void saveParkingManually() {
