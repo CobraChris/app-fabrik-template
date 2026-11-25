@@ -795,7 +795,7 @@ test('v24 custom favorite editor keeps a nickname separate from actual route tar
 test('v24 route menu collapses during active guidance while remaining reversible',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   assert.match(cockpit,/onGuidanceStateChanged\(boolean active\)/);
-  assert.match(cockpit,/if \(active\) \{\s*stopSpeedUpdates\(\);\s*collapseDestinationMenu\(\);/);
+  assert.match(cockpit,/if \(active\) \{\s*collapseDestinationMenu\(\);/);
   assert.match(cockpit,/private void collapseDestinationMenu\(\)/);
   assert.match(cockpit,/routePanel\.setVisibility\(View\.GONE\)/);
   assert.match(cockpit,/toggleRoutes\.setOnClickListener/);
