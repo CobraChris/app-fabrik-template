@@ -78,6 +78,8 @@ public final class IntegratedNavigationActivity extends Activity {
     private TextView sapheBanner;
     private TextView safetyEventStatus;
     private TextView currentSpeedView;
+    private TextView compactEtaView;
+    private boolean landscapeCockpit;
     private boolean navigationGuidanceActive;
     private boolean cockpitResumed;
     private final ParkingTripTracker parkingTrip = new ParkingTripTracker();
@@ -147,6 +149,7 @@ public final class IntegratedNavigationActivity extends Activity {
 
         boolean landscape = getResources().getConfiguration().orientation
             == Configuration.ORIENTATION_LANDSCAPE;
+        landscapeCockpit = landscape;
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(landscape
             ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
@@ -214,10 +217,14 @@ public final class IntegratedNavigationActivity extends Activity {
                             trySaveArrivedParking();
                         });
                     }
+                    @Override public void onRouteProgress(int seconds, int meters) {
+                        runOnUiThread(() -> showCompactEta(seconds, meters));
+                    }
                     @Override public void onGuidanceStateChanged(boolean active) {
                         runOnUiThread(() -> {
                             boolean wasActive = navigationGuidanceActive;
                             navigationGuidanceActive = active;
+                            if (!active) hideCompactEta();
                             if (active && !wasActive)
                                 parkingTrip.start(SystemClock.elapsedRealtime());
                             if (!active && wasActive) {
@@ -331,6 +338,16 @@ public final class IntegratedNavigationActivity extends Activity {
         tools.addView(optionsButton, optionsParams);
         cockpitPane.addView(tools, 1,
             new LinearLayout.LayoutParams(-1, Ui.dp(this, 48)));
+        // Persistent compact ETA lives only in the existing Spotify-side
+        // panel. It never overlays the route and adds no map width/height.
+        compactEtaView = Ui.text(this, "", 12, Ui.FG, true);
+        compactEtaView.setPadding(Ui.dp(this, 10), Ui.dp(this, 3),
+            Ui.dp(this, 10), Ui.dp(this, 3));
+        compactEtaView.setMaxLines(2);
+        compactEtaView.setVisibility(View.GONE);
+        compactEtaView.setContentDescription("Ankunftszeit noch nicht verfügbar");
+        cockpitPane.addView(compactEtaView, 2,
+            new LinearLayout.LayoutParams(-1, -2));
         optionsButton.setOnClickListener(v -> {
             PopupMenu options = new PopupMenu(this, optionsButton);
             if (landscape) {
@@ -1503,6 +1520,39 @@ public final class IntegratedNavigationActivity extends Activity {
             ? "Navigationsansagen aus. Zum Einschalten tippen."
             : "Navigationsansagen an. Zum Ausschalten tippen.");
         voiceButton.setSelected(muted);
+    }
+
+    private void showCompactEta(int seconds, int meters) {
+        // The full native ETA always stays visible in portrait, or when
+        // guidance/data is unavailable. Avoid silently losing arrival data.
+        if (!landscapeCockpit || !navigationGuidanceActive || compactEtaView == null)
+            return;
+        if (seconds < 0 || seconds > 7 * 24 * 3600
+                || meters < 0 || meters > 2_000_000) {
+            hideCompactEta(); // Fall back to Google instead of stale local ETA.
+            return;
+        }
+        java.text.DateFormat time = java.text.DateFormat.getTimeInstance(
+            java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
+        String arrival = time.format(new java.util.Date(
+            System.currentTimeMillis() + seconds * 1000L));
+        int minutes = Math.max(1, (seconds + 59) / 60);
+        String distance = meters < 1000 ? meters + " m"
+            : String.format(java.util.Locale.GERMANY, "%.1f km", meters / 1000.0);
+        String summary = "Ank. " + arrival + " · " + minutes
+            + " min · " + distance;
+        compactEtaView.setText(summary);
+        compactEtaView.setContentDescription("Voraussichtliche Ankunft "
+            + arrival + ", " + minutes + " Minuten, " + distance);
+        compactEtaView.setVisibility(View.VISIBLE);
+        // Only suppress Google's large map-bottom card once its complete
+        // essential information is visibly represented in this panel.
+        if (engine != null) engine.setNativeEtaVisible(false);
+    }
+
+    private void hideCompactEta() {
+        if (compactEtaView != null) compactEtaView.setVisibility(View.GONE);
+        if (engine != null) engine.setNativeEtaVisible(true);
     }
 
     private void collapseDestinationMenu() {

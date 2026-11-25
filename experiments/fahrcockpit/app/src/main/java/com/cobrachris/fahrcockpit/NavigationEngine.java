@@ -17,6 +17,8 @@ interface NavigationEngine {
         default void onGuidanceStateChanged(boolean active) {}
         /** Final arrival only; reporting does not stop, reroute or bill navigation. */
         default void onFinalDestinationArrived() {}
+        /** Passive SDK ETA, never a separate billable route request. */
+        default void onRouteProgress(int remainingSeconds, int remainingMeters) {}
     }
 
     boolean configured();
@@ -27,6 +29,8 @@ interface NavigationEngine {
     void stopGuidanceAndClearRoute();
     /** Explicit user preference; does not start or alter a route. */
     default void setVoiceMuted(boolean muted) {}
+    /** Show native ETA whenever the compact landscape value cannot be rendered. */
+    default void setNativeEtaVisible(boolean visible) {}
     /** Display only previously user-requested, locally cached fuel prices. */
     interface FuelMarkerSelection {
         void onStationSelected(FuelMapSnapshot.Station station);
