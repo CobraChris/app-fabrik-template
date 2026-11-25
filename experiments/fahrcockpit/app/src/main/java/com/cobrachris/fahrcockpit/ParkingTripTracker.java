@@ -15,7 +15,7 @@ final class ParkingTripTracker {
     }
 
     private boolean active;
-    private long startedAt, lastFixAt;
+    private long startedAt, lastFixAt, arrivalAt;
     private double lastLat, lastLng, distanceMeters;
     private float lastSpeed, lastAccuracy;
     private int movingFixes;
@@ -25,6 +25,7 @@ final class ParkingTripTracker {
         active = true;
         startedAt = elapsedMs;
         lastFixAt = 0L;
+        arrivalAt = 0L;
         distanceMeters = 0d;
         movingFixes = 0;
         hasFix = false;
@@ -51,6 +52,19 @@ final class ParkingTripTracker {
         lastAccuracy = accuracy;
         lastSpeed = speed;
         hasFix = true;
+    }
+
+    /** Final destination reported by the official Navigation SDK, not a nearby waypoint. */
+    void onFinalArrival(long elapsedMs) {
+        if (active && elapsedMs >= startedAt) arrivalAt = elapsedMs;
+    }
+
+    /** Save only after arrival AND a later accurate standstill, never while moving. */
+    Spot takeArrivedParking(long elapsedMs) {
+        if (!active || arrivalAt <= 0L || elapsedMs < arrivalAt
+            || elapsedMs - arrivalAt > 180_000L || lastSpeed > 1.2f
+            || !fresh(elapsedMs, 20_000L, 50f)) return null;
+        return finish(elapsedMs);
     }
 
     Spot manualFix(long elapsedMs) {
