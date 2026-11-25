@@ -54,7 +54,7 @@ public final class ParkingTripTrackerTest {
         t.start(1_000L);
         for (int i = 0; i <= 5; i++) {
             t.observe(6_000L + 10_000L * i,
-                53.55, 10.0014d * i, 12f, 8f);
+                53.55, 10d + 0.0014d * i, 12f, 8f);
         }
         return t;
     }
