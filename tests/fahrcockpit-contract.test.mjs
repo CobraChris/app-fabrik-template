@@ -1362,7 +1362,7 @@ test('v37 parking stores only the last local coordinate and uses walking Google 
   assert.match(cockpit,/cockpitResumed = false/);
   assert.match(cockpit,/parkingTrip\.observe\(SystemClock\.elapsedRealtime\(\)/);
   assert.match(cockpit,/parkingTrip\.finish\(SystemClock\.elapsedRealtime\(\)\)/);
-  assert.match(cockpit,/ParkingLocationStore\.save\(this, spot, true\)/);
+  assert.match(cockpit,/ParkingLocationStore\.save\(IntegratedNavigationActivity\.this, spot, true\)/);
   assert.match(cockpit,/ParkingLocationStore\.save\(this, spot, false\)/);
   assert.match(cockpit,/MENU_PARKING_SHOW/);
   assert.match(cockpit,/MENU_PARKING_SAVE/);
