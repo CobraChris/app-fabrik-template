@@ -1076,7 +1076,7 @@ test('v34 only shows native Google speedometer during guidance and GPS fallback 
   assert.match(cockpit,/currentSpeedView\.setVisibility\(\s*active \? View\.GONE : View\.VISIBLE\)/);
   assert.match(cockpit,/if \(active\) \{\s*collapseDestinationMenu\(\);/);
   assert.match(cockpit,/startSpeedUpdates\(\);/);
-  assert.match(cockpit,/if \(currentSpeedView == null \|\| speedLocationListener != null\) return/);
+  assert.match(cockpit,/if \(!cockpitResumed \|\| currentSpeedView == null \|\| speedLocationListener != null\) return/);
   assert.match(cockpit,/stopSpeedUpdates\(\)/);
   assert.match(cockpit,/showUnknownSpeed\(\)/);
 });
@@ -1358,6 +1358,8 @@ test('v37 parking stores only the last local coordinate and uses walking Google 
   assert.match(gradle,/versionCode 37/);
   assert.match(gradle,/versionName '0\.9\.35-beta'/);
   assert.match(cockpit,/parkingTrip\.start\(SystemClock\.elapsedRealtime\(\)\)/);
+  assert.match(cockpit,/cockpitResumed = true/);
+  assert.match(cockpit,/cockpitResumed = false/);
   assert.match(cockpit,/parkingTrip\.observe\(SystemClock\.elapsedRealtime\(\)/);
   assert.match(cockpit,/parkingTrip\.finish\(SystemClock\.elapsedRealtime\(\)\)/);
   assert.match(cockpit,/ParkingLocationStore\.save\(this, spot, true\)/);
