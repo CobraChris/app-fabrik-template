@@ -219,6 +219,8 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         if (estimate != null && estimate.getSeconds() >= 0
                 && estimate.getMeters() >= 0)
             status.onRouteProgress(estimate.getSeconds(), estimate.getMeters());
+        else
+            status.onRouteProgress(-1, -1); // Restore native ETA; never show stale data.
     }
 
     @Override public void setNativeEtaVisible(boolean visible) {
