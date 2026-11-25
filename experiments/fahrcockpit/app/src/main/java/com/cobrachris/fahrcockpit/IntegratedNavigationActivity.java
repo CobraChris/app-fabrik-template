@@ -79,6 +79,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private TextView safetyEventStatus;
     private TextView currentSpeedView;
     private boolean navigationGuidanceActive;
+    private boolean cockpitResumed;
     private final ParkingTripTracker parkingTrip = new ParkingTripTracker();
     private LocationManager speedLocationManager;
     private LocationListener speedLocationListener;
@@ -830,7 +831,7 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void startSpeedUpdates() {
-        if (currentSpeedView == null || speedLocationListener != null) return;
+        if (!cockpitResumed || currentSpeedView == null || speedLocationListener != null) return;
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             showUnknownSpeed();
@@ -1813,6 +1814,7 @@ public final class IntegratedNavigationActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
+        cockpitResumed = true;
         startSpeedUpdates();
         if (autoFuelRefreshController != null)
             autoFuelRefreshController.setVisible(true);
@@ -1827,6 +1829,7 @@ public final class IntegratedNavigationActivity extends Activity {
         if (autoFuelRefreshController != null)
             autoFuelRefreshController.setVisible(false);
         stopSpeedUpdates();
+        cockpitResumed = false;
         if (engine != null) engine.onPause();
         super.onPause();
     }
