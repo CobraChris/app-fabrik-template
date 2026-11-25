@@ -49,6 +49,28 @@ public final class ParkingTripTrackerTest {
         assertNull(t.finish(160_000L));
     }
 
+    @Test public void finalArrivalAutomaticallySavesWhenVehicleStops() {
+        ParkingTripTracker t = movingTrip();
+        t.onFinalArrival(60_000L);
+        assertNull(t.takeArrivedParking(61_000L)); // Still driving.
+        t.observe(76_000L, 53.55, 10.007, 12f, 0.2f);
+        assertNotNull(t.takeArrivedParking(79_000L));
+        assertNull(t.takeArrivedParking(80_000L)); // Exactly once.
+    }
+
+    @Test public void arrivalAloneNeverSavesWhileDriving() {
+        ParkingTripTracker t = movingTrip();
+        t.onFinalArrival(60_000L);
+        assertNull(t.takeArrivedParking(65_000L));
+    }
+
+    @Test public void expiredArrivalDoesNotPersistAnUnrelatedLaterStop() {
+        ParkingTripTracker t = movingTrip();
+        t.onFinalArrival(60_000L);
+        t.observe(250_000L, 53.55, 10.007, 12f, 0.2f);
+        assertNull(t.takeArrivedParking(251_000L));
+    }
+
     private static ParkingTripTracker movingTrip() {
         ParkingTripTracker t = new ParkingTripTracker();
         t.start(1_000L);
