@@ -15,6 +15,8 @@ interface NavigationEngine {
         default void onGoogleFailure(NavigationProviderPolicy.Failure reason) {}
         /** Active guidance affects the host window's keep-awake flag. */
         default void onGuidanceStateChanged(boolean active) {}
+        /** Final arrival only; reporting does not stop, reroute or bill navigation. */
+        default void onFinalDestinationArrived() {}
     }
 
     boolean configured();

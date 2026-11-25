@@ -47,8 +47,8 @@ android {
                 ? 'FahrCockpit' : 'FahrCockpit (Test)')]
         minSdk 30
         targetSdk withGoogleNavSdk ? 36 : 35
-        versionCode 36
-        versionName '0.9.34-beta'
+        versionCode 37
+        versionName '0.9.35-beta'
         buildConfigField 'String', 'NAVSDK_API_KEY', '"' + googleNavKey + '"'
         buildConfigField 'boolean', 'VISUAL_PREVIEW', visualPreview.toString()
         buildConfigField 'boolean', 'GOOGLE_ONLY', googleOnly.toString()
