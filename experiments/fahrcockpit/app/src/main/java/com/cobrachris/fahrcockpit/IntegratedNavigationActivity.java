@@ -8,6 +8,9 @@ import android.os.Build;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.net.Uri;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Bundle;
@@ -52,6 +55,8 @@ public final class IntegratedNavigationActivity extends Activity {
     private static final int MENU_FUEL_SETTINGS = 5103;
     private static final int MENU_SAPHE_DIAGNOSIS = 5104;
     private static final int MENU_FUEL_AUTO = 5105;
+    private static final int MENU_PARKING_SHOW = 5106;
+    private static final int MENU_PARKING_SAVE = 5107;
     private static final String STATE_TARGET = "target";
     private static final String STATE_SELECTED_DISPLAY = "selected_display";
     private static final String STATE_SELECTED_TARGET = "selected_target";
@@ -74,6 +79,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private TextView safetyEventStatus;
     private TextView currentSpeedView;
     private boolean navigationGuidanceActive;
+    private final ParkingTripTracker parkingTrip = new ParkingTripTracker();
     private LocationManager speedLocationManager;
     private LocationListener speedLocationListener;
     private final Runnable expireSpeedReading = () -> showUnknownSpeed();
@@ -82,7 +88,10 @@ public final class IntegratedNavigationActivity extends Activity {
     private int safetyEventCount;
     private static final long SAFETY_COOLDOWN_MS = 10000L;
     private final Runnable hideSapheBanner = () -> {
-        if (sapheBanner != null) sapheBanner.setVisibility(View.GONE);
+        if (sapheBanner != null) {
+            sapheBanner.clearAnimation();
+            sapheBanner.setVisibility(View.GONE);
+        }
     };
     private Button toggleRoutes;
     private LinearLayout routePanel;
@@ -200,7 +209,16 @@ public final class IntegratedNavigationActivity extends Activity {
                     }
                     @Override public void onGuidanceStateChanged(boolean active) {
                         runOnUiThread(() -> {
+                            boolean wasActive = navigationGuidanceActive;
                             navigationGuidanceActive = active;
+                            if (active && !wasActive)
+                                parkingTrip.start(SystemClock.elapsedRealtime());
+                            if (!active && wasActive) {
+                                ParkingTripTracker.Spot spot =
+                                    parkingTrip.finish(SystemClock.elapsedRealtime());
+                                if (spot != null && ParkingLocationStore.save(this, spot, true))
+                                    showStatus("Parkplatz nach Fahrtende automatisch gemerkt.");
+                            }
                             if (autoFuelRefreshController != null)
                                 autoFuelRefreshController.setNavigationActive(active);
                             updateScreenAwake(active);
@@ -211,11 +229,11 @@ public final class IntegratedNavigationActivity extends Activity {
                                 currentSpeedView.setVisibility(
                                     active ? View.GONE : View.VISIBLE);
                             if (active) {
-                                stopSpeedUpdates();
                                 collapseDestinationMenu();
-                            } else {
-                                startSpeedUpdates();
                             }
+                            // Keep GPS fixes for parking even while the native
+                            // Google speedometer is the only speed display.
+                            startSpeedUpdates();
                         });
                     }
                 });
@@ -276,22 +294,18 @@ public final class IntegratedNavigationActivity extends Activity {
         voiceButton.setMinimumWidth(Ui.dp(this, 44));
         voiceButton.setMinimumHeight(Ui.dp(this, 44));
 
-        // Map-local diagnostic banner; never overlays the Spotify area and
-        // never represents itself as a verified speed-camera or hazard alert.
-        sapheBanner = Ui.text(this, "", 28, 0xffffffff, true);
+        // Full-screen temporary Safety diagnostic, dramatically more visible
+        // than the former map strip. A Saphe notification is NOT a verified
+        // camera warning; always label its type as unverified.
+        sapheBanner = Ui.text(this, "", landscape ? 48 : 58, 0xffffffff, true);
         sapheBanner.setGravity(Gravity.CENTER);
         sapheBanner.setMaxLines(3);
-        sapheBanner.setPadding(Ui.dp(this, 18), Ui.dp(this, 22),
-            Ui.dp(this, 18), Ui.dp(this, 22));
-        sapheBanner.setBackground(Ui.background(this, 0xffc91921, 12));
-        sapheBanner.setElevation(Ui.dp(this, 6));
+        sapheBanner.setPadding(Ui.dp(this, 22), Ui.dp(this, 32),
+            Ui.dp(this, 22), Ui.dp(this, 32));
+        sapheBanner.setBackgroundColor(0xf2ab1020);
+        sapheBanner.setElevation(Ui.dp(this, 10));
         sapheBanner.setVisibility(View.GONE);
-        FrameLayout.LayoutParams sapheBannerPosition = new FrameLayout.LayoutParams(
-            -1, -2, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-        sapheBannerPosition.leftMargin = Ui.dp(this, 18);
-        sapheBannerPosition.rightMargin = Ui.dp(this, 18);
-        sapheBannerPosition.topMargin = Ui.dp(this, landscape ? 100 : 120);
-        mapPane.addView(sapheBanner, sapheBannerPosition);
+        sapheBanner.setContentDescription("Safety-Ereignis; Typ nicht verifiziert");
 
         // Keep options and navigation speech available while scrolling
         // Spotify and destinations. This row stays in the cockpit pane,
@@ -321,6 +335,8 @@ public final class IntegratedNavigationActivity extends Activity {
             options.getMenu().add(0, MENU_FUEL_SETTINGS, 2,
                 "Tankstellen-Einstellungen");
             options.getMenu().add(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose");
+            options.getMenu().add(0, MENU_PARKING_SHOW, 5, "Parkplatz anzeigen");
+            options.getMenu().add(0, MENU_PARKING_SAVE, 6, "Parkplatz jetzt speichern");
             options.getMenu().add(0, MENU_FUEL_AUTO, 4,
                 !FuelAutoRefreshPolicy.PROVIDER_APPROVED
                     ? "Auto-Preise: Freigabe ausstehend"
@@ -357,6 +373,12 @@ public final class IntegratedNavigationActivity extends Activity {
                         return true;
                     case MENU_SAPHE_DIAGNOSIS:
                         showSapheProbeDialog();
+                        return true;
+                    case MENU_PARKING_SHOW:
+                        showParkingLocation();
+                        return true;
+                    case MENU_PARKING_SAVE:
+                        saveParkingManually();
                         return true;
                     case MENU_FUEL_AUTO:
                         if (!FuelAutoRefreshPolicy.PROVIDER_APPROVED) {
@@ -675,7 +697,10 @@ public final class IntegratedNavigationActivity extends Activity {
                 "OSM-Entwicklungstest: nicht als Fahrnavigation verwenden.",
                 11, Ui.MUTED, false));
         }
-        setContentView(root);
+        FrameLayout displayRoot = new FrameLayout(this);
+        displayRoot.addView(root, new FrameLayout.LayoutParams(-1, -1));
+        displayRoot.addView(sapheBanner, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(displayRoot);
         // Keep interactive content away from Android's navigation/status bars
         // and the IME. While typing a destination, temporarily hide the map;
         // it returns to the fixed 70/30 layout as soon as the keyboard closes.
@@ -793,6 +818,9 @@ public final class IntegratedNavigationActivity extends Activity {
         if (android.os.Build.VERSION.SDK_INT >= 26
                 && location.hasSpeedAccuracy()
                 && location.getSpeedAccuracyMetersPerSecond() > 8f) return;
+        parkingTrip.observe(SystemClock.elapsedRealtime(), location.getLatitude(),
+            location.getLongitude(), location.getAccuracy(), metersPerSecond);
+        if (navigationGuidanceActive) return; // Google's single native speedometer.
         int kph = Math.round(metersPerSecond * 3.6f);
         currentSpeedView.setText("GPS " + kph + " km/h");
         currentSpeedView.setContentDescription(
@@ -802,8 +830,7 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void startSpeedUpdates() {
-        if (navigationGuidanceActive || currentSpeedView == null
-                || speedLocationListener != null) return;
+        if (currentSpeedView == null || speedLocationListener != null) return;
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
             showUnknownSpeed();
@@ -1492,6 +1519,62 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
 
+    private void saveParkingManually() {
+        ParkingTripTracker.Spot spot = parkingTrip.manualFix(SystemClock.elapsedRealtime());
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED || spot == null) {
+            new AlertDialog.Builder(this)
+                .setTitle("Parkplatz speichern")
+                .setMessage("Es liegt noch kein ausreichend genauer und aktueller GPS-Standort vor. "
+                    + "Standort freigeben, einen Moment im Cockpit lassen und erneut tippen. "
+                    + "Es wird kein geschätzter Parkplatz gespeichert.")
+                .setPositiveButton("Verstanden", null).show();
+            return;
+        }
+        if (ParkingLocationStore.save(this, spot, false))
+            showStatus("Parkplatz auf diesem Gerät gespeichert.");
+        else showStatus("Parkplatz konnte nicht gespeichert werden.");
+    }
+
+    private void showParkingLocation() {
+        ParkingLocationStore.Saved saved = ParkingLocationStore.read(this);
+        if (saved == null) {
+            new AlertDialog.Builder(this)
+                .setTitle("Parkplatz")
+                .setMessage("Noch kein Parkplatz gespeichert. Nach einer längeren Fahrt "
+                    + "kann FahrCockpit beim Beenden der Navigation einen Parkplatz "
+                    + "automatisch merken, sofern das Fahrzeug steht. Alternativ "
+                    + "„Parkplatz jetzt speichern“ wählen.")
+                .setPositiveButton("OK", null).show();
+            return;
+        }
+        java.text.DateFormat time = java.text.DateFormat.getDateTimeInstance(
+            java.text.DateFormat.SHORT, java.text.DateFormat.SHORT,
+            java.util.Locale.GERMANY);
+        String details = (saved.automatic ? "Automatisch nach Fahrtende" : "Manuell")
+            + " gespeichert: " + time.format(new java.util.Date(saved.savedAt))
+            + "\nGPS-Genauigkeit: ca. " + Math.round(saved.accuracy)
+            + " m. Der Standort bleibt ausschließlich auf diesem Smartphone.";
+        new AlertDialog.Builder(this)
+            .setTitle("Mein geparktes Auto")
+            .setMessage(details)
+            .setPositiveButton("Fußweg in Google Maps", (dialog, which) -> {
+                String url = String.format(java.util.Locale.US,
+                    "https://www.google.com/maps/dir/?api=1&destination=%.7f,%.7f&travelmode=walking",
+                    saved.lat, saved.lng);
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                } catch (RuntimeException unavailable) {
+                    showStatus("Google Maps oder Browser konnte nicht geöffnet werden.");
+                }
+            })
+            .setNeutralButton("Parkplatz löschen", (dialog, which) -> {
+                showStatus(ParkingLocationStore.clear(this)
+                    ? "Gespeicherter Parkplatz gelöscht." : "Parkplatz konnte nicht gelöscht werden.");
+            })
+            .setNegativeButton("Schließen", null).show();
+    }
+
     private void showSapheBanner(boolean simulated) {
         if (sapheBanner == null) return;
         long now = System.currentTimeMillis();
@@ -1508,12 +1591,19 @@ public final class IntegratedNavigationActivity extends Activity {
             : "Safety-Ereignis · Typ nicht verifiziert";
         String message = title + "\n" + subtitle;
         android.text.SpannableString styled = new android.text.SpannableString(message);
-        styled.setSpan(new android.text.style.RelativeSizeSpan(0.59f),
+        styled.setSpan(new android.text.style.RelativeSizeSpan(0.33f),
             title.length() + 1, message.length(),
             android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         sapheBanner.setText(styled);
         sapheBanner.setContentDescription(message);
+        sapheBanner.clearAnimation();
         sapheBanner.setVisibility(View.VISIBLE);
+        // Gentle, legible red pulses instead of rapid full-black strobing.
+        AlphaAnimation pulse = new AlphaAnimation(0.78f, 1f);
+        pulse.setDuration(360L);
+        pulse.setRepeatCount(3);
+        pulse.setRepeatMode(Animation.REVERSE);
+        sapheBanner.startAnimation(pulse);
         handler.removeCallbacks(hideSapheBanner);
         handler.postDelayed(hideSapheBanner, 3200L);
         if (!simulated) refreshSapheStatus();
