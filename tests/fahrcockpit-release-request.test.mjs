@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA,GOOGLE_V27_SOURCE_REF,GOOGLE_V27_APPROVED_SHA,GOOGLE_V28_SOURCE_REF,GOOGLE_V28_APPROVED_SHA,GOOGLE_V29_SOURCE_REF,GOOGLE_V29_APPROVED_SHA,GOOGLE_V31_SOURCE_REF,GOOGLE_V31_APPROVED_SHA,GOOGLE_V32_SOURCE_REF,GOOGLE_V32_APPROVED_SHA,GOOGLE_V33_SOURCE_REF,GOOGLE_V33_APPROVED_SHA,GOOGLE_V34_SOURCE_REF,GOOGLE_V34_APPROVED_SHA,GOOGLE_V35_SOURCE_REF,GOOGLE_V35_APPROVED_SHA,GOOGLE_V36_SOURCE_REF,GOOGLE_V36_APPROVED_SHA,GOOGLE_V37_SOURCE_REF,GOOGLE_V37_APPROVED_SHA,GOOGLE_V38_SOURCE_REF,GOOGLE_V38_APPROVED_SHA}
+import {validateRequest,validateEvent,validatePush,validateSource,sourceRefFor,SOURCE_REF,GOOGLE_SOURCE_REF,GOOGLE_V22_SOURCE_REF,GOOGLE_V23_SOURCE_REF,GOOGLE_V23_APPROVED_SHA,GOOGLE_V24_SOURCE_REF,GOOGLE_V24_APPROVED_SHA,GOOGLE_V25_SOURCE_REF,GOOGLE_V25_APPROVED_SHA,GOOGLE_V26_SOURCE_REF,GOOGLE_V26_APPROVED_SHA,GOOGLE_V27_SOURCE_REF,GOOGLE_V27_APPROVED_SHA,GOOGLE_V28_SOURCE_REF,GOOGLE_V28_APPROVED_SHA,GOOGLE_V29_SOURCE_REF,GOOGLE_V29_APPROVED_SHA,GOOGLE_V31_SOURCE_REF,GOOGLE_V31_APPROVED_SHA,GOOGLE_V32_SOURCE_REF,GOOGLE_V32_APPROVED_SHA,GOOGLE_V33_SOURCE_REF,GOOGLE_V33_APPROVED_SHA,GOOGLE_V34_SOURCE_REF,GOOGLE_V34_APPROVED_SHA,GOOGLE_V35_SOURCE_REF,GOOGLE_V35_APPROVED_SHA,GOOGLE_V36_SOURCE_REF,GOOGLE_V36_APPROVED_SHA,GOOGLE_V37_SOURCE_REF,GOOGLE_V37_APPROVED_SHA,GOOGLE_V38_SOURCE_REF,GOOGLE_V38_APPROVED_SHA,GOOGLE_V40_SOURCE_REF,GOOGLE_V40_APPROVED_SHA}
   from '../scripts/fahrcockpit-release-request.mjs';
 const sha='e6da2f64b027848d001b0f8f6158c5d5768171b0';
 const request={schema:1,intent:'fahrcockpit-signed-beta',request_id:'2026-11-07-signed-fahr',
@@ -532,4 +532,35 @@ test('v38 compact Google landscape ETA release is strictly pinned and Google-onl
   assert.throws(()=>validateRequest({...request38,variant:'google-places-activated'}));
   assert.throws(()=>validateRequest({...request38,extra:true}));
   assert.throws(()=>validateRequest({...request38,schema:1}));
+});
+
+
+test('v40 route favorites plus v39 GPS improvements strict source and identity gate',()=>{
+  const pinned='d911684220fed5460cbaf7c7ba1e936149e55613';
+  const request40={schema:2,intent:'fahrcockpit-signed-beta',
+    request_id:'2026-11-26-fahrcockpit-v40-route-favorites-nearby',
+    source_sha:pinned,expected_version_code:40,variant:'google-sdk-only'};
+  assert.equal(GOOGLE_V40_APPROVED_SHA,pinned);
+  assert.equal(GOOGLE_V40_SOURCE_REF,
+    'refs/heads/feature/fahrcockpit-v25-saphe-notification-probe');
+  assert.deepEqual(validateRequest(request40),
+    {sha:pinned,code:40,variant:'google-sdk-only'});
+  assert.equal(sourceRefFor('google-sdk-only',40),GOOGLE_V40_SOURCE_REF);
+  assert.doesNotThrow(()=>validateSource(pinned,
+    pinned+'\t'+GOOGLE_V40_SOURCE_REF+'\n','google-sdk-only',40));
+  assert.throws(()=>validateSource(pinned,
+    '0'.repeat(40)+'\t'+GOOGLE_V40_SOURCE_REF+'\n','google-sdk-only',40));
+  assert.throws(()=>validateSource(pinned,
+    pinned+'\trefs/heads/feature/fahrcockpit-v40-route-favorites\n',
+    'google-sdk-only',40));
+  assert.throws(()=>validateRequest({...request40,source_sha:'0'.repeat(40)}));
+  assert.throws(()=>validateRequest({...request40,request_id:'2026-11-26-v40-unreviewed'}));
+  assert.throws(()=>validateRequest({...request40,expected_version_code:39}));
+  assert.throws(()=>validateRequest({...request40,expected_version_code:41}));
+  assert.throws(()=>validateRequest({...request40,expected_version_code:30}));
+  assert.throws(()=>validateRequest({...request40,variant:'legacy'}));
+  assert.throws(()=>validateRequest({...request40,variant:'google-osm-integrated'}));
+  assert.throws(()=>validateRequest({...request40,variant:'google-places-activated'}));
+  assert.throws(()=>validateRequest({...request40,extra:true}));
+  assert.throws(()=>validateRequest({...request40,schema:1}));
 });
