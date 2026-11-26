@@ -50,6 +50,8 @@ public final class IntegratedNavigationActivity extends Activity {
     static final String EXTRA_FORCE_OSM_TEST = "integrated_force_osm_test";
     private static final int LOCATION_REQUEST = 420;
     private static final int FUEL_PICK_REQUEST = 421;
+    private static final int SAPHE_BLUETOOTH_PERMISSION_REQUEST = 422;
+    private static final long SAPHE_BLUETOOTH_REFRESH_MS = 5_000L;
     private static final int MENU_SWAP_PANE = 5101;
     private static final int MENU_APP_UPDATE = 5102;
     private static final int MENU_FUEL_SETTINGS = 5103;
@@ -79,6 +81,10 @@ public final class IntegratedNavigationActivity extends Activity {
     private TextView sapheBanner;
     private Button sapheStatusButton;
     private SapheIndicatorRules.State lastSapheIndicatorState;
+    private SapheBluetoothStatus.Observation sapheBluetoothObservation =
+        new SapheBluetoothStatus.Observation(
+            SapheBluetoothStatus.Link.UNKNOWN, "Noch nicht geprüft");
+    private long lastSapheBluetoothCheckAt;
     private TextView currentSpeedView;
     private TextView compactEtaView;
     private boolean landscapeCockpit;
@@ -1775,25 +1781,147 @@ public final class IntegratedNavigationActivity extends Activity {
         boolean installed = WarningSource.isSapheInstalled(this);
         boolean access = Permissions.isMediaListenerEnabled(this);
         boolean optedIn = SapheNotificationProbe.enabled(this);
+        // Read Android's GATT list only in the foreground, at most every 5 s,
+        // and only after the user granted Bluetooth Connect. Never scan/pair.
+        long now = SystemClock.elapsedRealtime();
+        if (cockpitResumed && (lastSapheBluetoothCheckAt == 0L
+                || now - lastSapheBluetoothCheckAt >= SAPHE_BLUETOOTH_REFRESH_MS)) {
+            sapheBluetoothObservation = SapheBluetoothStatus.read(this);
+            lastSapheBluetoothCheckAt = now;
+        }
+        SapheIndicatorRules.Evidence evidence = SapheIndicatorRules.Evidence.UNKNOWN;
+        if (sapheBluetoothObservation.link ==
+                SapheBluetoothStatus.Link.OBSERVED_CONNECTED)
+            evidence = SapheIndicatorRules.Evidence.OBSERVED_CONNECTED;
+        else if (sapheBluetoothObservation.link ==
+                SapheBluetoothStatus.Link.NOT_OBSERVED)
+            evidence = SapheIndicatorRules.Evidence.NOT_OBSERVED;
         SapheIndicatorRules.State next =
-            SapheIndicatorRules.state(installed, access, optedIn);
+            SapheIndicatorRules.state(installed, access, optedIn, evidence);
         if (lastSapheIndicatorState != next) {
-            // RED = action required for FahrCockpit's Saphe detection.
-            // AMBER = notification detection ready, device connection UNKNOWN.
-            // Never use GREEN without a verifiable Saphe hardware signal.
-            int color = next == SapheIndicatorRules.State.ACTION_REQUIRED
-                ? 0xffb92e3c : 0xffcf932a;
+            // GREEN requires GATT-confirmed *selected* hardware AND ready
+            // notification detection. It does not imply Saphe warning quality.
+            int color;
+            switch (next) {
+                case DEVICE_OBSERVED_CONNECTED: color = 0xff29864b; break;
+                case ACTION_REQUIRED:
+                case DEVICE_NOT_OBSERVED: color = 0xffb92e3c; break;
+                default: color = 0xffcf932a;
+            }
             sapheStatusButton.setBackground(Ui.background(this, color, 10));
             sapheStatusButton.setTextColor(0xffffffff);
             lastSapheIndicatorState = next;
         }
-        String help = SapheIndicatorRules.description(installed, access, optedIn);
+        String help = SapheIndicatorRules.description(
+            installed, access, optedIn, evidence);
         String status = "Saphe öffnen. " + help
-            + ". Langes Drücken öffnet die Diagnose.";
+            + ". Langes Drücken öffnet Diagnose und Bluetooth-Einrichtung.";
         if (safetyEventCount > 0)
             status += " Empfangene Safety-Ereignisse: " + safetyEventCount;
         sapheStatusButton.setContentDescription(status);
         sapheStatusButton.setTooltipText(status);
+    }
+
+    private void invalidateSapheBluetoothObservation() {
+        lastSapheBluetoothCheckAt = 0L;
+        sapheBluetoothObservation = new SapheBluetoothStatus.Observation(
+            SapheBluetoothStatus.Link.UNKNOWN, "Neuprüfung erforderlich");
+        refreshSapheStatus();
+    }
+
+    /** Opt-in setup, never called automatically while opening FahrCockpit. */
+    private void setupSapheBluetoothStatus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            new AlertDialog.Builder(this)
+                .setTitle("Saphe-Bluetooth-Diagnose")
+                .setMessage("Diese freiwillige Bluetooth-Prüfung benötigt "
+                    + "Android 12 oder neuer. Die Saphe-Link-App bleibt nutzbar.")
+                .setPositiveButton("OK", null).show();
+            return;
+        }
+        if (!SapheBluetoothStatus.hasPermission(this)) {
+            new AlertDialog.Builder(this)
+                .setTitle("Optionale Saphe-Bluetooth-Prüfung")
+                .setMessage("FahrCockpit kann nach ausdrücklicher Erlaubnis "
+                    + "die bereits verbundenen Bluetooth-LE-Geräte abfragen. "
+                    + "Es sucht oder koppelt keine neuen Geräte, verbindet "
+                    + "nichts selbst und überträgt keine Gerätekennungen. "
+                    + "Nach der Erlaubnis wählst du dein Saphe ausdrücklich aus.")
+                .setNegativeButton("Abbrechen", null)
+                .setPositiveButton("Android-Berechtigung anfragen",
+                    (dialog, which) -> requestPermissions(
+                        new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                        SAPHE_BLUETOOTH_PERMISSION_REQUEST))
+                .show();
+            return;
+        }
+        chooseSapheBluetoothDevice();
+    }
+
+    private void chooseSapheBluetoothDevice() {
+        if (!SapheBluetoothStatus.hasPermission(this)) return;
+        List<SapheBluetoothStatus.DeviceEntry> devices =
+            SapheBluetoothStatus.connectedForSelection(this);
+        if (devices.isEmpty()) {
+            new AlertDialog.Builder(this)
+                .setTitle("Noch kein verbundenes BLE-Gerät gefunden")
+                .setMessage("Verbinde dein Saphe Drive Mini zuerst in der "
+                    + "Saphe-Link-App. Anschließend kehre zu FahrCockpit zurück "
+                    + "und öffne die Bluetooth-Einrichtung erneut. "
+                    + "Eine leere Android-Liste ist kein sicherer Nachweis "
+                    + "für ein ausgeschaltetes Saphe-Gerät.")
+                .setNegativeButton("Schließen", null)
+                .setPositiveButton("Saphe Link öffnen",
+                    (dialog, which) -> WarningSource.openSaphe(this))
+                .show();
+            return;
+        }
+        String[] choices = new String[devices.size()];
+        for (int i = 0; i < devices.size(); i++) {
+            SapheBluetoothStatus.DeviceEntry device = devices.get(i);
+            choices[i] = device.label + " (BLE-Gerät " + (i + 1) + ")";
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("Verbundenes Saphe-Gerät auswählen")
+            .setMessage("Wähle ausschließlich das Saphe-Gerät aus, das "
+                + "in Saphe Link verbunden ist. Andere Bluetooth-Geräte "
+                + "dürfen nicht als Saphe markiert werden.")
+            .setItems(choices, (dialog, which) -> {
+                SapheBluetoothStatus.DeviceEntry selected = devices.get(which);
+                new AlertDialog.Builder(this)
+                    .setTitle("Dieses Gerät als Saphe bestätigen?")
+                    .setMessage(selected.label + "\n\nNur bestätigen, wenn dies "
+                        + "wirklich dein Saphe-Gerät ist. Danach zeigt Grün "
+                        + "die Android-GATT-Verbindung dieses ausgewählten "
+                        + "Geräts an, nicht den Warnbetrieb der Saphe-Link-App.")
+                    .setNegativeButton("Abbrechen", null)
+                    .setPositiveButton("Als Saphe zuordnen", (confirm, choice) -> {
+                        if (SapheBluetoothStatus.choose(this, selected)) {
+                            invalidateSapheBluetoothObservation();
+                            showStatus("Saphe-Bluetooth-Gerät lokal zugeordnet. "
+                                + "Verbindungsstatus wird nun geprüft.");
+                        } else {
+                            showStatus("Saphe-Zuordnung fehlgeschlagen: "
+                                + "Gerät nicht mehr als verbunden erkannt.");
+                        }
+                    })
+                    .show();
+            })
+            .setNegativeButton("Abbrechen", null).show();
+    }
+
+    @Override public void onRequestPermissionsResult(
+            int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != SAPHE_BLUETOOTH_PERMISSION_REQUEST) return;
+        invalidateSapheBluetoothObservation();
+        if (grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            chooseSapheBluetoothDevice();
+        } else {
+            showStatus("Bluetooth-Berechtigung nicht erteilt. "
+                + "Saphe Link und die bestehenden Warnungen bleiben unverändert.");
+        }
     }
 
     private void refreshSapheNotificationProbe() {
@@ -1894,6 +2022,9 @@ public final class IntegratedNavigationActivity extends Activity {
             + "\nLokaler Android-Empfängertest: " +
                 (SapheDiagnosticSession.selfTestSeen(this) ? "erfolgreich" : "noch nicht bestätigt")
             + "\nAlte Saphe-Erkennung: " + (seen > 0 ? "ja" : "noch nein")
+            + "\n\nBluetooth: " + SapheBluetoothStatus.read(this).detail
+            + "\nHinweis: Android GATT bestätigt nur die BLE-Verbindung, "
+            + "nicht den aktiven Warnbetrieb."
             + "\n\nDieser Test ist für das stehende Fahrzeug vorgesehen.";
         // Extra action is explicitly in this dialog; it does not claim that
         // Saphe warnings or the device's Bluetooth events have been received.
@@ -1904,6 +2035,13 @@ public final class IntegratedNavigationActivity extends Activity {
         content.addView(summary);
         Button receiverTest = Ui.button(this, "Android-Empfänger testen");
         content.addView(receiverTest);
+        Button bluetoothSetup = Ui.button(this,
+            "Bluetooth-Verbindung prüfen (optional)");
+        content.addView(bluetoothSetup);
+        Button clearDevice = Ui.button(this, "Bluetooth-Gerätezuordnung löschen");
+        clearDevice.setVisibility(SapheBluetoothStatus.configured(this)
+            ? View.VISIBLE : View.GONE);
+        content.addView(clearDevice);
         AlertDialog sapheDialog = new AlertDialog.Builder(this)
             .setTitle("Saphe-Diagnose")
             .setView(content)
@@ -1938,6 +2076,19 @@ public final class IntegratedNavigationActivity extends Activity {
         receiverTest.setOnClickListener(v -> {
             sapheDialog.dismiss();
             sendSapheReceiverSelfTest();
+        });
+        bluetoothSetup.setOnClickListener(v -> {
+            sapheDialog.dismiss();
+            setupSapheBluetoothStatus();
+        });
+        clearDevice.setOnClickListener(v -> {
+            sapheDialog.dismiss();
+            if (SapheBluetoothStatus.clear(this)) {
+                invalidateSapheBluetoothObservation();
+                showStatus("Saphe-Bluetooth-Zuordnung gelöscht.");
+            } else {
+                showStatus("Saphe-Bluetooth-Zuordnung konnte nicht gelöscht werden.");
+            }
         });
         sapheDialog.show();
     }
@@ -1981,7 +2132,7 @@ public final class IntegratedNavigationActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         cockpitResumed = true;
-        refreshSapheStatus(); // Recheck after returning from the Saphe app.
+        invalidateSapheBluetoothObservation(); // Recheck after Saphe or permission UI.
         startSpeedUpdates();
         if (autoFuelRefreshController != null)
             autoFuelRefreshController.setVisible(true);
