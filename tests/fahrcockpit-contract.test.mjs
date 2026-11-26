@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 40/);
- assert.match(gradle,/versionName '0\.9\.38-beta'/);
+ assert.match(gradle,/versionCode 41/);
+ assert.match(gradle,/versionName '0\.9\.39-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 40/);
- assert.match(gradle,/versionName '0\.9\.38-beta'/);
+ assert.match(gradle,/versionCode 41/);
+ assert.match(gradle,/versionName '0\.9\.39-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==40/);
+ assert.match(ci,/versionCode'\]==41/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -732,8 +732,8 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 40/);
-  assert.match(gradle,/versionName '0\.9\.38-beta'/);
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
@@ -845,8 +845,8 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
   assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
-  assert.match(gradle,/versionCode 40/);
-  assert.match(gradle,/versionName '0\.9\.38-beta'/);
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
 });
 
@@ -879,8 +879,8 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
   const marker=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 40/);
-  assert.match(gradle,/versionName '0\.9\.38-beta'/);
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
   assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
   assert.match(fuel,/FuelPriceFormat\.perLiter\(price\)/);
   assert.match(cache,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
@@ -1008,8 +1008,8 @@ test('v31 Google voice defaults off and routine guidance haptics are omitted',()
 test('v33 neutral safety prototype retains Saphe events with visible timed map banner',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 40/);
-  assert.match(gradle,/versionName '0\.9\.38-beta'/);
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
   assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
   assert.match(cockpit,/SapheDiagnosticSession\.lastSapheAt\(this\)/);
   assert.match(cockpit,/SapheNotificationProbe\.lastObservedAt\(this\)/);
@@ -1153,11 +1153,11 @@ test('v35 secondary fuel tools are collapsible without losing a manual refresh o
 
 test('v35 Saphe status is truthful and warnings and diagnostic remain available',()=>{
   const cockpit=java('IntegratedNavigationActivity');
-  assert.match(cockpit,/sapheHeader = Ui\.row\(this\)/);
-  assert.match(cockpit,/sapheHeader\.addView\(safetyEventStatus/);
+  assert.match(cockpit,/sapheStatusButton = cockpitButton\("S", false\)/);
+  assert.match(cockpit,/tools\.addView\(sapheStatusButton, sapheParams\)/);
   assert.match(cockpit,/refreshSapheStatus\(\)/);
   assert.match(cockpit,/SapheNotificationProbe\.enabled\(this\)/);
-  assert.match(cockpit,/String summary = enabled \? "Erkennung an" : "Erkennung aus"/);
+  assert.match(cockpit,/SapheIndicatorRules\.state\(installed, access, optedIn\)/);
   assert.match(cockpit,/options\.getMenu\(\)\.add\(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose"\)/);
   assert.match(cockpit,/case MENU_SAPHE_DIAGNOSIS:\s*showSapheProbeDialog\(\)/);
   assert.match(cockpit,/sapheBanner\.setBackgroundColor\(0xf2ab1020\)/);
@@ -1261,8 +1261,8 @@ test('v36 tank price requests share one persistent fail-closed limit with no aut
   const rules=java('FuelRateRules');
   const gradle=read('app/build.gradle');
   const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
-  assert.match(gradle,/versionCode 40/);
-  assert.match(gradle,/versionName '0\.9\.38-beta'/);
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
   assert.match(ci,/feature\/fahrcockpit-v36-tankerkoenig-rate-guard/);
   assert.match(quick,/FuelRequestGate\.tryBegin\(host\)/);
   assert.match(full,/FuelRequestGate\.tryBegin\(this\)/);
@@ -1355,8 +1355,8 @@ test('v37 parking stores only the last local coordinate and uses walking Google 
   const store=java('ParkingLocationStore');
   const gradle=read('app/build.gradle');
   const manifest=read('app/src/main/AndroidManifest.xml');
-  assert.match(gradle,/versionCode 40/);
-  assert.match(gradle,/versionName '0\.9\.38-beta'/);
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
   assert.match(cockpit,/parkingTrip\.start\(SystemClock\.elapsedRealtime\(\)\)/);
   assert.match(cockpit,/cockpitResumed = true/);
   assert.match(cockpit,/cockpitResumed = false/);
@@ -1412,8 +1412,8 @@ test('v38 landscape ETA replaces only bottom Google card, preserving all turn gu
   const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
   const gradle=read('app/build.gradle');
   const layout=java('IntegratedNavigationRules');
-  assert.match(gradle,/versionCode 40/);
-  assert.match(gradle,/versionName '0\.9\.38-beta'/);
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
   assert.match(layout,/MAP_WEIGHT = 7/);
   assert.match(layout,/CONTROLS_WEIGHT = 3/);
   assert.match(cockpit,/landscapeCockpit = landscape/);
@@ -1471,7 +1471,7 @@ test('v39 fuel map is nearest-first and follows car using only local cached data
   assert.match(guard,/FuelRateRules\.remainingMillis/);
   assert.match(policy,/PROVIDER_APPROVED = false/);
   assert.match(ci,/feature\/fahrcockpit-v39-fuel-nearby-current-gps/);
-  assert.match(ci,/versionCode'\]==40/);
+  assert.match(ci,/versionCode'\]==41/);
 });
 
 
@@ -1518,7 +1518,7 @@ test('v40 route favorites are local, multi-route and manually refresh at most te
   assert.match(activity,/chooseDestination\(FuelRouteFavoritesStore\.Favorite fav\)/);
   assert.match(policy,/PROVIDER_APPROVED = false/);
   assert.match(ci,/feature\/fahrcockpit-v40-route-favorites/);
-  assert.match(ci,/versionCode'\]==40/);
+  assert.match(ci,/versionCode'\]==41/);
   // Always display the provider's 0.1-cent precision, including on route lists.
   const precision=java('FuelPriceFormat');
   assert.match(precision,/%.3f €\/l/);
@@ -1542,4 +1542,35 @@ test('v40 route favorites are local, multi-route and manually refresh at most te
   assert.match(store,/static synchronized boolean remove\(/);
   assert.match(store,/static synchronized boolean removeRoute\(/);
   assert.match(store,/static synchronized int applyPrices\(/);
+});
+
+
+test('v41 compact Saphe header uses honest 3-state-ready semantics without false connected green',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const rule=java('SapheIndicatorRules');
+  const policy=java('FuelAutoRefreshPolicy');
+  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+  assert.match(cockpit,/sapheStatusButton = cockpitButton\("S", false\)/);
+  assert.match(cockpit,/tools\.addView\(sapheStatusButton, sapheParams\)/);
+  assert.match(cockpit,/new LinearLayout\.LayoutParams\(Ui\.dp\(this, 44\), Ui\.dp\(this, 44\)\)/);
+  assert.match(cockpit,/sapheStatusButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/WarningSource\.openSaphe\(this\)/);
+  assert.match(cockpit,/sapheStatusButton\.setOnLongClickListener\(v ->/);
+  assert.match(cockpit,/showSapheProbeDialog\(\)/);
+  assert.match(cockpit,/private void refreshSapheStatus\(\)/);
+  assert.match(cockpit,/refreshSapheStatus\(\); \/\/ Recheck after returning from the Saphe app/);
+  assert.doesNotMatch(cockpit,/cockpitButton\("Saphe öffnen"/);
+  assert.doesNotMatch(cockpit,/sapheHeader = Ui\.row\(this\)/);
+  assert.doesNotMatch(cockpit,/sapheActions = Ui\.row\(this\)/);
+  assert.match(cockpit,/if \(landscape && BuildConfig\.GOOGLE_ONLY\) cockpitTitle\.setText\("FC"\)/);
+  assert.match(rule,/enum State/);
+  assert.match(rule,/ACTION_REQUIRED/);
+  assert.match(rule,/DETECTION_READY_UNKNOWN/);
+  assert.match(rule,/appInstalled && notificationAccess && optedIntoProbe/);
+  assert.doesNotMatch(rule,/return .*CONNECTED/);
+  assert.doesNotMatch(cockpit,/Saphe.*[cC]onnected = true|setText\("Verbunden"\)/);
+  assert.match(cockpit,/0xffb92e3c : 0xffcf932a/);
+  assert.match(policy,/PROVIDER_APPROVED = false/);
+  assert.match(ci,/feature\/fahrcockpit-v41-compact-saphe-status/);
+  assert.match(ci,/versionCode'\]==41/);
 });
