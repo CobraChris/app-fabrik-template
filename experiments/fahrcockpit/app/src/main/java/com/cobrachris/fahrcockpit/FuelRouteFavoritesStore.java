@@ -57,8 +57,11 @@ final class FuelRouteFavoritesStore {
         }
         String priceText(String type,long now) {
             if(!"open".equals(status) && checkedAt>0) {
-                if("closed".equals(status))return "Geschlossen · Stand unbekannt";
-                if("no prices".equals(status))return "Kein Preis gemeldet";
+                boolean stale=checkedAt>now || now-checkedAt>=15L*60_000L;
+                if("closed".equals(status))
+                    return stale?"Geschlossen · ALT":"Geschlossen";
+                if("no prices".equals(status))
+                    return stale?"Kein Preis gemeldet · ALT":"Kein Preis gemeldet";
             }
             if(!fuelType.equals(type))return "Bitte "+type.toUpperCase(Locale.GERMANY)+" aktualisieren";
             if(!Double.isFinite(price)||price<=0||price>=9)return "Kein Preis gemeldet";
@@ -90,7 +93,8 @@ final class FuelRouteFavoritesStore {
     private static boolean containsRoute(JSONArray routes,String id){
         if(id==null||id.isEmpty())return false;
         for(int i=0;i<routes.length();i++)
-            if(id.equals(routes.optJSONObject(i).optString("id","")))return true;
+            if(routes.optJSONObject(i)!=null
+                    && id.equals(routes.optJSONObject(i).optString("id","")))return true;
         return false;
     }
     static List<Route> routes(Context c) {
@@ -112,7 +116,7 @@ final class FuelRouteFavoritesStore {
                 && !containsRoute(read(c).optJSONArray(ROUTES),id))return false;
         return prefs(c).edit().putString(ACTIVE_ROUTE,id==null?"":id).commit();
     }
-    static String createRoute(Context c,String raw){
+    static synchronized String createRoute(Context c,String raw){
         if(raw==null)return null;
         String name=raw.trim().replaceAll("\\s+"," ");
         if(name.isEmpty()||name.length()>65||name.contains("\n"))return null;
@@ -129,7 +133,7 @@ final class FuelRouteFavoritesStore {
         }catch(Exception invalid){return null;}
         return write(c,data)?id:null;
     }
-    static boolean removeRoute(Context c,String id){
+    static synchronized boolean removeRoute(Context c,String id){
         JSONObject data=read(c);
         JSONArray oldRoutes=data.optJSONArray(ROUTES);
         if(!containsRoute(oldRoutes,id))return false;
@@ -173,7 +177,7 @@ final class FuelRouteFavoritesStore {
         }
         return items;
     }
-    static boolean add(Context c,FuelMapSnapshot.Station station,String groupId,
+    static synchronized boolean add(Context c,FuelMapSnapshot.Station station,String groupId,
                        String fuelType,long priceFetchedAt) {
         if(station==null||!FuelRules.validKey(station.id)||station.name==null
                 ||station.name.isEmpty()||FuelRules.stationCoordinates(station.lat,station.lng)==null)
@@ -223,10 +227,12 @@ final class FuelRouteFavoritesStore {
     }
     private static boolean exists(JSONArray entries,String id){
         for(int i=0;i<entries.length();i++)
-            if(id.equalsIgnoreCase(entries.optJSONObject(i).optString("id","")))return true;
+            if(entries.optJSONObject(i)!=null
+                    && id.equalsIgnoreCase(
+                        entries.optJSONObject(i).optString("id","")))return true;
         return false;
     }
-    static boolean remove(Context c,String stationId,String groupId) {
+    static synchronized boolean remove(Context c,String stationId,String groupId) {
         JSONObject data=read(c);
         JSONArray entries=data.optJSONArray(STATIONS),result=new JSONArray();
         boolean changed=false;
@@ -250,7 +256,7 @@ final class FuelRouteFavoritesStore {
         }catch(Exception e){return false;}
         return changed&&write(c,data);
     }
-    static int applyPrices(Context c,String groupId,String fuelType,
+    static synchronized int applyPrices(Context c,String groupId,String fuelType,
                            JSONObject apiPrices,long checkedAt) {
         if(apiPrices==null||checkedAt<=0||checkedAt>System.currentTimeMillis()
                 ||!containsRoute(read(c).optJSONArray(ROUTES),groupId)
