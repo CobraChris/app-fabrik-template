@@ -68,7 +68,11 @@ final class SapheBluetoothStatus {
 
     /** No action outside Android's documented read-only GATT inventory. */
     private static List<BluetoothDevice> connectedGatt(Context context) {
-        if (!hasPermission(context)) return null;
+        // Repeat the exact Android permission check at the sensitive API
+        // boundary, not just in a helper; the runtime grant can be revoked.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                || context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED) return null;
         try {
             BluetoothManager manager=(BluetoothManager)
                 context.getSystemService(Context.BLUETOOTH_SERVICE);
@@ -82,6 +86,7 @@ final class SapheBluetoothStatus {
     }
 
     static List<DeviceEntry> connectedForSelection(Context context) {
+        if (!hasPermission(context)) return Collections.emptyList();
         List<BluetoothDevice> devices=connectedGatt(context);
         if(devices==null)return Collections.emptyList();
         List<DeviceEntry> choices=new ArrayList<>();
@@ -89,6 +94,8 @@ final class SapheBluetoothStatus {
             if(device==null)continue;
             try{
                 String address=device.getAddress();
+                if(address==null)continue;
+                address=address.toUpperCase(java.util.Locale.US);
                 if(!BluetoothAdapter.checkBluetoothAddress(address))continue;
                 String name=device.getName();
                 if(name==null||name.trim().isEmpty())name="Unbekanntes BLE-Gerät";
@@ -107,7 +114,7 @@ final class SapheBluetoothStatus {
     }
 
     static boolean choose(Context context, DeviceEntry selected) {
-        if(!hasPermission(context)||selected==null
+        if(!hasPermission(context)||selected==null||selected.label==null
             ||!BluetoothAdapter.checkBluetoothAddress(selected.address))
             return false;
         // Don't save a guess: selected hardware must be observed connected NOW.
