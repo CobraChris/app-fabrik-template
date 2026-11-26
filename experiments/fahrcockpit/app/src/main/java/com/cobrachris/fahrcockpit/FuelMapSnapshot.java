@@ -28,11 +28,16 @@ final class FuelMapSnapshot {
     private FuelMapSnapshot() {}
 
     static final class Station {
-        final String name, address;
+        final String id, name, address;
         final double lat, lng, price;
         final boolean isOpen;
         Station(String name, String address, double lat, double lng,
                 double price, boolean isOpen) {
+            this("", name, address, lat, lng, price, isOpen);
+        }
+        Station(String id, String name, String address, double lat, double lng,
+                double price, boolean isOpen) {
+            this.id = FuelRules.validKey(id) ? id.toLowerCase(java.util.Locale.US) : "";
             this.name = name;
             this.address = address;
             this.lat = lat;
@@ -66,6 +71,7 @@ final class FuelMapSnapshot {
             if (s == null) continue;
             JSONObject clean = new JSONObject();
             try {
+                clean.put("id", s.id);
                 clean.put("name", s.name);
                 clean.put("address", s.address);
                 clean.put("lat", s.lat);
@@ -122,7 +128,7 @@ final class FuelMapSnapshot {
         return "e5".equals(s) || "e10".equals(s) || "diesel".equals(s);
     }
 
-    private static Station fromJson(JSONObject s) {
+    static Station fromJson(JSONObject s) {
         if (s == null) return null;
         double lat = s.optDouble("lat", Double.NaN);
         double lng = s.optDouble("lng", Double.NaN);
@@ -139,7 +145,7 @@ final class FuelMapSnapshot {
             address = (street + ", " + town).trim();
         }
         if (address.length() > 150) address = address.substring(0, 150);
-        return new Station(name, address, lat, lng, price,
+        return new Station(s.optString("id", ""), name, address, lat, lng, price,
             s.optBoolean("isOpen", false));
     }
 }
