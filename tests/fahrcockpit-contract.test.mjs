@@ -1501,9 +1501,9 @@ test('v40 route favorites are local, multi-route and manually refresh at most te
   assert.match(store,/getSharedPreferences\(PREFS,Context\.MODE_PRIVATE\)/);
   assert.match(store,/List<String> groups/);
   assert.match(store,/if\(!linked&&inGroup>=MAX_STATIONS_PER_ROUTE\)/);
-  assert.match(store,/static boolean removeRoute\(/);
-  assert.match(store,/static boolean remove\(/);
-  assert.match(store,/static int applyPrices\(/);
+  assert.match(store,/static synchronized boolean removeRoute\(/);
+  assert.match(store,/static synchronized boolean remove\(/);
+  assert.match(store,/static synchronized int applyPrices\(/);
   assert.match(store,/checkedAt<15L\*60_000L/);
   assert.doesNotMatch(store,/HttpURLConnection|new URL\(/);
   assert.match(price,/FuelRequestGate\.tryBegin\(host\)/);
@@ -1519,4 +1519,20 @@ test('v40 route favorites are local, multi-route and manually refresh at most te
   assert.match(policy,/PROVIDER_APPROVED = false/);
   assert.match(ci,/feature\/fahrcockpit-v40-route-favorites/);
   assert.match(ci,/versionCode'\]==40/);
+  // A second fuel-type selection must never relabel the old price.
+  assert.match(fuel,/private String lastResponseFuelType = ""/);
+  assert.match(fuel,/lastResponseFuelType = selectedFuelType/);
+  assert.match(fuel,/lastResponseFuelType,lastFetchedMillis,null/);
+  assert.doesNotMatch(fuel,/fuelType\(\),lastFetchedMillis,null/);
+  // Returning from nested search must show newly created route profiles.
+  assert.match(activity,/if\(routeSpinner!=null\)\s*reloadRoutes\(FuelRouteFavoritesStore\.active\(this\)\)/);
+  assert.match(activity,/final String requestedRoute = selectedRoute/);
+  assert.match(activity,/if \(requestedRoute\.equals\(selectedRoute\)\)/);
+  assert.match(activity,/Tankerkönig \(CC BY 4\.0\)/);
+  // All storage mutations from UI and network callbacks are synchronized.
+  assert.match(store,/static synchronized String createRoute\(/);
+  assert.match(store,/static synchronized boolean add\(/);
+  assert.match(store,/static synchronized boolean remove\(/);
+  assert.match(store,/static synchronized boolean removeRoute\(/);
+  assert.match(store,/static synchronized int applyPrices\(/);
 });
