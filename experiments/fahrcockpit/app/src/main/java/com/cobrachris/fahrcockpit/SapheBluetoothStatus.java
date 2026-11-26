@@ -159,14 +159,30 @@ final class SapheBluetoothStatus {
         if(devices==null)
             return new Observation(Link.UNKNOWN,
                 "Android-Bluetooth-Abfrage nicht verfügbar; Verbindung unbekannt");
+        boolean incompleteInventory = false;
         for(BluetoothDevice device:devices){
-            if(device==null)continue;
+            if(device==null) {
+                incompleteInventory = true;
+                continue;
+            }
             try {
-                if(selected.equalsIgnoreCase(device.getAddress()))
+                String address = device.getAddress();
+                if (address == null || !BluetoothAdapter.checkBluetoothAddress(address)) {
+                    incompleteInventory = true;
+                    continue;
+                }
+                if(selected.equalsIgnoreCase(address))
                     return new Observation(Link.OBSERVED_CONNECTED,
                         "Ausgewähltes BLE-Gerät ist laut Android GATT verbunden");
-            }catch(RuntimeException ignored){}
+            }catch(RuntimeException ignored){
+                // If Android cannot expose an address, the returned inventory
+                // is not complete enough to prove the selected device absent.
+                incompleteInventory = true;
+            }
         }
+        if (incompleteInventory)
+            return new Observation(Link.UNKNOWN,
+                "Android-Geräteliste unvollständig; Verbindung unbekannt");
         return new Observation(Link.NOT_OBSERVED,
             "Ausgewähltes BLE-Gerät derzeit nicht in Androids GATT-Liste. "
             +"Keine Aussage über die Saphe-App-Funktion oder Warnungen.");
