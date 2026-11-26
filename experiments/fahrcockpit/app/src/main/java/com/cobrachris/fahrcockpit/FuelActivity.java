@@ -269,7 +269,9 @@ public final class FuelActivity extends Activity {
             if (gpsAvailable) {
                 Location gps = recentLocation(manager.getLastKnownLocation(
                     LocationManager.GPS_PROVIDER));
-                if (gps != null && (recent == null || gps.getTime() > recent.getTime())) {
+                if (gps != null && (recent == null || gps.getAccuracy() < recent.getAccuracy()
+                        || (gps.getAccuracy() == recent.getAccuracy()
+                            && gps.getTime() > recent.getTime()))) {
                     recent = gps;
                 }
             }
@@ -324,16 +326,17 @@ public final class FuelActivity extends Activity {
 
     private static Location recentLocation(Location position) {
         if (position == null) return null;
-        long age = System.currentTimeMillis() - position.getTime();
-        return age >= 0 && age < 120000
-            && Double.isFinite(position.getLatitude())
-            && Double.isFinite(position.getLongitude()) ? position : null;
+        return position.hasAccuracy() && FuelLocationQuality.usable(
+            System.currentTimeMillis(), position.getTime(), position.getAccuracy(),
+            position.getLatitude(), position.getLongitude()) ? position : null;
     }
 
     private void onLocationCandidate(int generation, Location position, String key) {
         if (generation != locationGeneration || search.isEnabled()) return;
-        if (position != null && Double.isFinite(position.getLatitude())
-                && Double.isFinite(position.getLongitude())) {
+        if (position != null && position.hasAccuracy()
+                && FuelLocationQuality.usable(System.currentTimeMillis(),
+                    position.getTime(), position.getAccuracy(),
+                    position.getLatitude(), position.getLongitude())) {
             stopLocationRequests();
             fetch(position, key);
             return;
