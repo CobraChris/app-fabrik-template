@@ -1,17 +1,17 @@
 package com.cobrachris.fahrcockpit;
 
 /**
- * Do not interpret Android NotificationListener permission as a Bluetooth
- * connection. Green is only for an explicitly selected BLE device which
- * Android reports as GATT connected at this moment; this does NOT establish
- * that Saphe Link is operational or receiving warnings.
+ * Device connection and FahrCockpit's optional notification detection are
+ * independent. RED only for Saphe app missing or selected device not observed,
+ * AMBER for unknown BT state, GREEN for explicitly chosen GATT device seen
+ * connected by Android (not proof that warnings or vendor app are working).
  */
 final class SapheIndicatorRules {
     enum State {
-        ACTION_REQUIRED,          // Red: app/notification detection not ready.
-        DETECTION_READY_UNKNOWN,  // Amber: BT identity or GATT observation unknown.
-        DEVICE_NOT_OBSERVED,      // Red: previously selected device absent from GATT.
-        DEVICE_OBSERVED_CONNECTED // Green: explicitly selected BLE device in GATT.
+        ACTION_REQUIRED,          // Red: official Saphe Link app missing.
+        DETECTION_READY_UNKNOWN,  // Amber: BT identity/observation unknown.
+        DEVICE_NOT_OBSERVED,      // Red: selected device absent from GATT.
+        DEVICE_OBSERVED_CONNECTED // Green: explicitly chosen device in GATT.
     }
 
     enum Evidence { UNKNOWN, OBSERVED_CONNECTED, NOT_OBSERVED }
@@ -26,8 +26,9 @@ final class SapheIndicatorRules {
 
     static State state(boolean appInstalled, boolean notificationAccess,
                        boolean optedIntoProbe, Evidence evidence) {
-        if (!appInstalled || !notificationAccess || !optedIntoProbe)
-            return State.ACTION_REQUIRED;
+        // Do not mistake missing FahrCockpit notification access for a BLE
+        // disconnect: Saphe may still be connected and work independently.
+        if (!appInstalled) return State.ACTION_REQUIRED;
         if (evidence == Evidence.OBSERVED_CONNECTED)
             return State.DEVICE_OBSERVED_CONNECTED;
         if (evidence == Evidence.NOT_OBSERVED)
@@ -44,16 +45,18 @@ final class SapheIndicatorRules {
     static String description(boolean appInstalled, boolean notificationAccess,
                               boolean optedIntoProbe, Evidence evidence) {
         if (!appInstalled) return "Saphe-App nicht installiert; Verbindung unbekannt";
-        if (!notificationAccess) return "FahrCockpit-Benachrichtigungszugriff fehlt; "
-            + "Saphe-Geräteverbindung unbekannt";
-        if (!optedIntoProbe) return "Saphe-Erkennung in FahrCockpit ausgeschaltet; "
-            + "Saphe-Geräteverbindung unbekannt";
+        String detector = !notificationAccess
+            ? " FahrCockpit-Benachrichtigungszugriff fehlt."
+            : !optedIntoProbe
+                ? " FahrCockpit-Saphe-Warnanzeige ausgeschaltet."
+                : "";
         if (evidence == Evidence.OBSERVED_CONNECTED)
-            return "Gewähltes Saphe-Bluetooth-Gerät laut Android verbunden; "
-                + "Saphe-Warnbereitschaft nicht überprüft";
+            return "Gewähltes Saphe-Bluetooth-Gerät laut Android verbunden. "
+                + "Saphe-Warnbereitschaft nicht überprüft." + detector;
         if (evidence == Evidence.NOT_OBSERVED)
             return "Gewähltes Saphe-Bluetooth-Gerät derzeit nicht in Androids "
-                + "GATT-Verbindungsliste; keine sichere Aussage über Saphe Link";
-        return "Saphe-Erkennung bereit; Bluetooth-Geräteverbindung nicht bestätigt";
+                + "GATT-Verbindungsliste; keine sichere Aussage über Saphe Link."
+                + detector;
+        return "Bluetooth-Geräteverbindung nicht bestätigt." + detector;
     }
 }
