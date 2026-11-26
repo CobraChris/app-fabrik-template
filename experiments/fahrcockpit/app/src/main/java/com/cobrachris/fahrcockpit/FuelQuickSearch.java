@@ -72,7 +72,9 @@ final class FuelQuickSearch {
             if (netEnabled) recent = recent(manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER));
             if (gpsEnabled) {
                 Location other = recent(manager.getLastKnownLocation(LocationManager.GPS_PROVIDER));
-                if (other != null && (recent == null || other.getTime() > recent.getTime()))
+                if (other != null && (recent == null || other.getAccuracy() < recent.getAccuracy()
+                    || (other.getAccuracy() == recent.getAccuracy()
+                        && other.getTime() > recent.getTime())))
                     recent = other;
             }
             if (recent != null) {
@@ -111,15 +113,17 @@ final class FuelQuickSearch {
 
     private static Location recent(Location position) {
         if (position == null) return null;
-        long age = System.currentTimeMillis() - position.getTime();
-        return age >= 0 && age < 120000 && Double.isFinite(position.getLatitude())
-            && Double.isFinite(position.getLongitude()) ? position : null;
+        return position.hasAccuracy() && FuelLocationQuality.usable(
+            System.currentTimeMillis(), position.getTime(), position.getAccuracy(),
+            position.getLatitude(), position.getLongitude()) ? position : null;
     }
 
     private void candidate(int token, Location location, String key, Result callback) {
         if (token != generation || !searching || locationResolved) return;
-        if (location != null && Double.isFinite(location.getLatitude())
-                && Double.isFinite(location.getLongitude())) {
+        if (location != null && location.hasAccuracy()
+                && FuelLocationQuality.usable(System.currentTimeMillis(),
+                    location.getTime(), location.getAccuracy(),
+                    location.getLatitude(), location.getLongitude())) {
             locationResolved = true;
             cancelProviders();
             fetch(token, location, key, callback);
@@ -137,7 +141,7 @@ final class FuelQuickSearch {
         final String url;
         try {
             url = FuelRules.requestUrl(key, location.getLatitude(), location.getLongitude(),
-                radius, type);
+                radius, type, "dist");
         } catch (IllegalArgumentException e) {
             fail(token, e.getMessage(), callback);
             return;
@@ -150,13 +154,10 @@ final class FuelQuickSearch {
                     main.post(() -> {
                         if (token != generation || !searching
                                 || host.isFinishing() || host.isDestroyed()) return;
-                        FuelMapSnapshot.Snapshot cache = FuelMapSnapshot.readForDisplay(host);
-                        if (!cache.stations.isEmpty() && type.equals(cache.type)) {
-                            searching = false;
-                            callback.onSuccess(cache); // Reuse data; do NOT retry the API.
-                        } else {
-                            fail(token, permit.explanation(), callback);
-                        }
+                        // A blocked request is NOT a successful refresh. The
+                        // existing cached map can remain, explicitly labeled.
+                        fail(token, "Keine neuen Preise: " + permit.explanation()
+                            + " Gespeicherte Preise sind eventuell veraltet.", callback);
                     });
                     return;
                 }
