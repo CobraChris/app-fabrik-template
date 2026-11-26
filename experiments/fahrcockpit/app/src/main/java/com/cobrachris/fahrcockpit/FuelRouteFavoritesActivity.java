@@ -93,6 +93,21 @@ public final class FuelRouteFavoritesActivity extends Activity {
         root.addView(find);
 
         root.addView(Ui.text(this,
+            "Datenquelle: Tankerkönig (CC BY 4.0) · freiwillige Preisangaben "
+            +"ohne Aktualitätsgarantie.",
+            12,Ui.MUTED,false));
+        Button attribution=Ui.button(this,"Tankerkönig – Datenquelle");
+        attribution.setOnClickListener(v->{
+            android.content.Intent source=new android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://creativecommons.tankerkoenig.de/"));
+            try{startActivity(source);}
+            catch(android.content.ActivityNotFoundException ignored){
+                Toast.makeText(this,"Kein Browser verfügbar.",Toast.LENGTH_LONG).show();
+            }
+        });
+        root.addView(attribution);
+        root.addView(Ui.text(this,
             "Nur die angezeigte Strecke wird geprüft: maximal 10 bekannte "
             +"Tankstellen-IDs in einer Tankerkönig-Anfrage. Keine Hintergrundabfragen. "
             +"Preisstand, Öffnungsstatus und fehlende Werte werden gekennzeichnet. "
@@ -122,7 +137,10 @@ public final class FuelRouteFavoritesActivity extends Activity {
 
     @Override protected void onResume(){
         super.onResume();
-        if(routeSpinner!=null)render();
+        // A station search can create a new route in FuelActivity. Refresh
+        // spinner options as well as cards after returning to this screen.
+        if(routeSpinner!=null)
+            reloadRoutes(FuelRouteFavoritesStore.active(this));
     }
 
     static void chooseRoute(Context host,FuelMapSnapshot.Station station,
@@ -334,9 +352,13 @@ public final class FuelRouteFavoritesActivity extends Activity {
         if(selectedRoute.isEmpty()||lookup[0]==null||lookup[0].isRunning())return;
         fetchPrices.setEnabled(false);
         info.setText("Preise der gespeicherten Streckentankstellen werden abgerufen …");
-        lookup[0].refresh(selectedRoute,FuelQuickSettings.type(this),(ok,feedback)->{
+        final String requestedRoute = selectedRoute;
+        lookup[0].refresh(requestedRoute,FuelQuickSettings.type(this),(ok,feedback)->{
             render();
-            info.setText(feedback);
+            // The user may select a different route before the request returns.
+            // Never describe the newly selected route as freshly updated.
+            if (requestedRoute.equals(selectedRoute))
+                info.setText(feedback);
         });
     }
 }
