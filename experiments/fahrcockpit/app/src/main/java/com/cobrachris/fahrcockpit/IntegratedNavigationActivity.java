@@ -84,6 +84,8 @@ public final class IntegratedNavigationActivity extends Activity {
     private SapheBluetoothStatus.Observation sapheBluetoothObservation =
         new SapheBluetoothStatus.Observation(
             SapheBluetoothStatus.Link.UNKNOWN, "Noch nicht geprüft");
+    private final SapheBluetoothEvidenceGate sapheBluetoothEvidenceGate =
+        new SapheBluetoothEvidenceGate();
     private long lastSapheBluetoothCheckAt;
     private TextView currentSpeedView;
     private TextView compactEtaView;
@@ -1795,20 +1797,17 @@ public final class IntegratedNavigationActivity extends Activity {
         if (cockpitResumed && (lastSapheBluetoothCheckAt == 0L
                 || now - lastSapheBluetoothCheckAt >= SAPHE_BLUETOOTH_REFRESH_MS)) {
             sapheBluetoothObservation = SapheBluetoothStatus.read(this);
+            sapheBluetoothEvidenceGate.sample(sapheBluetoothObservation.link);
             lastSapheBluetoothCheckAt = now;
         }
-        SapheIndicatorRules.Evidence evidence = SapheIndicatorRules.Evidence.UNKNOWN;
-        if (sapheBluetoothObservation.link ==
-                SapheBluetoothStatus.Link.OBSERVED_CONNECTED)
-            evidence = SapheIndicatorRules.Evidence.OBSERVED_CONNECTED;
-        else if (sapheBluetoothObservation.link ==
-                SapheBluetoothStatus.Link.NOT_OBSERVED)
-            evidence = SapheIndicatorRules.Evidence.NOT_OBSERVED;
+        // Never count the same cached negative reading twice: a second *new*
+        // complete GATT sample is required before displaying red.
+        SapheIndicatorRules.Evidence evidence = sapheBluetoothEvidenceGate.current();
         SapheIndicatorRules.State next =
             SapheIndicatorRules.state(installed, access, optedIn, evidence);
         if (lastSapheIndicatorState != next) {
-            // GREEN requires GATT-confirmed *selected* hardware AND ready
-            // notification detection. It does not imply Saphe warning quality.
+            // GREEN = selected hardware observed by Android GATT;
+            // warning detection and Saphe Link readiness are separate.
             int color;
             switch (next) {
                 case DEVICE_OBSERVED_CONNECTED: color = 0xff29864b; break;
@@ -1832,6 +1831,7 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private void invalidateSapheBluetoothObservation() {
         lastSapheBluetoothCheckAt = 0L;
+        sapheBluetoothEvidenceGate.reset();
         sapheBluetoothObservation = new SapheBluetoothStatus.Observation(
             SapheBluetoothStatus.Link.UNKNOWN, "Neuprüfung erforderlich");
         refreshSapheStatus();
