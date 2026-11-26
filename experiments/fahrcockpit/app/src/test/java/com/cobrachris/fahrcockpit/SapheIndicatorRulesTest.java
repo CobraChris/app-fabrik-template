@@ -3,9 +3,9 @@ package com.cobrachris.fahrcockpit;
 import static org.junit.Assert.*;
 import org.junit.Test;
 
-/** Fail closed: notification readiness is not itself a BLE connection. */
+/** Physical BLE link may be confirmed even when cockpit notifications are off. */
 public final class SapheIndicatorRulesTest {
-    @Test public void readyDoesNotClaimHardwareConnectedWithoutGATTObservation() {
+    @Test public void unknownBluetoothNeverClaimsHardwareConnected() {
         assertEquals(SapheIndicatorRules.State.DETECTION_READY_UNKNOWN,
             SapheIndicatorRules.state(true,true,true));
         assertEquals(SapheIndicatorRules.State.DETECTION_READY_UNKNOWN,
@@ -15,24 +15,25 @@ public final class SapheIndicatorRulesTest {
             .contains("nicht bestätigt"));
     }
 
-    @Test public void greenOnlyForExplicitObservedHardwareAndWorkingDetection() {
-        assertEquals(SapheIndicatorRules.State.DEVICE_OBSERVED_CONNECTED,
-            SapheIndicatorRules.state(true,true,true,
+    @Test public void greenOnlyForExplicitGattObservationIndependentlyOfNotifications() {
+        for(boolean access : new boolean[]{true,false})
+            for(boolean optedIn : new boolean[]{true,false}) {
+                assertEquals(SapheIndicatorRules.State.DEVICE_OBSERVED_CONNECTED,
+                    SapheIndicatorRules.state(true,access,optedIn,
+                        SapheIndicatorRules.Evidence.OBSERVED_CONNECTED));
+                assertEquals(SapheIndicatorRules.State.DETECTION_READY_UNKNOWN,
+                    SapheIndicatorRules.state(true,access,optedIn,
+                        SapheIndicatorRules.Evidence.UNKNOWN));
+            }
+        assertEquals(SapheIndicatorRules.State.ACTION_REQUIRED,
+            SapheIndicatorRules.state(false,true,true,
                 SapheIndicatorRules.Evidence.OBSERVED_CONNECTED));
         assertTrue(SapheIndicatorRules.description(true,true,true,
             SapheIndicatorRules.Evidence.OBSERVED_CONNECTED)
             .contains("Warnbereitschaft nicht überprüft"));
-        for (SapheIndicatorRules.Evidence evidence : SapheIndicatorRules.Evidence.values()) {
-            assertEquals(SapheIndicatorRules.State.ACTION_REQUIRED,
-                SapheIndicatorRules.state(false,true,true,evidence));
-            assertEquals(SapheIndicatorRules.State.ACTION_REQUIRED,
-                SapheIndicatorRules.state(true,false,true,evidence));
-            assertEquals(SapheIndicatorRules.State.ACTION_REQUIRED,
-                SapheIndicatorRules.state(true,true,false,evidence));
-        }
     }
 
-    @Test public void redWhenSelectedDeviceNotObservedButDoesNotClaimFailureOfSapheLink() {
+    @Test public void redWhenSelectedDeviceNotObservedWithoutClaimingSapheFailure() {
         assertEquals(SapheIndicatorRules.State.DEVICE_NOT_OBSERVED,
             SapheIndicatorRules.state(true,true,true,
                 SapheIndicatorRules.Evidence.NOT_OBSERVED));
@@ -42,18 +43,18 @@ public final class SapheIndicatorRulesTest {
         assertTrue(explanation.contains("keine sichere Aussage"));
     }
 
-    @Test public void missingAppPermissionOrOptInNeedsAction() {
+    @Test public void notificationPermissionsDoNotImplyBluetoothDisconnect() {
         assertEquals(SapheIndicatorRules.State.ACTION_REQUIRED,
             SapheIndicatorRules.state(false,true,true));
-        assertEquals(SapheIndicatorRules.State.ACTION_REQUIRED,
+        assertEquals(SapheIndicatorRules.State.DETECTION_READY_UNKNOWN,
             SapheIndicatorRules.state(true,false,true));
-        assertEquals(SapheIndicatorRules.State.ACTION_REQUIRED,
+        assertEquals(SapheIndicatorRules.State.DETECTION_READY_UNKNOWN,
             SapheIndicatorRules.state(true,true,false));
         assertTrue(SapheIndicatorRules.description(false,true,true)
             .contains("nicht installiert"));
         assertTrue(SapheIndicatorRules.description(true,false,true)
             .contains("Benachrichtigungszugriff"));
         assertTrue(SapheIndicatorRules.description(true,true,false)
-            .contains("ausgeschaltet"));
+            .contains("Warnanzeige ausgeschaltet"));
     }
 }
