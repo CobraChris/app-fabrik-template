@@ -76,7 +76,7 @@ final class SapheBluetoothStatus {
             BluetoothAdapter adapter=manager.getAdapter();
             if(adapter==null||!adapter.isEnabled())return Collections.emptyList();
             return manager.getConnectedDevices(BluetoothProfile.GATT);
-        } catch(SecurityException|RuntimeException error) {
+        } catch(RuntimeException error) {
             return null; // Could be an OS error, not proof of disconnection.
         }
     }
@@ -99,7 +99,7 @@ final class SapheBluetoothStatus {
                 for(DeviceEntry previous:choices)
                     if(previous.address.equals(address))duplicate=true;
                 if(!duplicate)choices.add(new DeviceEntry(address,name));
-            }catch(SecurityException|RuntimeException ignored){
+            }catch(RuntimeException ignored){
                 // Do not assume failure to enumerate is disconnection.
             }
         }
@@ -119,7 +119,7 @@ final class SapheBluetoothStatus {
             try{
                 if(selected.address.equalsIgnoreCase(device.getAddress()))
                     present=true;
-            }catch(SecurityException|RuntimeException ignored){}
+            }catch(RuntimeException ignored){}
         }
         if(!present)return false;
         String display=selected.label.trim();
@@ -153,7 +153,7 @@ final class SapheBluetoothStatus {
                 if(selected.equalsIgnoreCase(device.getAddress()))
                     return new Observation(Link.OBSERVED_CONNECTED,
                         "Ausgewähltes BLE-Gerät ist laut Android GATT verbunden");
-            }catch(SecurityException|RuntimeException ignored){}
+            }catch(RuntimeException ignored){}
         }
         return new Observation(Link.NOT_OBSERVED,
             "Ausgewähltes BLE-Gerät derzeit nicht in Androids GATT-Liste. "
