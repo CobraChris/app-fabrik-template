@@ -86,7 +86,12 @@ final class SapheBluetoothStatus {
     }
 
     static List<DeviceEntry> connectedForSelection(Context context) {
-        if (!hasPermission(context)) return Collections.emptyList();
+        // Explicit grant check is repeated before getName/getAddress: Android
+        // lint cannot infer the runtime grant through the helper method.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                || context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)
+                    != PackageManager.PERMISSION_GRANTED)
+            return Collections.emptyList();
         List<BluetoothDevice> devices=connectedGatt(context);
         if(devices==null)return Collections.emptyList();
         List<DeviceEntry> choices=new ArrayList<>();
