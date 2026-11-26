@@ -1595,5 +1595,16 @@ test('v41 compact Saphe header uses verified GATT evidence and never infers gree
   assert.match(cockpit,/SAPHE_BLUETOOTH_REFRESH_MS = 5_000L/);
   assert.match(cockpit,/if \(cockpitResumed &&/);
   assert.match(cockpit,/Bluetooth-Verbindung prüfen \(optional\)/);
-
+  // An incomplete OS device list cannot be mistaken for a disconnect.
+  assert.match(bluetooth,/boolean incompleteInventory = false/);
+  assert.match(bluetooth,/if \(incompleteInventory\)\s*return new Observation\(Link\.UNKNOWN/);
+  // Only new 5-second observations count towards red, never cached samples.
+  const gate=java('SapheBluetoothEvidenceGate');
+  assert.match(gate,/NEGATIVE_CONFIRMATIONS = 2/);
+  assert.match(gate,/consecutiveNegative \+ 1/);
+  assert.match(gate,/current = SapheIndicatorRules\.Evidence\.UNKNOWN/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.sample\(sapheBluetoothObservation\.link\)/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.current\(\)/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.reset\(\)/);
+  assert.doesNotMatch(cockpit,/if \(sapheBluetoothObservation\.link ==\s*SapheBluetoothStatus\.Link\.NOT_OBSERVED\)\s*evidence = SapheIndicatorRules\.Evidence\.NOT_OBSERVED/);
 });
