@@ -1590,8 +1590,8 @@ test('v41 compact Saphe header uses verified GATT evidence and never infers gree
   assert.match(cockpit,/SapheBluetoothStatus\.choose\(this, selected\)/);
   assert.match(cockpit,/SapheBluetoothStatus\.clear\(this\)/);
   assert.match(cockpit,/SapheBluetoothStatus\.read\(this\)/);
-  assert.match(cockpit,/SapheIndicatorRules\.Evidence\.OBSERVED_CONNECTED/);
-  assert.match(cockpit,/SapheIndicatorRules\.Evidence\.NOT_OBSERVED/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.current\(\)/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.sample\(sapheBluetoothObservation\.link\)/);
   assert.match(cockpit,/SAPHE_BLUETOOTH_REFRESH_MS = 5_000L/);
   assert.match(cockpit,/if \(cockpitResumed &&/);
   assert.match(cockpit,/Bluetooth-Verbindung prüfen \(optional\)/);
