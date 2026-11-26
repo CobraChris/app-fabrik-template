@@ -2036,9 +2036,14 @@ public final class IntegratedNavigationActivity extends Activity {
         clearDevice.setVisibility(SapheBluetoothStatus.configured(this)
             ? View.VISIBLE : View.GONE);
         content.addView(clearDevice);
+        // Keep the entire diagnostic reachable on a short portrait screen
+        // and in the 30%-width landscape cockpit.
+        ScrollView diagnosticScroll = new ScrollView(this);
+        diagnosticScroll.setFillViewport(false);
+        diagnosticScroll.addView(content);
         AlertDialog sapheDialog = new AlertDialog.Builder(this)
             .setTitle("Saphe-Diagnose")
-            .setView(content)
+            .setView(diagnosticScroll)
             .setNeutralButton("Testanzeige", (dialog, which) ->
                 showSapheBanner(true))
             .setNegativeButton("Schließen", (dialog, which) -> {})
