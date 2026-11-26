@@ -1,8 +1,8 @@
 {
   "schema": 2,
   "intent": "fahrcockpit-signed-beta",
-  "request_id": "2026-11-26-fahrcockpit-v40-route-favorites-nearby",
-  "source_sha": "d911684220fed5460cbaf7c7ba1e936149e55613",
-  "expected_version_code": 40,
+  "request_id": "2026-11-27-fahrcockpit-v41-compact-saphe-ble-gatt",
+  "source_sha": "bccd53c221085e0ea9397761499271975dcc2fe2",
+  "expected_version_code": 41,
   "variant": "google-sdk-only"
 }
