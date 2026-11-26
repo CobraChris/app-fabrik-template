@@ -478,8 +478,7 @@ public final class FuelActivity extends Activity {
             double distance = s.optDouble("dist", -1);
             double lat = s.optDouble("lat", Double.NaN);
             double lng = s.optDouble("lng", Double.NaN);
-            String priceText = price >= 0 ? String.format(Locale.GERMANY, "%.2f €/l", price)
-                                          : "Preis nicht gemeldet";
+            String priceText = FuelPriceFormat.perLiter(price);
             String distText = distance >= 0 ? String.format(Locale.GERMANY, "%.1f km", distance)
                                             : "Entfernung unbekannt";
             String openText = s.optBoolean("isOpen", false) ? "geöffnet" : "geschlossen/unbekannt";
