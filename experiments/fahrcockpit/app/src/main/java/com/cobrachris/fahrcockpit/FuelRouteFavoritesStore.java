@@ -65,7 +65,7 @@ final class FuelRouteFavoritesStore {
             }
             if(!fuelType.equals(type))return "Bitte "+type.toUpperCase(Locale.GERMANY)+" aktualisieren";
             if(!Double.isFinite(price)||price<=0||price>=9)return "Kein Preis gemeldet";
-            String shown=String.format(Locale.GERMANY,"%.2f €/l",price);
+            String shown=FuelPriceFormat.perLiter(price);
             return currentFor(type,now)?shown:shown+" · ALT";
         }
     }
