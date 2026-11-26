@@ -887,7 +887,7 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   assert.match(cache,/MAX_STATIONS = 120/);
   assert.match(cache,/context\.getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
   assert.doesNotMatch(cache,/apiKey|tankerkoenig_local_key|requestUrl|HttpURLConnection/);
-  assert.match(activity,/engine\.showFuelPrices\(displayed,/);
+  assert.match(activity,/engine\.showFuelPrices\(local,/);
   assert.match(activity,/station -> acceptFuelStation\(station\.lat, station\.lng, station\.name\)/);
   assert.match(activity,/setPositiveButton\("Route berechnen"/);
   assert.match(activity,/engine\.startConfirmedRoute\(lat, lng, chosenName\)/);
@@ -932,7 +932,7 @@ test('v29 direct fuel overlay is one tap, explicitly refreshed, and reuses saved
   assert.match(activity,/fuelRefreshButton\.setOnClickListener\(v ->/);
   assert.match(activity,/startQuickFuelSearch\(\)/);
   assert.match(activity,/FuelMapSnapshot\.readForDisplay\(this\)/);
-  assert.match(activity,/engine\.showFuelPrices\(displayed,/);
+  assert.match(activity,/engine\.showFuelPrices\(local,/);
   assert.match(activity,/fuelMarkersVisible = false/);
   assert.match(activity,/FuelMapSnapshot\.MAX_AGE_MS/);
   assert.match(activity,/new Intent\(this, FuelActivity\.class\)/);
@@ -1148,7 +1148,7 @@ test('v35 secondary fuel tools are collapsible without losing a manual refresh o
   assert.doesNotMatch(cockpit,/fuelExtraActions|fuelMore/);
   assert.match(cockpit,/FuelActivity\.class/);
   assert.match(cockpit,/fuelButton\.setOnClickListener\(v ->/);
-  assert.match(cockpit,/engine\.showFuelPrices\(displayed,/);
+  assert.match(cockpit,/engine\.showFuelPrices\(local,/);
 });
 
 test('v35 Saphe status is truthful and warnings and diagnostic remain available',()=>{
@@ -1270,7 +1270,7 @@ test('v36 tank price requests share one persistent fail-closed limit with no aut
   assert.match(full,/FuelRequestGate\.reportHttp\(this, httpStatus\)/);
   assert.match(quick,/FuelRequestGate\.reportTransportFailure\(host\)/);
   assert.match(full,/FuelRequestGate\.reportTransportFailure\(this\)/);
-  assert.match(quick,/callback\.onSuccess\(cache\)/);
+  assert.doesNotMatch(quick,/callback\.onSuccess\(cache\)/);
   assert.match(quick,/if \(!permit\.allowed\)/);
   assert.match(full,/if \(!permit\.allowed\)/);
   assert.match(gate,/private static final Object LOCK = new Object\(\)/);
@@ -1302,7 +1302,7 @@ test('v36 always-on fuel price display retains explicitly labeled stale cache wi
   assert.match(cached,/static boolean isStale\(Snapshot snapshot, long now\)/);
   assert.match(cockpit,/FuelMapSnapshot\.readForDisplay\(this\)/);
   assert.match(cockpit,/fuelInfo\.setText\(local\.stations\.size\(\) \+ " von "/);
-  assert.match(cockpit,/stale \? " · ALT, kein Live-Preis" : " · aktuell"/);
+  assert.match(cockpit,/stale \? " · ALT, kein Live-Preis" : " · abgerufen"/);
   assert.match(cockpit,/stale \? FuelMapSnapshot\.MAX_DISPLAY_AGE_MS/);
   assert.match(cockpit,/handler\.postDelayed\(expireFuelMarkers, delay\)/);
   assert.doesNotMatch(quick,/callback\.onSuccess\(cache\)/);
@@ -1447,7 +1447,7 @@ test('v39 fuel map is nearest-first and follows car using only local cached data
   const rules=java('FuelRules');
   const policy=java('FuelAutoRefreshPolicy');
   const guard=java('FuelRequestGate');
-  const ci=read('../.github/workflows/fahrcockpit-navsdk-compile.yml');
+  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
   assert.match(quick,/radius, type, "dist"/);
   assert.match(rules,/public static String requestUrl\(String key, double lat, double lng,\s*int radiusKm, String type, String sort\)/);
   assert.match(rules,/!"dist"\.equals\(sort\)/);
