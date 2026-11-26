@@ -1,14 +1,25 @@
 package com.cobrachris.fahrcockpit;
 
 import android.Manifest;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.net.Uri;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -24,6 +35,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -38,6 +50,16 @@ public final class IntegratedNavigationActivity extends Activity {
     static final String EXTRA_FORCE_OSM_TEST = "integrated_force_osm_test";
     private static final int LOCATION_REQUEST = 420;
     private static final int FUEL_PICK_REQUEST = 421;
+    private static final int SAPHE_BLUETOOTH_PERMISSION_REQUEST = 422;
+    private static final long SAPHE_BLUETOOTH_REFRESH_MS = 5_000L;
+    private static final int MENU_SWAP_PANE = 5101;
+    private static final int MENU_APP_UPDATE = 5102;
+    private static final int MENU_FUEL_SETTINGS = 5103;
+    private static final int MENU_SAPHE_DIAGNOSIS = 5104;
+    private static final int MENU_FUEL_AUTO = 5105;
+    private static final int MENU_PARKING_SHOW = 5106;
+    private static final int MENU_PARKING_SAVE = 5107;
+    private static final int MENU_FUEL_ROUTES = 5108;
     private static final String STATE_TARGET = "target";
     private static final String STATE_SELECTED_DISPLAY = "selected_display";
     private static final String STATE_SELECTED_TARGET = "selected_target";
@@ -45,11 +67,51 @@ public final class IntegratedNavigationActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private NavigationEngine engine;
-    private TextView status, spotifyState, track, elapsed, duration;
+    private final Runnable expireFuelMarkers = () -> updateFuelMarkers();
+    private TextView status, spotifyState, track, elapsed, duration, spotifyHeader, fuelInfo;
+    private LinearLayout mediaControls, mediaSkip, spotifyHeaderRow, mediaProgressRow;
+    private Button fuelButton, fuelRefreshButton;
+    private FuelQuickSearch fuelQuickSearch;
+    private FuelAutoRefreshController autoFuelRefreshController;
+    private boolean fuelMarkersVisible = true;
     private EditText destination;
     private SeekBar seek;
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
     private ImageButton voiceButton;
+    private TextView sapheBanner;
+    private Button sapheStatusButton;
+    private SapheIndicatorRules.State lastSapheIndicatorState;
+    private SapheBluetoothStatus.Observation sapheBluetoothObservation =
+        new SapheBluetoothStatus.Observation(
+            SapheBluetoothStatus.Link.UNKNOWN, "Noch nicht geprüft");
+    private final SapheBluetoothEvidenceGate sapheBluetoothEvidenceGate =
+        new SapheBluetoothEvidenceGate();
+    private long lastSapheBluetoothCheckAt;
+    private TextView currentSpeedView;
+    private TextView compactEtaView;
+    private boolean landscapeCockpit;
+    private boolean navigationGuidanceActive;
+    private boolean cockpitResumed;
+    private final ParkingTripTracker parkingTrip = new ParkingTripTracker();
+    private LocationManager speedLocationManager;
+    private LocationListener speedLocationListener;
+    // RAM-only current GPS fix for filtering cached fuel markers as car moves.
+    // Never transmitted, saved to storage or used to trigger API requests.
+    private Location fuelDisplayFix;
+    private Location fuelLastRenderedFix;
+    private static final float FUEL_MARKER_REPOSITION_METERS = 250f;
+    private static final long FUEL_FIX_MAX_AGE_NANOS = 30_000_000_000L;
+    private final Runnable expireSpeedReading = () -> showUnknownSpeed();
+    private long sapheLastShownAt;
+    private long lastSafetyShownAt;
+    private int safetyEventCount;
+    private static final long SAFETY_COOLDOWN_MS = 10000L;
+    private final Runnable hideSapheBanner = () -> {
+        if (sapheBanner != null) {
+            sapheBanner.clearAnimation();
+            sapheBanner.setVisibility(View.GONE);
+        }
+    };
     private Button toggleRoutes;
     private LinearLayout routePanel;
     private ScrollView controlsScroll;
@@ -68,7 +130,10 @@ public final class IntegratedNavigationActivity extends Activity {
 
     private final Runnable musicRefresh = new Runnable() {
         @Override public void run() {
-            if (spotifyState != null) updateMusic();
+            if (spotifyState != null) {
+                updateMusic();
+                refreshSapheNotificationProbe();
+            }
             handler.postDelayed(this, 1800L);
         }
     };
@@ -93,10 +158,14 @@ public final class IntegratedNavigationActivity extends Activity {
                 savedInstanceState.getString(STATE_SELECTED_TARGET));
         }
         engine = loadEngine();
+        fuelQuickSearch = new FuelQuickSearch(this);
+        autoFuelRefreshController =
+            new FuelAutoRefreshController(this, this::startQuickFuelSearch);
         placesAutocomplete = PlacesAutocompleteBridge.approved(this);
 
         boolean landscape = getResources().getConfiguration().orientation
             == Configuration.ORIENTATION_LANDSCAPE;
+        landscapeCockpit = landscape;
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(landscape
             ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
@@ -115,23 +184,37 @@ public final class IntegratedNavigationActivity extends Activity {
         controlsScroll = scroll;
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(Ui.PANEL);
+        // Keep the GPS speed visible above the scrollable cockpit controls.
+        // The 70/30 pane weights and native Google map controls stay intact.
+        LinearLayout cockpitPane = new LinearLayout(this);
+        cockpitPane.setOrientation(LinearLayout.VERTICAL);
+        cockpitPane.setBackgroundColor(Ui.PANEL);
+        currentSpeedView = Ui.text(this, "GPS — km/h",
+            landscape ? 20 : 23, Ui.FG, true);
+        currentSpeedView.setContentDescription("GPS-Geschwindigkeit nicht verfügbar");
+        currentSpeedView.setGravity(Gravity.CENTER_VERTICAL);
+        currentSpeedView.setPadding(Ui.dp(this, 12), Ui.dp(this, 7),
+            Ui.dp(this, 12), Ui.dp(this, 7));
+        cockpitPane.addView(currentSpeedView,
+            new LinearLayout.LayoutParams(-1, -2));
+        cockpitPane.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
         LinearLayout.LayoutParams controlParams = landscape
             ? new LinearLayout.LayoutParams(0, -1,
                 IntegratedNavigationRules.CONTROLS_WEIGHT)
             : new LinearLayout.LayoutParams(-1, 0,
                 CockpitLayoutRules.controlsWeight(false));
         if (landscape && spotifyLeft) {
-            root.addView(scroll, controlParams);
+            root.addView(cockpitPane, controlParams);
             root.addView(mapPane, mapParams);
         } else {
             root.addView(mapPane, mapParams);
-            root.addView(scroll, controlParams);
+            root.addView(cockpitPane, controlParams);
         }
 
         LinearLayout panel = Ui.column(this);
         panel.setPadding(Ui.dp(this, landscape ? 8 : 12),
-            Ui.dp(this, landscape ? 2 : 6),
-            Ui.dp(this, landscape ? 8 : 12), Ui.dp(this, 20));
+            Ui.dp(this, landscape ? 2 : 4),
+            Ui.dp(this, landscape ? 8 : 12), Ui.dp(this, landscape ? 8 : 10));
         scroll.addView(panel);
 
         if (engine != null && engine.configured()) {
@@ -144,10 +227,43 @@ public final class IntegratedNavigationActivity extends Activity {
                             NavigationProviderPolicy.Failure reason) {
                         runOnUiThread(() -> showProviderFailure(reason));
                     }
+                    @Override public void onFinalDestinationArrived() {
+                        runOnUiThread(() -> {
+                            parkingTrip.onFinalArrival(SystemClock.elapsedRealtime());
+                            trySaveArrivedParking();
+                        });
+                    }
+                    @Override public void onRouteProgress(int seconds, int meters) {
+                        runOnUiThread(() -> showCompactEta(seconds, meters));
+                    }
                     @Override public void onGuidanceStateChanged(boolean active) {
                         runOnUiThread(() -> {
+                            boolean wasActive = navigationGuidanceActive;
+                            navigationGuidanceActive = active;
+                            if (!active) hideCompactEta();
+                            if (active && !wasActive)
+                                parkingTrip.start(SystemClock.elapsedRealtime());
+                            if (!active && wasActive) {
+                                ParkingTripTracker.Spot spot =
+                                    parkingTrip.finish(SystemClock.elapsedRealtime());
+                                if (spot != null && ParkingLocationStore.save(IntegratedNavigationActivity.this, spot, true))
+                                    showStatus("Parkplatz nach Fahrtende automatisch gemerkt.");
+                            }
+                            if (autoFuelRefreshController != null)
+                                autoFuelRefreshController.setNavigationActive(active);
                             updateScreenAwake(active);
-                            if (active) collapseDestinationMenu();
+                            // During Google guidance the native map speedometer
+                            // is the sole speed display. Outside guidance the
+                            // cockpit shows its own GPS speed instead.
+                            if (currentSpeedView != null)
+                                currentSpeedView.setVisibility(
+                                    active ? View.GONE : View.VISIBLE);
+                            if (active) {
+                                collapseDestinationMenu();
+                            }
+                            // Keep GPS fixes for parking even while the native
+                            // Google speedometer is the only speed display.
+                            startSpeedUpdates();
                         });
                     }
                 });
@@ -166,13 +282,19 @@ public final class IntegratedNavigationActivity extends Activity {
             mapPane.addView(placeholder, new FrameLayout.LayoutParams(-1, -1));
         }
 
-        // State the actual provider prominently: preview packages NEVER
-        // contain Google SDK. Google remains the shipping product target.
-        panel.addView(Ui.text(this, BuildConfig.GOOGLE_ONLY
-            ? "FahrCockpit · Google Navigation"
+        // Compact, single-line identity: preserve the provider distinction,
+        // but do not waste a separate row in the narrow driving cockpit.
+        TextView cockpitTitle = Ui.text(this, BuildConfig.GOOGLE_ONLY
+            ? "FahrCockpit"
             : (BuildConfig.VISUAL_PREVIEW
-                ? "FahrCockpit v21 · OSM-Sichttest"
-                : "FahrCockpit · Google-Navigation"), 17, Ui.FG, true));
+                ? "FahrCockpit · OSM-Test"
+                : "FahrCockpit"), landscape ? 13 : 14, Ui.FG, true);
+        // In 70/30 landscape the three 44dp header actions must remain
+        // reachable. Use a short label rather than clipping the Saphe button.
+        if (landscape && BuildConfig.GOOGLE_ONLY) cockpitTitle.setText("FC");
+        cockpitTitle.setSingleLine(true);
+        cockpitTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        cockpitTitle.setPadding(0, 0, Ui.dp(this, 5), 0);
         if (BuildConfig.VISUAL_PREVIEW) {
             panel.addView(Ui.text(this,
                 "Dies ist NUR die separat installierte OSM-Kartenvorschau. "
@@ -200,59 +322,181 @@ public final class IntegratedNavigationActivity extends Activity {
             if (engine != null) engine.setVoiceMuted(muted);
             updateVoiceButton();
         });
-        FrameLayout.LayoutParams voicePosition = new FrameLayout.LayoutParams(
-            Ui.dp(this, 48), Ui.dp(this, 48), Gravity.END | Gravity.CENTER_VERTICAL);
-        // Mid-right avoids Google's top turn banner and bottom ETA card.
-        voicePosition.rightMargin = Ui.dp(this, 14);
-        mapPane.addView(voiceButton, voicePosition);
+        // Keep voice controls off the live map: Google's compass, guidance
+        // banner and ETA stay unobstructed in both screen orientations.
+        voiceButton.setMinimumWidth(Ui.dp(this, 44));
+        voiceButton.setMinimumHeight(Ui.dp(this, 44));
 
-        Button sideToggle = Ui.button(this,
-            landscape ? (spotifyLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
-                : CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
-        sideToggle.setTextSize(landscape ? 12 : 14);
-        sideToggle.setContentDescription(
-            CockpitPanePreferences.toggleLabel(spotifyLeft, landscape));
-        sideToggle.setEnabled(landscape);
-        // The greyed-out horizontal control wasted portrait screen height.
-        sideToggle.setVisibility(landscape ? View.VISIBLE : View.GONE);
-        panel.addView(sideToggle);
-        sideToggle.setOnClickListener(v -> {
-            // Layout reparenting, not Activity recreation: preserve the active
-            // navigation engine, the route state and Spotify playback.
-            boolean newLeft = !CockpitPanePreferences.spotifyLeft(this);
-            if (!CockpitPanePreferences.saveSpotifyLeft(this, newLeft)) {
-                showStatus("Spotify-Seite konnte nicht gespeichert werden.");
-                return;
-            }
+        // Full-screen temporary Safety diagnostic, dramatically more visible
+        // than the former map strip. A Saphe notification is NOT a verified
+        // camera warning; always label its type as unverified.
+        sapheBanner = Ui.text(this, "", landscape ? 48 : 58, 0xffffffff, true);
+        sapheBanner.setGravity(Gravity.CENTER);
+        sapheBanner.setMaxLines(3);
+        sapheBanner.setPadding(Ui.dp(this, 22), Ui.dp(this, 32),
+            Ui.dp(this, 22), Ui.dp(this, 32));
+        sapheBanner.setBackgroundColor(0xf2ab1020);
+        sapheBanner.setElevation(Ui.dp(this, 10));
+        sapheBanner.setVisibility(View.GONE);
+        sapheBanner.setContentDescription("Safety-Ereignis; Typ nicht verifiziert");
+
+        // Keep options and navigation speech available while scrolling
+        // Spotify and destinations. This row stays in the cockpit pane,
+        // never on top of Google's turn banner, speedometer or ETA.
+        LinearLayout tools = Ui.row(this);
+        tools.setPadding(Ui.dp(this, 8), 0, Ui.dp(this, 8), 0);
+        tools.addView(cockpitTitle, new LinearLayout.LayoutParams(0, -2, 1f));
+        tools.addView(voiceButton, new LinearLayout.LayoutParams(
+            Ui.dp(this, 44), Ui.dp(this, 44)));
+        // Equal to the existing options button. Never overlay Google Maps.
+        sapheStatusButton = cockpitButton("S", false);
+        sapheStatusButton.setTextSize(20);
+        sapheStatusButton.setContentDescription(
+            "Saphe öffnen; Bluetooth-Verbindungsstatus nicht verfügbar");
+        LinearLayout.LayoutParams sapheParams =
+            new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44));
+        sapheParams.leftMargin = Ui.dp(this, 5);
+        tools.addView(sapheStatusButton, sapheParams);
+        sapheStatusButton.setOnClickListener(v -> {
+            // The public Saphe app can be launched, not automatically
+            // Bluetooth-paired/connected by a third-party application.
+            if (!WarningSource.openSaphe(this))
+                showStatus("Saphe konnte nicht geöffnet werden. "
+                    + "Bitte Installation der Saphe-Link-App prüfen.");
+        });
+        sapheStatusButton.setOnLongClickListener(v -> {
+            showSapheProbeDialog();
+            return true;
+        });
+        Button optionsButton = cockpitButton("⋮", false);
+        optionsButton.setTextSize(22);
+        optionsButton.setContentDescription("FahrCockpit-Optionen öffnen");
+        LinearLayout.LayoutParams optionsParams =
+            new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44));
+        optionsParams.leftMargin = Ui.dp(this, 5);
+        tools.addView(optionsButton, optionsParams);
+        cockpitPane.addView(tools, 1,
+            new LinearLayout.LayoutParams(-1, Ui.dp(this, 48)));
+        // Persistent compact ETA lives only in the existing Spotify-side
+        // panel. It never overlays the route and adds no map width/height.
+        compactEtaView = Ui.text(this, "", 12, Ui.FG, true);
+        compactEtaView.setPadding(Ui.dp(this, 10), Ui.dp(this, 3),
+            Ui.dp(this, 10), Ui.dp(this, 3));
+        compactEtaView.setMaxLines(2);
+        compactEtaView.setVisibility(View.GONE);
+        compactEtaView.setContentDescription("Ankunftszeit noch nicht verfügbar");
+        cockpitPane.addView(compactEtaView, 2,
+            new LinearLayout.LayoutParams(-1, -2));
+        optionsButton.setOnClickListener(v -> {
+            PopupMenu options = new PopupMenu(this, optionsButton);
             if (landscape) {
-                root.removeView(mapPane);
-                root.removeView(scroll);
-                if (newLeft) {
-                    root.addView(scroll, controlParams);
-                    root.addView(mapPane, mapParams);
-                } else {
-                    root.addView(mapPane, mapParams);
-                    root.addView(scroll, controlParams);
-                }
+                boolean panelLeft = CockpitPanePreferences.spotifyLeft(this);
+                options.getMenu().add(0, MENU_SWAP_PANE, 0,
+                    panelLeft ? "Bedienfeld nach rechts" : "Bedienfeld nach links");
             }
-            sideToggle.setText(landscape
-                ? (newLeft ? "⇄ Spotify rechts" : "⇄ Spotify links")
-                : CockpitPanePreferences.toggleLabel(newLeft, landscape));
-            sideToggle.setContentDescription(
-                CockpitPanePreferences.toggleLabel(newLeft, landscape));
+            options.getMenu().add(0, MENU_APP_UPDATE, 1, "App aktualisieren");
+            options.getMenu().add(0, MENU_FUEL_SETTINGS, 2,
+                "Tankstellen-Einstellungen");
+            options.getMenu().add(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose");
+            options.getMenu().add(0, MENU_PARKING_SHOW, 5, "Parkplatz anzeigen");
+            options.getMenu().add(0, MENU_PARKING_SAVE, 6, "Parkplatz jetzt speichern");
+            options.getMenu().add(0, MENU_FUEL_ROUTES, 7,
+                "★ Strecken & Tankstellenfavoriten");
+            options.getMenu().add(0, MENU_FUEL_AUTO, 4,
+                !FuelAutoRefreshPolicy.PROVIDER_APPROVED
+                    ? "Auto-Preise: Freigabe ausstehend"
+                    : (FuelAutoRefreshPreferences.enabled(this)
+                        ? "Auto-Preise ausschalten" : "Auto-Preise einschalten"));
+            options.setOnMenuItemClickListener(item -> {
+                switch (item.getItemId()) {
+                    case MENU_SWAP_PANE:
+                        // Reparent only the existing views: never recreate
+                        // navigation or interrupt Spotify playback.
+                        if (!landscape) return true;
+                        boolean newLeft = !CockpitPanePreferences.spotifyLeft(this);
+                        if (!CockpitPanePreferences.saveSpotifyLeft(this, newLeft)) {
+                            showStatus("Cockpit-Seite konnte nicht gespeichert werden.");
+                            return true;
+                        }
+                        root.removeView(mapPane);
+                        root.removeView(cockpitPane);
+                        if (newLeft) {
+                            root.addView(cockpitPane, controlParams);
+                            root.addView(mapPane, mapParams);
+                        } else {
+                            root.addView(mapPane, mapParams);
+                            root.addView(cockpitPane, controlParams);
+                        }
+                        return true;
+                    case MENU_APP_UPDATE:
+                        startActivity(new Intent(this, UpdateActivity.class));
+                        return true;
+                    case MENU_FUEL_SETTINGS:
+                        startActivityForResult(new Intent(this, FuelActivity.class)
+                            .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
+                            FUEL_PICK_REQUEST);
+                        return true;
+                    case MENU_FUEL_ROUTES:
+                        openFuelRoutes();
+                        return true;
+                    case MENU_SAPHE_DIAGNOSIS:
+                        showSapheProbeDialog();
+                        return true;
+                    case MENU_PARKING_SHOW:
+                        showParkingLocation();
+                        return true;
+                    case MENU_PARKING_SAVE:
+                        saveParkingManually();
+                        return true;
+                    case MENU_FUEL_AUTO:
+                        if (!FuelAutoRefreshPolicy.PROVIDER_APPROVED) {
+                            new AlertDialog.Builder(this)
+                                .setTitle("Automatische Tankstellenpreise")
+                                .setMessage("Die automatische Aktualisierung während der "
+                                    + "Navigation ist vorbereitet, aber für die kostenlose "
+                                    + "Tankerkönig-API noch nicht ausdrücklich genehmigt. "
+                                    + "Bis zur schriftlichen Anbieterfreigabe bleiben "
+                                    + "regelmäßige automatische API-Abfragen gesperrt. "
+                                    + "Bereits gespeicherte Preise sind mit Zeitstempel "
+                                    + "weiterhin sichtbar.")
+                                .setPositiveButton("Verstanden", null).show();
+                        } else {
+                            boolean enabled = !FuelAutoRefreshPreferences.enabled(this);
+                            if (!FuelAutoRefreshPreferences.saveEnabled(this, enabled)) {
+                                showStatus("Auto-Preis-Einstellung konnte nicht gespeichert werden.");
+                            } else if (autoFuelRefreshController != null) {
+                                autoFuelRefreshController.refreshUserSetting();
+                            }
+                        }
+                        return true;
+                    default:
+                        return false;
+                }
+            });
+            options.show();
         });
         status = Ui.text(this, isOsmPreview()
             ? "OSM-Abbiegeführung (Entwicklungstest, nicht für reale Fahrten)"
             : (engine != null && engine.configured()
                 ? "Google Navigation SDK wird vorbereitet …"
                 : "Vorschau · Navigation SDK nicht aktiviert · keine Gebühren"),
-            12, Ui.WARN, false);
+            11, Ui.WARN, false);
+        status.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
         status.setMaxLines(3);
+        // A routine success message is diagnostic, not permanent driving UI.
+        status.setVisibility(engine != null && engine.configured()
+            && BuildConfig.GOOGLE_ONLY ? View.GONE : View.VISIBLE);
         panel.addView(status);
+        // Saphe state is displayed exclusively in the 44dp header button:
+        // no duplicate status/header in the scrollable cockpit area.
+        refreshSapheStatus();
 
         // Route creation is intentionally collapsed during driving; Spotify
         // stays visible in the limited 30 % panel without manual searching.
         routePanel = Ui.column(this);
+        routePanel.setPadding(Ui.dp(this, 8), Ui.dp(this, 6),
+            Ui.dp(this, 8), Ui.dp(this, 8));
+        routePanel.setBackground(Ui.background(this, 0xff2b3643, 10));
         routePanel.setVisibility(View.GONE);
         destination = new EditText(this);
         destination.setSingleLine(true);
@@ -297,14 +541,14 @@ public final class IntegratedNavigationActivity extends Activity {
         // Two primary destination actions on one line instead of two large
         // full-width buttons: all actions remain accessible.
         LinearLayout destinationActions = Ui.row(this);
-        Button saveDestination = Ui.button(this, "☆ Speichern");
+        Button saveDestination = cockpitButton("☆ Speichern", false);
         saveDestination.setTextSize(12);
         saveDestination.setMinHeight(Ui.dp(this, 42));
         destinationActions.addView(saveDestination,
             new LinearLayout.LayoutParams(0, Ui.dp(this, 44), 1f));
         saveDestination.setOnClickListener(v -> saveCurrentDestination());
 
-        Button remembered = Ui.button(this, "★ Meine Ziele");
+        Button remembered = cockpitButton("★ Meine Ziele", false);
         remembered.setTextSize(12);
         remembered.setMinHeight(Ui.dp(this, 42));
         destinationActions.addView(remembered,
@@ -312,13 +556,12 @@ public final class IntegratedNavigationActivity extends Activity {
         remembered.setOnClickListener(v -> showSavedTargets());
         routePanel.addView(destinationActions);
 
-        Button route = Ui.button(this, isOsmPreview()
-            ? "OSM-Abbiegeführung zum Testen planen"
-            : "Route berechnen");
+        Button route = cockpitButton(isOsmPreview()
+            ? "OSM-Test planen" : "Route berechnen", true);
         routePanel.addView(route);
         route.setEnabled(engine != null && engine.configured());
-        route.setOnClickListener(v -> resolveAndConfirmRoute());
-        stopButton = Ui.button(this, "Navigation beenden");
+        route.setOnClickListener(v -> resolveAndStartRoute());
+        stopButton = cockpitButton("Navigation beenden", false);
         routePanel.addView(stopButton);
         stopButton.setEnabled(engine != null && engine.configured());
         stopButton.setOnClickListener(v -> {
@@ -328,8 +571,8 @@ public final class IntegratedNavigationActivity extends Activity {
         });
 
         // Keep the free navigation visible even when the route form is collapsed.
-        Button fallback = Ui.button(this,
-            "Google Maps separat öffnen (Samsung-Splitscreen)");
+        Button fallback = cockpitButton(
+            "Google Maps separat öffnen (Samsung-Splitscreen)", false);
         fallback.setOnClickListener(v -> {
             String text = RouteTargetRules.clean(destination.getText().toString());
             Intent intent = new Intent(this, SplitCockpitActivity.class);
@@ -338,26 +581,48 @@ public final class IntegratedNavigationActivity extends Activity {
             startActivity(intent);
         });
 
-        panel.addView(Ui.text(this, "Spotify", 16, Ui.FG, true));
-        spotifyState = Ui.text(this, "Spotify-Status wird geprüft …",
-            12, Ui.MUTED, false);
-        panel.addView(spotifyState);
-        spotifySetup = Ui.button(this, "Spotify öffnen und Musik starten");
-        panel.addView(spotifySetup);
+        Ui.gap(this, panel, 4);
+        spotifyHeaderRow = Ui.row(this);
+        spotifyHeader = Ui.text(this, "Spotify", 14, Ui.FG, true);
+        spotifyHeader.setPadding(0, 0, 0, 0);
+        spotifyState = Ui.text(this, "Status wird geprüft …",
+            10, Ui.MUTED, false);
+        spotifyState.setPadding(0, 0, 0, 0);
+        spotifyState.setSingleLine(true);
+        spotifyState.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        spotifyState.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        spotifyHeaderRow.addView(spotifyHeader,
+            new LinearLayout.LayoutParams(-2, Ui.dp(this, 30)));
+        spotifyHeaderRow.addView(spotifyState,
+            new LinearLayout.LayoutParams(0, -2, 1f));
+        panel.addView(spotifyHeaderRow);
+        spotifySetup = cockpitButton("Spotify öffnen", false);
+        panel.addView(spotifySetup, new LinearLayout.LayoutParams(-1, Ui.dp(this, 44)));
         spotifySetup.setOnClickListener(v -> openSpotifyOrPermissions());
-        track = Ui.text(this, "", 13, Ui.FG, true);
+        track = Ui.text(this, "", 12, Ui.FG, true);
+        track.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
         track.setMaxLines(2);
+        track.setEllipsize(android.text.TextUtils.TruncateAt.END);
         panel.addView(track);
 
+        mediaProgressRow = Ui.row(this);
+        elapsed = Ui.text(this, "0:00", 10, Ui.MUTED, false);
+        duration = Ui.text(this, "0:00", 10, Ui.MUTED, false);
+        elapsed.setPadding(0, 0, 0, 0);
+        duration.setPadding(0, 0, 0, 0);
+        elapsed.setSingleLine(true);
+        duration.setSingleLine(true);
+        duration.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         seek = new SeekBar(this);
         seek.setMax(TrackProgressRules.MAX);
-        panel.addView(seek);
-        LinearLayout timestamps = Ui.row(this);
-        elapsed = Ui.text(this, "0:00", 11, Ui.MUTED, false);
-        duration = Ui.text(this, "0:00", 11, Ui.MUTED, false);
-        timestamps.addView(elapsed, new LinearLayout.LayoutParams(0, -2, 1));
-        timestamps.addView(duration);
-        panel.addView(timestamps);
+        seek.setContentDescription("Wiedergabeposition");
+        mediaProgressRow.addView(elapsed,
+            new LinearLayout.LayoutParams(Ui.dp(this, 37), -2));
+        mediaProgressRow.addView(seek,
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 38), 1f));
+        mediaProgressRow.addView(duration,
+            new LinearLayout.LayoutParams(Ui.dp(this, 37), -2));
+        panel.addView(mediaProgressRow);
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onStartTrackingTouch(SeekBar bar) {
                 touchingSeek = true;
@@ -377,66 +642,115 @@ public final class IntegratedNavigationActivity extends Activity {
             }
         });
 
-        LinearLayout media = Ui.row(this);
-        previous = Ui.button(this, "⏮");
-        play = Ui.button(this, "▶");
-        next = Ui.button(this, "⏭");
-        media.addView(previous, new LinearLayout.LayoutParams(0, -2, 1f));
-        media.addView(play, new LinearLayout.LayoutParams(0, -2, 1f));
-        media.addView(next, new LinearLayout.LayoutParams(0, -2, 1f));
-        panel.addView(media);
+        mediaControls = Ui.row(this);
+        previous = cockpitButton("⏮", false);
+        play = cockpitButton("▶", true);
+        next = cockpitButton("⏭", false);
+        previous.setContentDescription("Vorheriger Titel");
+        play.setContentDescription("Wiedergabe starten oder pausieren");
+        next.setContentDescription("Nächster Titel");
+        mediaControls.addView(previous, cockpitActionParams(1f, true));
+        mediaControls.addView(play, cockpitActionParams(1f, true));
+        mediaControls.addView(next, cockpitActionParams(1f, false));
+        panel.addView(mediaControls);
         previous.setOnClickListener(v -> send(SpotifyMedia.Action.PREVIOUS));
         play.setOnClickListener(v -> send(SpotifyMedia.Action.TOGGLE));
         next.setOnClickListener(v -> send(SpotifyMedia.Action.NEXT));
 
-        LinearLayout skip = Ui.row(this);
-        backward = Ui.button(this, "−15 s");
-        forward = Ui.button(this, "+15 s");
-        skip.addView(backward, new LinearLayout.LayoutParams(0, -2, 1f));
-        skip.addView(forward, new LinearLayout.LayoutParams(0, -2, 1f));
-        panel.addView(skip);
+        mediaSkip = Ui.row(this);
+        backward = cockpitButton("−15 s", false);
+        forward = cockpitButton("+15 s", false);
+        backward.setContentDescription("15 Sekunden zurückspringen");
+        forward.setContentDescription("15 Sekunden vorspringen");
+        mediaSkip.addView(backward, cockpitActionParams(1f, true));
+        mediaSkip.addView(forward, cockpitActionParams(1f, false));
+        mediaSkip.setPadding(0, Ui.dp(this, 5), 0, Ui.dp(this, 3));
+        panel.addView(mediaSkip);
         backward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_BACK));
         forward.setOnClickListener(v -> send(SpotifyMedia.Action.SEEK_FORWARD));
 
         if (!BuildConfig.GOOGLE_ONLY) {
             panel.addView(fallback); // Legacy external Samsung split only.
         }
-        toggleRoutes = Ui.button(this, "📍 Ziel / Route");
-        panel.addView(toggleRoutes);
+        Ui.gap(this, panel, 7);
+        toggleRoutes = cockpitButton("Ziel / Route", true);
+        toggleRoutes.setContentDescription("Zielmenü öffnen und Route berechnen");
+        panel.addView(toggleRoutes,
+            new LinearLayout.LayoutParams(-1, Ui.dp(this, 46)));
         panel.addView(routePanel);
         toggleRoutes.setOnClickListener(v -> {
             boolean open = routePanel.getVisibility() != View.VISIBLE;
             routePanel.setVisibility(open ? View.VISIBLE : View.GONE);
-            toggleRoutes.setText(open ? "▲ Zielmenü schließen" : "📍 Ziel / Route");
+            toggleRoutes.setText(open ? "Zielmenü schließen" : "Ziel / Route");
+            toggleRoutes.setContentDescription(open
+                ? "Zielmenü schließen" : "Zielmenü öffnen und Route berechnen");
             if (open) scroll.post(() -> scroll.smoothScrollTo(0,
                 routePanel.getTop()));
         });
 
-        Button fuel = Ui.button(this, "⛽ Tankstellen");
-        panel.addView(fuel);
-        fuel.setOnClickListener(v -> startActivityForResult(
-            new Intent(this, FuelActivity.class)
-                .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
-            FUEL_PICK_REQUEST));
-        Button saphe = Ui.button(this, "Saphe öffnen");
-        panel.addView(saphe);
-        saphe.setOnClickListener(v -> {
-            Intent launch = getPackageManager().getLaunchIntentForPackage("my.saphelink");
-            if (launch == null) {
-                showStatus("Saphe-App auf diesem Gerät nicht gefunden.");
+        Ui.gap(this, panel, 5);
+        LinearLayout fuelActions = Ui.row(this);
+        fuelButton = cockpitButton("Preise anzeigen", false);
+        fuelButton.setContentDescription("Tankstellenpreise auf Karte anzeigen oder ausblenden");
+        fuelRefreshButton = cockpitButton("↻", false);
+        fuelRefreshButton.setTextSize(20);
+        fuelRefreshButton.setContentDescription("Tankstellenpreise neu abrufen");
+        fuelActions.addView(fuelButton, cockpitActionParams(1f, true));
+        fuelActions.addView(fuelRefreshButton, new LinearLayout.LayoutParams(
+            Ui.dp(this, 44), Ui.dp(this, 44)));
+        Button routeFavoritesButton = cockpitButton("★", false);
+        routeFavoritesButton.setContentDescription(
+            "Strecken und Tankstellenfavoriten öffnen");
+        fuelActions.addView(routeFavoritesButton,
+            new LinearLayout.LayoutParams(Ui.dp(this,44),Ui.dp(this,44)));
+        routeFavoritesButton.setOnClickListener(v -> openFuelRoutes());
+        panel.addView(fuelActions);
+        fuelInfo = Ui.text(this, "", 10, Ui.MUTED, false);
+        fuelInfo.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
+        fuelInfo.setMaxLines(2);
+        fuelInfo.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        panel.addView(fuelInfo);
+        fuelButton.setOnClickListener(v -> {
+            if (fuelQuickSearch.isSearching()) return;
+            if (fuelMarkersVisible && !visibleFuelSnapshot(
+                    FuelMapSnapshot.readForDisplay(this)).stations.isEmpty()) {
+                fuelMarkersVisible = false;
+                updateFuelMarkers();
             } else {
-                startActivity(launch);
+                fuelMarkersVisible = true;
+                FuelMapSnapshot.Snapshot cached = FuelMapSnapshot.readForDisplay(this);
+                if (cached.stations.isEmpty()
+                        || !cached.type.equals(FuelQuickSettings.type(this))
+                        || visibleFuelSnapshot(cached).stations.isEmpty()) {
+                    startQuickFuelSearch();
+                } else {
+                    updateFuelMarkers();
+                    // This is an explicit user gesture. Show cached prices at
+                    // once; if old, try to refresh subject to shared rate guard.
+                    if (FuelMapSnapshot.isStale(cached, System.currentTimeMillis()))
+                        startQuickFuelSearch();
+                }
             }
         });
-        // The Google billing disclaimer is already included in the explicit
-        // route-confirmation dialog. Do not permanently occupy the tiny
-        // Spotify viewport with redundant small-print during guidance.
+        fuelRefreshButton.setOnClickListener(v -> {
+            fuelMarkersVisible = true;
+            startQuickFuelSearch();
+        });
+        // No Saphe section below the fuel controls: the header S now
+        // provides both launch and diagnostic long-press.
+        // Update and diagnostics are available from the persistent ⋮ menu.
+        // Keep the navigation viewport free of billing prompt text.
+        // Google route requests remain bound to explicit route actions
+        // and the existing local NavigationRequestBudget limit.
         if (isOsmPreview()) {
             panel.addView(Ui.text(this,
                 "OSM-Entwicklungstest: nicht als Fahrnavigation verwenden.",
                 11, Ui.MUTED, false));
         }
-        setContentView(root);
+        FrameLayout displayRoot = new FrameLayout(this);
+        displayRoot.addView(root, new FrameLayout.LayoutParams(-1, -1));
+        displayRoot.addView(sapheBanner, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(displayRoot);
         // Keep interactive content away from Android's navigation/status bars
         // and the IME. While typing a destination, temporarily hide the map;
         // it returns to the fixed 70/30 layout as soon as the keyboard closes.
@@ -505,6 +819,127 @@ public final class IntegratedNavigationActivity extends Activity {
             "com.cobrachris.fahrcockpit.OsmRoutingPreviewEngine");
     }
 
+
+    // Shared touch-friendly styling; compact enough for the 30 % side pane
+    // without turning secondary controls into oversized gray default buttons.
+    private Button cockpitButton(String label, boolean primary) {
+        Button button = Ui.button(this, label);
+        button.setTextSize(getResources().getConfiguration().orientation
+            == Configuration.ORIENTATION_LANDSCAPE ? 12 : 13);
+        button.setTextColor(Ui.FG);
+        button.setMinHeight(Ui.dp(this, 44));
+        button.setSingleLine(true);
+        button.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        button.setGravity(Gravity.CENTER);
+        button.setContentDescription(label);
+        button.setPadding(Ui.dp(this, 6), 0, Ui.dp(this, 6), 0);
+        android.graphics.drawable.Drawable background =
+            Ui.background(this, primary ? 0xff315d6b : 0xff374452, 9);
+        button.setBackground(new android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(0x55ffffff),
+            background, null));
+        return button;
+    }
+
+    private LinearLayout.LayoutParams cockpitActionParams(float weight,
+                                                           boolean gapAfter) {
+        LinearLayout.LayoutParams params =
+            new LinearLayout.LayoutParams(0, Ui.dp(this, 44), weight);
+        if (gapAfter) params.rightMargin = Ui.dp(this, 6);
+        return params;
+    }
+
+    private void showUnknownSpeed() {
+        if (currentSpeedView == null) return;
+        currentSpeedView.setText("GPS — km/h");
+        currentSpeedView.setContentDescription("GPS-Geschwindigkeit nicht verfügbar");
+    }
+
+    private void onSpeedLocation(Location location) {
+        if (location == null || !location.hasAccuracy()) return;
+        long ageNanos = SystemClock.elapsedRealtimeNanos()
+            - location.getElapsedRealtimeNanos();
+        if (ageNanos < 0L || ageNanos > 5_000_000_000L) return;
+        // Fuel markers need location, not speed: also works at traffic lights.
+        if (location.getAccuracy() <= FuelLocationQuality.MAX_SEARCH_ACCURACY_METERS
+                && FuelRules.inGermany(location.getLatitude(),
+                    location.getLongitude())) {
+            boolean locationWasMissing = !hasCurrentFuelPosition();
+            fuelDisplayFix = new Location(location);
+            if (fuelMarkersVisible && (locationWasMissing || fuelLastRenderedFix == null
+                    || location.distanceTo(fuelLastRenderedFix)
+                        >= FUEL_MARKER_REPOSITION_METERS)) {
+                fuelLastRenderedFix = new Location(location);
+                updateFuelMarkers(); // Local-only operation, never an API call.
+            }
+        }
+        if (currentSpeedView == null || !location.hasSpeed()
+                || location.getAccuracy() > 80f) return;
+        float metersPerSecond = location.getSpeed();
+        if (Float.isNaN(metersPerSecond) || Float.isInfinite(metersPerSecond)
+                || metersPerSecond < 0f || metersPerSecond > 85f) return;
+        if (android.os.Build.VERSION.SDK_INT >= 26
+                && location.hasSpeedAccuracy()
+                && location.getSpeedAccuracyMetersPerSecond() > 8f) return;
+        parkingTrip.observe(SystemClock.elapsedRealtime(), location.getLatitude(),
+            location.getLongitude(), location.getAccuracy(), metersPerSecond);
+        trySaveArrivedParking();
+        if (navigationGuidanceActive) return; // Google's single native speedometer.
+        int kph = Math.round(metersPerSecond * 3.6f);
+        currentSpeedView.setText("GPS " + kph + " km/h");
+        currentSpeedView.setContentDescription(
+            "GPS-Geschwindigkeit " + kph + " Kilometer pro Stunde");
+        handler.removeCallbacks(expireSpeedReading);
+        handler.postDelayed(expireSpeedReading, 8000L);
+    }
+
+    private void startSpeedUpdates() {
+        if (!cockpitResumed || currentSpeedView == null || speedLocationListener != null) return;
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            showUnknownSpeed();
+            return;
+        }
+        LocationManager manager =
+            (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (manager == null) { showUnknownSpeed(); return; }
+        LocationListener listener = this::onSpeedLocation;
+        try {
+            boolean registered = false;
+            if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                manager.requestLocationUpdates(LocationManager.GPS_PROVIDER,
+                    1000L, 0f, listener, Looper.getMainLooper());
+                registered = true;
+            }
+            if (manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                manager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,
+                    2000L, 0f, listener, Looper.getMainLooper());
+                registered = true;
+            }
+            if (registered) {
+                speedLocationManager = manager;
+                speedLocationListener = listener;
+            } else {
+                showUnknownSpeed();
+            }
+        } catch (SecurityException | IllegalArgumentException failure) {
+            manager.removeUpdates(listener);
+            showUnknownSpeed();
+        }
+    }
+
+    private void stopSpeedUpdates() {
+        if (speedLocationManager != null && speedLocationListener != null) {
+            speedLocationManager.removeUpdates(speedLocationListener);
+        }
+        speedLocationManager = null;
+        speedLocationListener = null;
+        fuelDisplayFix = null;
+        fuelLastRenderedFix = null;
+        handler.removeCallbacks(expireSpeedReading);
+        showUnknownSpeed();
+    }
+
     private void askLocationThenInitialize() {
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -522,9 +957,19 @@ public final class IntegratedNavigationActivity extends Activity {
             if (grants.length > 0
                     && grants[0] == PackageManager.PERMISSION_GRANTED) {
                 engine.initializeAfterLocationPermission();
+                startSpeedUpdates();
             } else {
+                showUnknownSpeed();
                 showStatus("Standortberechtigung fehlt · keine SDK-Navigation.");
             }
+        } else if (code == SAPHE_BLUETOOTH_PERMISSION_REQUEST) {
+            invalidateSapheBluetoothObservation();
+            if (grants.length > 0
+                    && grants[0] == PackageManager.PERMISSION_GRANTED)
+                chooseSapheBluetoothDevice();
+            else
+                showStatus("Bluetooth-Berechtigung nicht erteilt. "
+                    + "Saphe Link und die bestehenden Warnungen bleiben unverändert.");
         }
     }
 
@@ -694,6 +1139,12 @@ public final class IntegratedNavigationActivity extends Activity {
      */
     private void showFavoriteEditor(String previousTarget, String currentLabel,
                                     String currentAddress) {
+        showFavoriteEditor(previousTarget, currentLabel, currentAddress, false, false);
+    }
+
+    private void showFavoriteEditor(String previousTarget, String currentLabel,
+                                    String currentAddress, boolean olderFavorite,
+                                    boolean returnToManager) {
         LinearLayout form = Ui.column(this);
         int padding = Ui.dp(this, 20);
         form.setPadding(padding, Ui.dp(this, 8), padding, 0);
@@ -730,7 +1181,10 @@ public final class IntegratedNavigationActivity extends Activity {
             }
             boolean updated = previousTarget == null
                 ? DestinationStore.saveFavorite(this, label, target)
-                : DestinationStore.updateFavorite(this, previousTarget, label, target);
+                : olderFavorite
+                    ? DestinationStore.updateLegacyFavorite(this, previousTarget,
+                        label, target)
+                    : DestinationStore.updateFavorite(this, previousTarget, label, target);
             if (!updated) {
                 showStatus("Favorit nicht gespeichert. Name oder Ziel bereits vergeben?");
                 return;
@@ -744,6 +1198,7 @@ public final class IntegratedNavigationActivity extends Activity {
             }
             showStatus("Favorit gespeichert: " + label);
             editor.dismiss();
+            if (returnToManager) showManageFavorites();
         }));
         editor.show();
     }
@@ -771,44 +1226,75 @@ public final class IntegratedNavigationActivity extends Activity {
             .setItems(labels, (dialog, which) ->
                 applyDestinationSuggestion(entries.get(which).label,
                     entries.get(which).target))
-            .setNeutralButton("Favoriten verwalten", (dialog, which) ->
+            .setNeutralButton("Alle Ziele verwalten", (dialog, which) ->
                 showManageFavorites())
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
             .show();
     }
 
     private void showManageFavorites() {
-        List<DestinationStore.Entry> entries = DestinationStore.favorites(this);
+        // The selection list contains modern favorites, older stored targets and
+        // recent destinations. All of them must be removable from this screen.
+        List<DestinationStore.Entry> entries = DestinationStore.manageable(this);
         if (entries.isEmpty()) {
-            showStatus("Noch keine neuen Favoriten. Alte v18/v19-Ziele bleiben lesbar.");
+            showStatus("Keine gespeicherten oder zuletzt verwendeten Ziele vorhanden.");
             return;
         }
         String[] labels = new String[entries.size()];
-        for (int i = 0; i < entries.size(); i++) labels[i] = entries.get(i).label;
-        new AlertDialog.Builder(this).setTitle("Favoriten bearbeiten oder löschen")
+        for (int i = 0; i < entries.size(); i++) {
+            DestinationStore.Entry item = entries.get(i);
+            if (item.source == DestinationStore.Source.RECENT) {
+                labels[i] = "↶ " + item.label + " (zuletzt verwendet)";
+            } else if (item.source == DestinationStore.Source.LEGACY_FAVORITE) {
+                labels[i] = "★ " + item.label + " (älterer Favorit)";
+            } else {
+                labels[i] = "★ " + item.label;
+            }
+        }
+        new AlertDialog.Builder(this).setTitle("Ziele bearbeiten oder löschen")
             .setItems(labels, (dialog, which) -> {
                 DestinationStore.Entry selected = entries.get(which);
+                if (selected.source == DestinationStore.Source.RECENT) {
+                    // Recent destinations have no saved custom name to edit.
+                    new AlertDialog.Builder(this)
+                        .setTitle(selected.label)
+                        .setMessage("Zuletzt verwendetes Ziel: " + selected.target)
+                        .setPositiveButton("Aus Liste entfernen", (d, n) ->
+                            confirmRemoveDestination(selected))
+                        .setNegativeButton("Abbrechen", (d, n) -> showManageFavorites())
+                        .show();
+                    return;
+                }
                 new AlertDialog.Builder(this)
                     .setTitle(selected.label)
                     .setMessage("Hinterlegte Adresse: " + selected.target)
                     .setPositiveButton("Bearbeiten", (d, n) ->
                         showFavoriteEditor(selected.target, selected.label,
-                            selected.target))
-                    .setNegativeButton("Löschen", (d, n) -> {
-                        new AlertDialog.Builder(this)
-                            .setTitle("Favorit löschen?")
-                            .setMessage(selected.label)
-                            .setNegativeButton("Abbrechen", (d2, n2) -> {})
-                            .setPositiveButton("Löschen", (d2, n2) ->
-                                showStatus(DestinationStore.removeFavorite(this, selected.target)
-                                    ? "Favorit gelöscht."
-                                    : "Favorit konnte nicht gelöscht werden."))
-                            .show();
-                    })
-                    .setNeutralButton("Abbrechen", (d, n) -> {})
+                            selected.target,
+                            selected.source == DestinationStore.Source.LEGACY_FAVORITE,
+                            true))
+                    .setNegativeButton("Löschen", (d, n) ->
+                        confirmRemoveDestination(selected))
+                    .setNeutralButton("Abbrechen", (d, n) -> showManageFavorites())
                     .show();
             })
             .setNegativeButton("Schließen", (dialog, which) -> {})
+            .show();
+    }
+
+    private void confirmRemoveDestination(DestinationStore.Entry selected) {
+        new AlertDialog.Builder(this)
+            .setTitle("Ziel aus der Liste löschen?")
+            .setMessage("„" + selected.label + "“ wird aus den Favoriten und "
+                + "der Liste zuletzt verwendeter Ziele entfernt. "
+                + "Eine laufende Navigation wird nicht beendet.")
+            .setNegativeButton("Abbrechen", (d, n) -> showManageFavorites())
+            .setPositiveButton("Löschen", (d, n) -> {
+                boolean removed = DestinationStore.removeManaged(this, selected.target);
+                showStatus(removed ? "Ziel entfernt: " + selected.label
+                    : "Ziel konnte nicht vollständig entfernt werden.");
+                showManageFavorites();
+            })
             .show();
     }
 
@@ -818,13 +1304,37 @@ public final class IntegratedNavigationActivity extends Activity {
             return;
         double lat = data.getDoubleExtra(FuelActivity.RESULT_LATITUDE, Double.NaN);
         double lng = data.getDoubleExtra(FuelActivity.RESULT_LONGITUDE, Double.NaN);
+        acceptFuelStation(lat, lng, data.getStringExtra(FuelActivity.RESULT_NAME));
+    }
+
+    private void openFuelRoutes() {
+        startActivityForResult(new Intent(this,FuelRouteFavoritesActivity.class),
+            FUEL_PICK_REQUEST);
+    }
+
+    private void chooseFuelStationAction(FuelMapSnapshot.Station station) {
+        if (station == null) return;
+        new AlertDialog.Builder(this)
+            .setTitle(station.name)
+            .setMessage(station.priceLabel() + "/l · " + station.address)
+            .setItems(new String[] {"Als Navigationsziel übernehmen",
+                                    "★ Zu Streckenfavoriten hinzufügen"},
+                (dialog,which)->{
+                    if(which==0)acceptFuelStation(station.lat,station.lng,station.name);
+                    else if(which==1)FuelRouteFavoritesActivity.chooseRoute(this,
+                        station,FuelQuickSettings.type(this),
+                        FuelMapSnapshot.readForDisplay(this).fetchedAt,null);
+                })
+            .setNegativeButton("Abbrechen",null).show();
+    }
+
+    private void acceptFuelStation(double lat, double lng, String displayName) {
         String coords = FuelRules.stationCoordinates(lat, lng);
         if (coords == null) {
             showStatus("Tankstelle hat ungültige Zielkoordinaten.");
             return;
         }
-        String name = RouteTargetRules.clean(
-            data.getStringExtra(FuelActivity.RESULT_NAME));
+        String name = RouteTargetRules.clean(displayName);
         if (name == null) name = "Tankstelle";
         chosenTarget = name;
         applyDestinationSuggestion(name, coords);
@@ -832,14 +1342,13 @@ public final class IntegratedNavigationActivity extends Activity {
             showStatus("Tankstelle übernommen. Navigation noch nicht bereit.");
             return;
         }
-        // No silent Google route switch or billable request: require consent.
+        // A fuel-station handoff is a separate user action. Confirm replacing
+        // an existing route; never silently start Google guidance.
         final String chosenName = name;
         new AlertDialog.Builder(this)
             .setTitle("Google Navigation: Tankstelle anfahren")
-            .setMessage(chosenName + "\nZielkoordinaten: " + coords
-                + "\n\nDie neue Route ersetzt nach Bestätigung gegebenenfalls "
-                + "die bisherige Route. Die Berechnung zählt gegen die "
-                + "Google-Navigation-SDK-Quote.")
+            .setMessage(chosenName + "\nZiel: " + coords
+                + "\n\nDie neue Route kann die bisherige ersetzen.")
             .setNegativeButton("Abbrechen", (dialog, which) -> {})
             .setPositiveButton("Route berechnen", (dialog, which) -> {
                 if (engine != null && engine.ready()) {
@@ -851,7 +1360,7 @@ public final class IntegratedNavigationActivity extends Activity {
             .show();
     }
 
-    private void resolveAndConfirmRoute() {
+    private void resolveAndStartRoute() {
         if (engine == null || !engine.ready()) {
             showStatus(isOsmPreview()
                 ? "BRouter noch nicht bereit: Offline-Daten, App und MapLibre prüfen."
@@ -880,33 +1389,45 @@ public final class IntegratedNavigationActivity extends Activity {
                     showStatus("Ortssuche hat ungültige Koordinaten geliefert.");
                     return;
                 }
-                boolean osm = isOsmPreview();
-                new AlertDialog.Builder(IntegratedNavigationActivity.this)
-                    .setTitle(osm ? "OSM-Abbiegeführung (nicht für Fahrten freigegeben)"
-                        : "Google Navigation: Route bestätigen")
-                    .setMessage(osm
-                        ? ("OpenStreetMap / BRouter: " + name
+                if (isOsmPreview()) {
+                    // Historical development-only OSM preview still requires
+                    // its explicit warning and confirmation.
+                    new AlertDialog.Builder(IntegratedNavigationActivity.this)
+                        .setTitle("OSM-Abbiegeführung (nicht für Fahrten freigegeben)")
+                        .setMessage("OpenStreetMap / BRouter: " + name
                             + "\n\nZielkoordinaten: " + coords
                             + "\n\nEchte Offline-Straßenroute ohne Google-Cloud-Kosten. "
                             + "BRouter-Hinweise, GPS und deutsche Sprachausgabe werden "
                             + "im Entwicklungstest verwendet, falls verfügbar. "
                             + "Noch NICHT im Straßenverkehr geprüft.")
-                        : ("Google Navigation SDK: " + name
-                            + "\n\nZielkoordinaten: " + coords
-                            + "\n\nDer Routenabruf zählt gegen die Google-"
-                            + "Navigation-SDK-Quote. "
-                            + "Nur nach Freigabe der Abrechnung fortfahren."))
-                    .setNegativeButton("Abbrechen", (d,which) -> {})
-                    .setPositiveButton(osm ? "Straßenroute planen"
-                        : "Route berechnen", (d,which) -> {
-                        if (engine != null && engine.ready()) {
-                            DestinationStore.recordRecent(
-                                IntegratedNavigationActivity.this, readable, coords);
-                            engine.startConfirmedRoute(lat, lng, readable);
-                            collapseDestinationMenu();
-                        }
-                    })
-                    .show();
+                        .setNegativeButton("Abbrechen", (d,which) -> {})
+                        .setPositiveButton("Straßenroute planen", (d,which) -> {
+                            if (engine != null && engine.ready()) {
+                                DestinationStore.recordRecent(
+                                    IntegratedNavigationActivity.this, readable, coords);
+                                engine.startConfirmedRoute(lat, lng, readable);
+                                collapseDestinationMenu();
+                            }
+                        })
+                        .show();
+                    return;
+                }
+                // The user's deliberate 'Route berechnen' button press is the
+                // sole trigger for this Google Navigation SDK route request.
+                // Geocoding may be asynchronous: reject an obsolete target,
+                // and let the existing NavigationRequestBudget guard every call.
+                if (!target.equals(selectedNavigationTarget())) {
+                    showStatus("Ziel wurde geändert. Bitte Route erneut berechnen.");
+                    return;
+                }
+                if (engine != null && engine.ready()) {
+                    DestinationStore.recordRecent(
+                        IntegratedNavigationActivity.this, readable, coords);
+                    engine.startConfirmedRoute(lat, lng, readable);
+                    collapseDestinationMenu();
+                } else {
+                    showStatus("Google Navigation ist nicht mehr bereit.");
+                }
             }
             @Override public void failed(String message) {
                 showStatus(message);
@@ -942,12 +1463,31 @@ public final class IntegratedNavigationActivity extends Activity {
         boolean allowed = Permissions.isMediaListenerEnabled(this);
         String nextAction = SpotifyDisplayRules.nextAction(allowed, state.connected);
         spotifySetup.setVisibility(nextAction == null ? View.GONE : View.VISIBLE);
-        if (nextAction != null) spotifySetup.setText(nextAction);
-        spotifyState.setText(state.connected
+        if (nextAction != null) {
+            spotifySetup.setText(nextAction);
+            spotifySetup.setContentDescription(nextAction);
+        }
+        // When Spotify is unavailable, reclaim its disabled transport controls
+        // without removing the one-tap Spotify launch action.
+        boolean showMedia = state.connected;
+        spotifyHeaderRow.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        spotifyHeader.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        spotifyState.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        track.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        mediaControls.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        mediaSkip.setVisibility(showMedia ? View.VISIBLE : View.GONE);
+        // Compact visual state, but keep the full status for accessibility.
+        String fullSpotifyStatus = state.connected
             ? SpotifyDisplayRules.connectedStatus(state.playing)
-            : SpotifyDisplayRules.notConnected(allowed));
+            : SpotifyDisplayRules.notConnected(allowed);
+        spotifyState.setText(state.connected
+            ? (state.playing ? "Spielt" : "Pausiert") : fullSpotifyStatus);
+        spotifyState.setContentDescription(fullSpotifyStatus);
         track.setText(state.line);
-        play.setText(state.playing ? "⏸" : "▶");
+        // Avoid Samsung's colorful emoji rendering for the pause icon.
+        play.setText(state.playing ? "❚❚" : "▶");
+        play.setContentDescription(state.playing
+            ? "Wiedergabe pausieren" : "Wiedergabe starten");
         play.setEnabled(state.connected);
         previous.setEnabled(state.canPrevious);
         next.setEnabled(state.canNext);
@@ -956,6 +1496,7 @@ public final class IntegratedNavigationActivity extends Activity {
         boolean showProgress = TrackProgressRules.hasDuration(state.durationMs)
             && state.positionMs >= 0;
         totalDuration = state.durationMs;
+        mediaProgressRow.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         seek.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         elapsed.setVisibility(showProgress ? View.VISIBLE : View.GONE);
         duration.setVisibility(showProgress ? View.VISIBLE : View.GONE);
@@ -965,6 +1506,121 @@ public final class IntegratedNavigationActivity extends Activity {
                 state.positionMs, state.durationMs));
             elapsed.setText(TrackProgressRules.time(state.positionMs));
             duration.setText(TrackProgressRules.time(state.durationMs));
+        }
+    }
+
+    private void startQuickFuelSearch() {
+        if (fuelQuickSearch == null || fuelQuickSearch.isSearching()) return;
+        fuelButton.setText("Preise laden …");
+        fuelButton.setEnabled(false);
+        fuelRefreshButton.setEnabled(false);
+        fuelInfo.setVisibility(View.VISIBLE);
+        fuelInfo.setText("Standort und Tankerkönig-Preise werden abgerufen …");
+        fuelQuickSearch.start(new FuelQuickSearch.Result() {
+            @Override public void onSuccess(FuelMapSnapshot.Snapshot snapshot) {
+                fuelButton.setEnabled(true);
+                fuelRefreshButton.setEnabled(true);
+                updateFuelMarkers();
+                if (snapshot.stations.isEmpty()) {
+                    fuelInfo.setVisibility(View.VISIBLE);
+                    fuelInfo.setText("Keine gültigen Preise im gewählten Suchradius.");
+                }
+            }
+            @Override public void onFailure(String reason) {
+                fuelButton.setEnabled(true);
+                fuelRefreshButton.setEnabled(true);
+                updateFuelMarkers();
+                fuelInfo.setVisibility(View.VISIBLE);
+                fuelInfo.setText(reason);
+            }
+        });
+    }
+
+    /** Current GPS is valid only while this Activity is visible. */
+    private boolean hasCurrentFuelPosition() {
+        if (fuelDisplayFix == null) return false;
+        long age = SystemClock.elapsedRealtimeNanos()
+            - fuelDisplayFix.getElapsedRealtimeNanos();
+        return age >= 0L && age <= FUEL_FIX_MAX_AGE_NANOS
+            && fuelDisplayFix.hasAccuracy()
+            && fuelDisplayFix.getAccuracy()
+                <= FuelLocationQuality.MAX_SEARCH_ACCURACY_METERS;
+    }
+
+    private FuelMapSnapshot.Snapshot visibleFuelSnapshot(
+            FuelMapSnapshot.Snapshot original) {
+        if (!hasCurrentFuelPosition() || original == null
+                || original.stations.isEmpty()) {
+            return new FuelMapSnapshot.Snapshot("", 0L, new ArrayList<>());
+        }
+        return FuelNearbySelection.nearby(original,
+            fuelDisplayFix.getLatitude(), fuelDisplayFix.getLongitude(),
+            FuelQuickSettings.radiusKm(this));
+    }
+
+    private void updateFuelMarkers() {
+        FuelMapSnapshot.Snapshot snapshot = FuelMapSnapshot.readForDisplay(this);
+        boolean valid = !snapshot.stations.isEmpty()
+            && snapshot.type.equals(FuelQuickSettings.type(this));
+        long now = System.currentTimeMillis();
+        boolean stale = valid && FuelMapSnapshot.isStale(snapshot, now);
+        FuelMapSnapshot.Snapshot local = valid && fuelMarkersVisible
+            ? visibleFuelSnapshot(snapshot)
+            : new FuelMapSnapshot.Snapshot("", 0L, new ArrayList<>());
+        if (engine != null) {
+            engine.showFuelPrices(local,this::chooseFuelStationAction);
+        }
+        if (fuelButton != null) {
+            fuelButton.setText(fuelMarkersVisible && !local.stations.isEmpty()
+                ? "Preise ausblenden" : "Preise anzeigen");
+        }
+        if (fuelInfo != null) {
+            if (valid && fuelMarkersVisible) {
+                java.text.DateFormat time = java.text.DateFormat.getDateTimeInstance(
+                    java.text.DateFormat.SHORT, java.text.DateFormat.SHORT,
+                    java.util.Locale.GERMANY);
+                if (!hasCurrentFuelPosition()) {
+                    fuelInfo.setText("GPS-Position wird ermittelt · alte "
+                        + "Preis-Marker ausgeblendet · ↻ für neue Suche");
+                    fuelInfo.setTextColor(Ui.WARN);
+                } else if (local.stations.isEmpty()) {
+                    fuelInfo.setText("Keine gespeicherten Preise in "
+                        + FuelQuickSettings.radiusKm(this)
+                        + " km um dein Auto · ↻ hier neu abrufen");
+                    fuelInfo.setTextColor(Ui.WARN);
+                } else {
+                    fuelInfo.setText(local.stations.size() + " von "
+                        + snapshot.stations.size() + " Preisen in "
+                        + FuelQuickSettings.radiusKm(this) + " km · "
+                        + snapshot.type.toUpperCase(java.util.Locale.GERMANY)
+                        + (stale ? " · ALT, kein Live-Preis" : " · abgerufen")
+                        + " · Stand " + time.format(new java.util.Date(snapshot.fetchedAt))
+                        + " · ↻ für neue Umgebung");
+                    fuelInfo.setTextColor(stale ? Ui.WARN : Ui.MUTED);
+                }
+                fuelInfo.setVisibility(View.VISIBLE);
+            } else if (valid) {
+                fuelInfo.setText("Preise ausgeblendet · ↻ zum Aktualisieren");
+                fuelInfo.setTextColor(Ui.MUTED);
+                fuelInfo.setVisibility(View.VISIBLE);
+            } else {
+                fuelInfo.setVisibility(View.GONE);
+            }
+        }
+        handler.removeCallbacks(expireFuelMarkers);
+        if (valid && fuelMarkersVisible) {
+            // Periodic LOCAL filtering/expiry only. Do not fetch anything here.
+            long deadline = stale ? FuelMapSnapshot.MAX_DISPLAY_AGE_MS
+                                  : FuelMapSnapshot.MAX_AGE_MS;
+            long timeToAge = Math.max(1000L,
+                deadline - (now - snapshot.fetchedAt) + 100L);
+            long remainingPositionMs = hasCurrentFuelPosition()
+                ? Math.max(1000L, (FUEL_FIX_MAX_AGE_NANOS -
+                    (SystemClock.elapsedRealtimeNanos()
+                        - fuelDisplayFix.getElapsedRealtimeNanos())) / 1_000_000L + 100L)
+                : timeToAge;
+            handler.postDelayed(expireFuelMarkers,
+                Math.min(timeToAge, remainingPositionMs));
         }
     }
 
@@ -978,11 +1634,47 @@ public final class IntegratedNavigationActivity extends Activity {
         voiceButton.setSelected(muted);
     }
 
+    private void showCompactEta(int seconds, int meters) {
+        // The full native ETA always stays visible in portrait, or when
+        // guidance/data is unavailable. Avoid silently losing arrival data.
+        if (!landscapeCockpit || !navigationGuidanceActive || compactEtaView == null)
+            return;
+        if (seconds < 0 || seconds > 7 * 24 * 3600
+                || meters < 0 || meters > 2_000_000) {
+            hideCompactEta(); // Fall back to Google instead of stale local ETA.
+            return;
+        }
+        java.text.DateFormat time = java.text.DateFormat.getTimeInstance(
+            java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
+        String arrival = time.format(new java.util.Date(
+            System.currentTimeMillis() + seconds * 1000L));
+        int minutes = Math.max(1, (seconds + 59) / 60);
+        String distance = meters < 1000 ? meters + " m"
+            : String.format(java.util.Locale.GERMANY, "%.1f km", meters / 1000.0);
+        String summary = "Ank. " + arrival + " · " + minutes
+            + " min · " + distance;
+        compactEtaView.setText(summary);
+        compactEtaView.setContentDescription("Voraussichtliche Ankunft "
+            + arrival + ", " + minutes + " Minuten, " + distance);
+        compactEtaView.setVisibility(View.VISIBLE);
+        // Only suppress Google's large map-bottom card once its complete
+        // essential information is visibly represented in this panel.
+        if (engine != null) engine.setNativeEtaVisible(false);
+    }
+
+    private void hideCompactEta() {
+        if (compactEtaView != null) compactEtaView.setVisibility(View.GONE);
+        if (engine != null) engine.setNativeEtaVisible(true);
+    }
+
     private void collapseDestinationMenu() {
         if (routePanel == null || routePanel.getVisibility() != View.VISIBLE)
             return;
         routePanel.setVisibility(View.GONE);
-        if (toggleRoutes != null) toggleRoutes.setText("📍 Ziel / Route");
+        if (toggleRoutes != null) {
+            toggleRoutes.setText("Ziel / Route");
+            toggleRoutes.setContentDescription("Zielmenü öffnen und Route berechnen");
+        }
         if (controlsScroll != null)
             controlsScroll.post(() -> controlsScroll.smoothScrollTo(0, 0));
     }
@@ -997,8 +1689,419 @@ public final class IntegratedNavigationActivity extends Activity {
         }
     }
 
+    private void trySaveArrivedParking() {
+        ParkingTripTracker.Spot spot = parkingTrip.takeArrivedParking(
+            SystemClock.elapsedRealtime());
+        if (spot != null && ParkingLocationStore.save(this, spot, true))
+            showStatus("Parkplatz bei Ankunft automatisch gemerkt.");
+    }
+
+    private void saveParkingManually() {
+        ParkingTripTracker.Spot spot = parkingTrip.manualFix(SystemClock.elapsedRealtime());
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED || spot == null) {
+            new AlertDialog.Builder(this)
+                .setTitle("Parkplatz speichern")
+                .setMessage("Es liegt noch kein ausreichend genauer und aktueller GPS-Standort vor. "
+                    + "Standort freigeben, einen Moment im Cockpit lassen und erneut tippen. "
+                    + "Es wird kein geschätzter Parkplatz gespeichert.")
+                .setPositiveButton("Verstanden", null).show();
+            return;
+        }
+        if (ParkingLocationStore.save(this, spot, false))
+            showStatus("Parkplatz auf diesem Gerät gespeichert.");
+        else showStatus("Parkplatz konnte nicht gespeichert werden.");
+    }
+
+    private void showParkingLocation() {
+        ParkingLocationStore.Saved saved = ParkingLocationStore.read(this);
+        if (saved == null) {
+            new AlertDialog.Builder(this)
+                .setTitle("Parkplatz")
+                .setMessage("Noch kein Parkplatz gespeichert. Nach einer längeren Fahrt "
+                    + "kann FahrCockpit beim Beenden der Navigation einen Parkplatz "
+                    + "automatisch merken, sofern das Fahrzeug steht. Alternativ "
+                    + "„Parkplatz jetzt speichern“ wählen.")
+                .setPositiveButton("OK", null).show();
+            return;
+        }
+        java.text.DateFormat time = java.text.DateFormat.getDateTimeInstance(
+            java.text.DateFormat.SHORT, java.text.DateFormat.SHORT,
+            java.util.Locale.GERMANY);
+        String details = (saved.automatic ? "Automatisch nach Fahrtende" : "Manuell")
+            + " gespeichert: " + time.format(new java.util.Date(saved.savedAt))
+            + "\nGPS-Genauigkeit: ca. " + Math.round(saved.accuracy)
+            + " m. Der Standort bleibt ausschließlich auf diesem Smartphone.";
+        new AlertDialog.Builder(this)
+            .setTitle("Mein geparktes Auto")
+            .setMessage(details)
+            .setPositiveButton("Fußweg in Google Maps", (dialog, which) -> {
+                String url = String.format(java.util.Locale.US,
+                    "https://www.google.com/maps/dir/?api=1&destination=%.7f,%.7f&travelmode=walking",
+                    saved.lat, saved.lng);
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                } catch (RuntimeException unavailable) {
+                    showStatus("Google Maps oder Browser konnte nicht geöffnet werden.");
+                }
+            })
+            .setNeutralButton("Parkplatz löschen", (dialog, which) -> {
+                showStatus(ParkingLocationStore.clear(this)
+                    ? "Gespeicherter Parkplatz gelöscht." : "Parkplatz konnte nicht gelöscht werden.");
+            })
+            .setNegativeButton("Schließen", null).show();
+    }
+
+    private void showSapheBanner(boolean simulated) {
+        if (sapheBanner == null) return;
+        long now = System.currentTimeMillis();
+        if (!simulated && lastSafetyShownAt > 0
+                && now - lastSafetyShownAt < SAFETY_COOLDOWN_MS) return;
+        // A manual test must not suppress a following genuine Android event.
+        if (!simulated) {
+            lastSafetyShownAt = now;
+            safetyEventCount++;
+        }
+        String title = simulated ? "TEST · ACHTUNG" : "ACHTUNG";
+        String subtitle = simulated
+            ? "Safety-Testanzeige · keine echte Warnung"
+            : "Safety-Ereignis · Typ nicht verifiziert";
+        String message = title + "\n" + subtitle;
+        android.text.SpannableString styled = new android.text.SpannableString(message);
+        styled.setSpan(new android.text.style.RelativeSizeSpan(0.33f),
+            title.length() + 1, message.length(),
+            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        sapheBanner.setText(styled);
+        sapheBanner.setContentDescription(message);
+        sapheBanner.clearAnimation();
+        sapheBanner.setVisibility(View.VISIBLE);
+        // Gentle, legible red pulses instead of rapid full-black strobing.
+        AlphaAnimation pulse = new AlphaAnimation(0.78f, 1f);
+        pulse.setDuration(360L);
+        pulse.setRepeatCount(3);
+        pulse.setRepeatMode(Animation.REVERSE);
+        sapheBanner.startAnimation(pulse);
+        handler.removeCallbacks(hideSapheBanner);
+        handler.postDelayed(hideSapheBanner, 3200L);
+        if (!simulated) refreshSapheStatus();
+    }
+
+    private void refreshSapheStatus() {
+        if (sapheStatusButton == null) return;
+        boolean installed = WarningSource.isSapheInstalled(this);
+        boolean access = Permissions.isMediaListenerEnabled(this);
+        boolean optedIn = SapheNotificationProbe.enabled(this);
+        // Read Android's GATT list only in the foreground, at most every 5 s,
+        // and only after the user granted Bluetooth Connect. Never scan/pair.
+        long now = SystemClock.elapsedRealtime();
+        if (cockpitResumed && (lastSapheBluetoothCheckAt == 0L
+                || now - lastSapheBluetoothCheckAt >= SAPHE_BLUETOOTH_REFRESH_MS)) {
+            sapheBluetoothObservation = SapheBluetoothStatus.read(this);
+            sapheBluetoothEvidenceGate.sample(sapheBluetoothObservation.link);
+            lastSapheBluetoothCheckAt = now;
+        }
+        // Never count the same cached negative reading twice: a second *new*
+        // complete GATT sample is required before displaying red.
+        SapheIndicatorRules.Evidence evidence = sapheBluetoothEvidenceGate.current();
+        SapheIndicatorRules.State next =
+            SapheIndicatorRules.state(installed, access, optedIn, evidence);
+        if (lastSapheIndicatorState != next) {
+            // GREEN = selected hardware observed by Android GATT;
+            // warning detection and Saphe Link readiness are separate.
+            int color;
+            switch (next) {
+                case DEVICE_OBSERVED_CONNECTED: color = 0xff29864b; break;
+                case ACTION_REQUIRED:
+                case DEVICE_NOT_OBSERVED: color = 0xffb92e3c; break;
+                default: color = 0xffcf932a;
+            }
+            sapheStatusButton.setBackground(Ui.background(this, color, 10));
+            sapheStatusButton.setTextColor(0xffffffff);
+            lastSapheIndicatorState = next;
+        }
+        String help = SapheIndicatorRules.description(
+            installed, access, optedIn, evidence);
+        String status = "Saphe öffnen. " + help
+            + ". Langes Drücken öffnet Diagnose und Bluetooth-Einrichtung.";
+        if (safetyEventCount > 0)
+            status += " Empfangene Safety-Ereignisse: " + safetyEventCount;
+        sapheStatusButton.setContentDescription(status);
+        sapheStatusButton.setTooltipText(status);
+    }
+
+    private void invalidateSapheBluetoothObservation() {
+        lastSapheBluetoothCheckAt = 0L;
+        sapheBluetoothEvidenceGate.reset();
+        sapheBluetoothObservation = new SapheBluetoothStatus.Observation(
+            SapheBluetoothStatus.Link.UNKNOWN, "Neuprüfung erforderlich");
+        refreshSapheStatus();
+    }
+
+    /** Opt-in setup, never called automatically while opening FahrCockpit. */
+    private void setupSapheBluetoothStatus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            new AlertDialog.Builder(this)
+                .setTitle("Saphe-Bluetooth-Diagnose")
+                .setMessage("Diese freiwillige Bluetooth-Prüfung benötigt "
+                    + "Android 12 oder neuer. Die Saphe-Link-App bleibt nutzbar.")
+                .setPositiveButton("OK", null).show();
+            return;
+        }
+        if (!SapheBluetoothStatus.hasPermission(this)) {
+            new AlertDialog.Builder(this)
+                .setTitle("Optionale Saphe-Bluetooth-Prüfung")
+                .setMessage("FahrCockpit kann nach ausdrücklicher Erlaubnis "
+                    + "die bereits verbundenen Bluetooth-LE-Geräte abfragen. "
+                    + "Es sucht oder koppelt keine neuen Geräte, verbindet "
+                    + "nichts selbst und überträgt keine Gerätekennungen. "
+                    + "Nach der Erlaubnis wählst du dein Saphe ausdrücklich aus.")
+                .setNegativeButton("Abbrechen", null)
+                .setPositiveButton("Android-Berechtigung anfragen",
+                    (dialog, which) -> requestPermissions(
+                        new String[]{Manifest.permission.BLUETOOTH_CONNECT},
+                        SAPHE_BLUETOOTH_PERMISSION_REQUEST))
+                .show();
+            return;
+        }
+        chooseSapheBluetoothDevice();
+    }
+
+    private void chooseSapheBluetoothDevice() {
+        if (!SapheBluetoothStatus.hasPermission(this)) return;
+        List<SapheBluetoothStatus.DeviceEntry> devices =
+            SapheBluetoothStatus.connectedForSelection(this);
+        if (devices.isEmpty()) {
+            new AlertDialog.Builder(this)
+                .setTitle("Noch kein verbundenes BLE-Gerät gefunden")
+                .setMessage("Verbinde dein Saphe Drive Mini zuerst in der "
+                    + "Saphe-Link-App. Anschließend kehre zu FahrCockpit zurück "
+                    + "und öffne die Bluetooth-Einrichtung erneut. "
+                    + "Eine leere Android-Liste ist kein sicherer Nachweis "
+                    + "für ein ausgeschaltetes Saphe-Gerät.")
+                .setNegativeButton("Schließen", null)
+                .setPositiveButton("Saphe Link öffnen",
+                    (dialog, which) -> WarningSource.openSaphe(this))
+                .show();
+            return;
+        }
+        String[] choices = new String[devices.size()];
+        for (int i = 0; i < devices.size(); i++) {
+            SapheBluetoothStatus.DeviceEntry device = devices.get(i);
+            choices[i] = device.label + " (BLE-Gerät " + (i + 1) + ")";
+        }
+        new AlertDialog.Builder(this)
+            .setTitle("Verbundenes Saphe-Gerät auswählen")
+            .setMessage("Wähle ausschließlich das Saphe-Gerät aus, das "
+                + "in Saphe Link verbunden ist. Andere Bluetooth-Geräte "
+                + "dürfen nicht als Saphe markiert werden.")
+            .setItems(choices, (dialog, which) -> {
+                SapheBluetoothStatus.DeviceEntry selected = devices.get(which);
+                new AlertDialog.Builder(this)
+                    .setTitle("Dieses Gerät als Saphe bestätigen?")
+                    .setMessage(selected.label + "\n\nNur bestätigen, wenn dies "
+                        + "wirklich dein Saphe-Gerät ist. Danach zeigt Grün "
+                        + "die Android-GATT-Verbindung dieses ausgewählten "
+                        + "Geräts an, nicht den Warnbetrieb der Saphe-Link-App.")
+                    .setNegativeButton("Abbrechen", null)
+                    .setPositiveButton("Als Saphe zuordnen", (confirm, choice) -> {
+                        if (SapheBluetoothStatus.choose(this, selected)) {
+                            invalidateSapheBluetoothObservation();
+                            showStatus("Saphe-Bluetooth-Gerät lokal zugeordnet. "
+                                + "Verbindungsstatus wird nun geprüft.");
+                        } else {
+                            showStatus("Saphe-Zuordnung fehlgeschlagen: "
+                                + "Gerät nicht mehr als verbunden erkannt.");
+                        }
+                    })
+                    .show();
+            })
+            .setNegativeButton("Abbrechen", null).show();
+    }
+
+    private void refreshSapheNotificationProbe() {
+        refreshSapheStatus();
+        if (sapheBanner == null) return;
+        long observedAt = SapheNotificationProbe.enabled(this)
+            ? SapheNotificationProbe.lastObservedAt(this) : 0L;
+        long diagnosticAt = SapheDiagnosticSession.active(this, System.currentTimeMillis())
+            ? SapheDiagnosticSession.lastSapheAt(this) : 0L;
+        // Both probes can observe one Android notification. Use the later
+        // timestamp as a single visual event rather than double counting.
+        observedAt = Math.max(observedAt, diagnosticAt);
+        if (observedAt > sapheLastShownAt) {
+            sapheLastShownAt = observedAt;
+            if (SapheNotificationRules.isRecent(
+                    observedAt, System.currentTimeMillis())) showSapheBanner(false);
+        }
+    }
+
+    private void sendSapheReceiverSelfTest() {
+        long now = System.currentTimeMillis();
+        if (!SapheDiagnosticSession.active(this, now)) {
+            showStatus("Zuerst die 10-Minuten-Saphe-Diagnose starten.");
+            return;
+        }
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            new AlertDialog.Builder(this)
+                .setTitle("Benachrichtigungstest nicht verfügbar")
+                .setMessage("FahrCockpit hat keine Android-Mitteilungsberechtigung. "
+                    + "Die Saphe-Erkennung bleibt davon getrennt. "
+                    + "Du kannst die Berechtigung in den Android-App-Einstellungen "
+                    + "prüfen; es wird nichts automatisch geändert.")
+                .setPositiveButton("Verstanden", (dialog, which) -> {})
+                .show();
+            return;
+        }
+        NotificationManager manager =
+            (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager == null || !SapheDiagnosticSession.requestSelfTest(this, now)) {
+            showStatus("Saphe-Empfängertest konnte nicht gestartet werden.");
+            return;
+        }
+        try {
+            String channelId = "fahrcockpit_saphe_receiver_test";
+            if (Build.VERSION.SDK_INT >= 26) {
+                NotificationChannel channel = new NotificationChannel(channelId,
+                    "FahrCockpit Diagnose", NotificationManager.IMPORTANCE_LOW);
+                channel.setDescription("Einmaliger lokaler Empfängertest, keine Saphe-Warnung");
+                channel.enableVibration(false);
+                channel.setSound(null, null);
+                manager.createNotificationChannel(channel);
+            }
+            Notification notification = new Notification.Builder(this, channelId)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("FahrCockpit Empfängertest")
+                .setContentText("Lokaler Test – keine Saphe-Warnung")
+                .setAutoCancel(true)
+                .setDefaults(0)
+                .setOnlyAlertOnce(true)
+                .build();
+            manager.notify(31031, notification);
+            handler.postDelayed(() -> {
+                manager.cancel(31031);
+                if (!isFinishing() && !isDestroyed()) showSapheProbeDialog();
+            }, 1600L);
+        } catch (RuntimeException exception) {
+            SapheDiagnosticSession.stop(this);
+            showStatus("Lokaler Mitteilungstest konnte nicht gesendet werden.");
+        }
+    }
+
+    private void showSapheProbeDialog() {
+        long now = System.currentTimeMillis();
+        boolean hasAndroidAccess = Permissions.isMediaListenerEnabled(this);
+        boolean optedIn = SapheNotificationProbe.enabled(this);
+        boolean active = SapheDiagnosticSession.active(this, now);
+        long last = SapheDiagnosticSession.lastSapheAt(this);
+        int count = SapheDiagnosticSession.sapheCount(this);
+        long seen = SapheNotificationProbe.lastObservedAt(this);
+        long connected = SapheDiagnosticSession.listenerConnectedAt(this);
+        boolean listenerSeen = active && connected >= now - SapheDiagnosticSession.DURATION_MS;
+        java.text.DateFormat clock = java.text.DateFormat.getTimeInstance(
+            java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
+        String details = "Erkennt nur Android-Benachrichtigungen der offiziellen "
+            + "Saphe-Link-App. Keine Bluetooth- oder Blitzerwarnschnittstelle. "
+            + "Es werden keine Mitteilungstexte gelesen.\n\n"
+            + "Android-Zugriff: " + (hasAndroidAccess ? "erlaubt" : "fehlt")
+            + "\nBenachrichtigungsempfänger: " + (listenerSeen
+                ? "aktiv bestätigt" : "noch nicht bestätigt")
+            + "\nBestehende Saphe-Erkennung: " + (optedIn ? "eingeschaltet" : "ausgeschaltet")
+            + "\n10-Minuten-Diagnose: " + (active ? "aktiv" : "nicht aktiv")
+            + (active ? " (bis " + clock.format(new java.util.Date(
+                SapheDiagnosticSession.endsAt(this))) + ")" : "")
+            + "\nSaphe-Mitteilungen im Test: " + (active ? count : 0)
+            + "\nLetzte Saphe-Mitteilung: " + (active && last > 0
+                ? clock.format(new java.util.Date(last)) : "keine")
+            + "\nLokaler Android-Empfängertest: " +
+                (SapheDiagnosticSession.selfTestSeen(this) ? "erfolgreich" : "noch nicht bestätigt")
+            + "\nAlte Saphe-Erkennung: " + (seen > 0 ? "ja" : "noch nein")
+            + "\n\nBluetooth: " + SapheBluetoothStatus.read(this).detail
+            + "\nHinweis: Android GATT bestätigt nur die BLE-Verbindung, "
+            + "nicht den aktiven Warnbetrieb."
+            + "\n\nDieser Test ist für das stehende Fahrzeug vorgesehen.";
+        // Extra action is explicitly in this dialog; it does not claim that
+        // Saphe warnings or the device's Bluetooth events have been received.
+        LinearLayout content = Ui.column(this);
+        content.setPadding(Ui.dp(this, 18), Ui.dp(this, 8),
+            Ui.dp(this, 18), Ui.dp(this, 8));
+        TextView summary = Ui.text(this, details, 14, Ui.FG, false);
+        content.addView(summary);
+        Button receiverTest = Ui.button(this, "Android-Empfänger testen");
+        content.addView(receiverTest);
+        Button bluetoothSetup = Ui.button(this,
+            "Bluetooth-Verbindung prüfen (optional)");
+        content.addView(bluetoothSetup);
+        Button clearDevice = Ui.button(this, "Bluetooth-Gerätezuordnung löschen");
+        clearDevice.setVisibility(SapheBluetoothStatus.configured(this)
+            ? View.VISIBLE : View.GONE);
+        content.addView(clearDevice);
+        // Keep the entire diagnostic reachable on a short portrait screen
+        // and in the 30%-width landscape cockpit.
+        ScrollView diagnosticScroll = new ScrollView(this);
+        diagnosticScroll.setFillViewport(false);
+        diagnosticScroll.addView(content);
+        AlertDialog sapheDialog = new AlertDialog.Builder(this)
+            .setTitle("Saphe-Diagnose")
+            .setView(diagnosticScroll)
+            .setNeutralButton("Testanzeige", (dialog, which) ->
+                showSapheBanner(true))
+            .setNegativeButton("Schließen", (dialog, which) -> {})
+            .setPositiveButton(!hasAndroidAccess ? "Android-Zugriff prüfen"
+                : active ? "Diagnose beenden" : "10 Minuten starten",
+                (dialog, which) -> {
+                    if (!hasAndroidAccess) {
+                        try {
+                            startActivity(new Intent(
+                                Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+                        } catch (RuntimeException unavailable) {
+                            showStatus("Benachrichtigungszugriff nicht geöffnet.");
+                        }
+                        return;
+                    }
+                    if (active) {
+                        SapheDiagnosticSession.stop(this);
+                        showStatus("Saphe-Diagnose beendet; keine neuen Ereignisse werden erfasst.");
+                    } else {
+                        // Independent temporary session: preserve legacy opt-in unchanged.
+                        if (!SapheDiagnosticSession.start(this, System.currentTimeMillis())) {
+                            showStatus("Saphe-Diagnose konnte nicht gestartet werden.");
+                            return;
+                        }
+                        showStatus("Saphe-Diagnose für 10 Minuten aktiviert.");
+                    }
+                })
+            .create();
+        receiverTest.setOnClickListener(v -> {
+            sapheDialog.dismiss();
+            sendSapheReceiverSelfTest();
+        });
+        bluetoothSetup.setOnClickListener(v -> {
+            sapheDialog.dismiss();
+            setupSapheBluetoothStatus();
+        });
+        clearDevice.setOnClickListener(v -> {
+            sapheDialog.dismiss();
+            if (SapheBluetoothStatus.clear(this)) {
+                invalidateSapheBluetoothObservation();
+                showStatus("Saphe-Bluetooth-Zuordnung gelöscht.");
+            } else {
+                showStatus("Saphe-Bluetooth-Zuordnung konnte nicht gelöscht werden.");
+            }
+        });
+        sapheDialog.show();
+    }
+
     private void showStatus(String message) {
-        if (status != null) status.setText(message);
+        if (status == null) return;
+        // Routine SDK guidance status consumes scarce screen space. Errors,
+        // warnings and user actions remain visible (including Saphe feedback).
+        boolean routine = BuildConfig.GOOGLE_ONLY && message != null
+            && (message.contains("Echte Google-Abbiegenavigation")
+                || message.equals("Google Navigation SDK wird vorbereitet …")
+                || message.startsWith("Google Navigation bereit"));
+        status.setText(message);
+        status.setVisibility(routine ? View.GONE : View.VISIBLE);
     }
 
     private void showProviderFailure(NavigationProviderPolicy.Failure reason) {
@@ -1027,18 +2130,39 @@ public final class IntegratedNavigationActivity extends Activity {
     }
     @Override protected void onResume() {
         super.onResume();
-        if (engine != null) engine.onResume();
+        cockpitResumed = true;
+        invalidateSapheBluetoothObservation(); // Recheck after Saphe or permission UI.
+        startSpeedUpdates();
+        if (autoFuelRefreshController != null)
+            autoFuelRefreshController.setVisible(true);
+        if (engine != null) {
+            engine.onResume();
+            // Only display prices previously requested via the Tankerkoenig
+            // search. No background polling or Google billable route calls.
+            updateFuelMarkers();
+        }
     }
     @Override protected void onPause() {
+        if (autoFuelRefreshController != null)
+            autoFuelRefreshController.setVisible(false);
+        stopSpeedUpdates();
+        cockpitResumed = false;
         if (engine != null) engine.onPause();
         super.onPause();
     }
     @Override protected void onStop() {
+        if (autoFuelRefreshController != null)
+            autoFuelRefreshController.setVisible(false);
         handler.removeCallbacks(musicRefresh);
+        handler.removeCallbacks(expireFuelMarkers);
+        if (fuelQuickSearch != null) fuelQuickSearch.cancel();
         if (engine != null) engine.onStop();
         super.onStop();
     }
     @Override protected void onDestroy() {
+        if (autoFuelRefreshController != null)
+            autoFuelRefreshController.shutdown();
+        stopSpeedUpdates();
         handler.removeCallbacksAndMessages(null);
         if (placesAutocomplete != null) placesAutocomplete.reset();
         if (engine != null) engine.onDestroy(isFinishing());

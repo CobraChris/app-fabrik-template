@@ -2,7 +2,7 @@ name: FahrCockpit – optionale Google Navigation SDK Kompilierung (OHNE Billing
 
 on:
   push:
-    branches: [feature/fahrcockpit-v20-integrated-navigation-gated, feature/fahrcockpit-blitzer-bridge, feature/fahrcockpit-v21-google-first-fallback, fix/fahrcockpit-v22-keyboard-insets-layout, feature/fahrcockpit-v23-destinations-places-ui, feature/fahrcockpit-v24-compact-navigation-ui]
+    branches: [feature/fahrcockpit-v20-integrated-navigation-gated, feature/fahrcockpit-blitzer-bridge, feature/fahrcockpit-v21-google-first-fallback, fix/fahrcockpit-v22-keyboard-insets-layout, feature/fahrcockpit-v23-destinations-places-ui, feature/fahrcockpit-v24-compact-navigation-ui, feature/fahrcockpit-v25-saphe-notification-probe, feature/fahrcockpit-v28-tankerkoenig-map-prices, fix/fahrcockpit-v29-fuel-location-fallback, feature/fahrcockpit-v31-saphe-diagnostics-quiet-navigation, feature/fahrcockpit-v32-safety-event-banner, feature/fahrcockpit-v33-safety-speed, feature/fahrcockpit-v34-one-speedometer-no-billing-dialog, feature/fahrcockpit-v35-complete-cockpit-ux, feature/fahrcockpit-v36-tankerkoenig-rate-guard, feature/fahrcockpit-v37-parking-large-saphe-alert, feature/fahrcockpit-v38-landscape-compact-google-eta, feature/fahrcockpit-v39-fuel-nearby-current-gps, feature/fahrcockpit-v40-route-favorites, feature/fahrcockpit-v41-compact-saphe-status]
     paths:
       - 'experiments/fahrcockpit/**'
       - 'tests/fahrcockpit-contract.test.mjs'
@@ -103,7 +103,7 @@ jobs:
           p='experiments/fahrcockpit/app/build/outputs/apk/release/output-metadata.json'
           with open(p,encoding='utf-8') as f: meta=json.load(f)
           assert meta['applicationId']=='com.cobrachris.fahrcockpit'
-          assert meta['elements'][0]['versionCode']==24
+          assert meta['elements'][0]['versionCode']==41
           assert meta['elements'][0]['outputFile']=='app-release-unsigned.apk'
-          print('Verified: Google-only v24 development package, unsigned, no API key.')
+          print('Verified: Google-only v41 compact Saphe indicator preserving favorites, no Bluetooth claims, unsigned, no API key.')
           PY

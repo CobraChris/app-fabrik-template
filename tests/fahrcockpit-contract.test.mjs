@@ -240,14 +240,14 @@ test('v20 integrated native layout is a real fixed 70/30 shell with existing Spo
  assert.match(rules,/CONTROLS_WEIGHT = 3/);
  assert.match(shell,/FrameLayout mapPane/);
  assert.match(shell,/root.addView\(mapPane, mapParams\)/);
- assert.match(shell,/root.addView\(scroll, controlParams\)/);
+ assert.match(shell,/root.addView\(cockpitPane, controlParams\)/);
  assert.match(shell,/SpotifyMedia\.read\(this\)/);
  assert.match(shell,/SpotifyMedia\.send\(this, action\)/);
  assert.match(shell,/SpotifyMedia\.seekAbsolute/);
  assert.match(shell,/FuelActivity.class/);
- assert.match(shell,/my\.saphelink/);
+ assert.match(shell,/WarningSource\.openSaphe\(this\)/);
  assert.match(shell,/SplitCockpitActivity.class/);
- assert.match(shell,/Button route = Ui.button/);
+ assert.match(shell,/Button route = cockpitButton/);
  assert.match(shell,/Route berechnen/);
  assert.match(shell,/NavigationDestinationResolver\.resolve/);
  assert.match(shell,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
@@ -297,15 +297,15 @@ test('v20 SDK is not in the default signed variant and cannot route without expl
 test('v20 keeps primary Spotify controls visible before optional route form in 30 percent pane',()=>{
  const shell=java('IntegratedNavigationActivity');
  assert.match(shell,/routePanel\.setVisibility\(View\.GONE\)/);
- assert.match(shell,/toggleRoutes = Ui\.button\(this, "📍 Ziel \/ Route"\)/);
+ assert.match(shell,/toggleRoutes = cockpitButton\("Ziel \/ Route", true\)/);
  assert.match(shell,/toggleRoutes\.setOnClickListener/);
- assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(routePanel);'));
- assert.ok(shell.indexOf('panel.addView(skip);') < shell.indexOf('panel.addView(routePanel);'));
+ assert.ok(shell.indexOf('panel.addView(mediaControls);') < shell.indexOf('panel.addView(routePanel);'));
+ assert.ok(shell.indexOf('panel.addView(mediaSkip);') < shell.indexOf('panel.addView(routePanel);'));
  assert.match(shell,/scroll\.smoothScrollTo\(0,/);
  assert.match(shell,/SOFT_INPUT_ADJUST_RESIZE/);
  assert.match(shell,/panel\.addView\(fallback\)/);
  assert.doesNotMatch(shell,/routePanel\.addView\(fallback\)/);
- assert.ok(shell.indexOf('panel.addView(media);') < shell.indexOf('panel.addView(fallback);'));
+ assert.ok(shell.indexOf('panel.addView(mediaControls);') < shell.indexOf('panel.addView(fallback);'));
 });
 
 
@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 24/);
- assert.match(gradle,/versionName '0\.9\.22-beta'/);
+ assert.match(gradle,/versionCode 41/);
+ assert.match(gradle,/versionName '0\.9\.39-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -556,10 +556,10 @@ test('v21 permanent fixed 70/30 has persisted Spotify left-right switching',()=>
   assert.match(screen,/CockpitPanePreferences\.spotifyLeft\(this\)/);
   assert.match(screen,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
   assert.match(screen,/if \(landscape && spotifyLeft\)/);
-  assert.match(screen,/root\.addView\(scroll, controlParams\)/);
+  assert.match(screen,/root\.addView\(cockpitPane, controlParams\)/);
   assert.match(screen,/root\.addView\(mapPane, mapParams\)/);
   assert.match(screen,/root\.removeView\(mapPane\)/);
-  assert.match(screen,/root\.removeView\(scroll\)/);
+  assert.match(screen,/root\.removeView\(cockpitPane\)/);
   assert.doesNotMatch(screen,/sideToggle\.setOnClickListener\(v -> recreate\(\)/);
   assert.match(prefs,/getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
   assert.match(prefs,/putBoolean\(KEY_SPOTIFY_LEFT, left\)\.commit\(\)/);
@@ -605,7 +605,7 @@ test('v21 landscape still 70/30 while portrait keeps Spotify usable; OSM centers
  assert.match(policy,/IntegratedNavigationRules.CONTROLS_WEIGHT/);
  assert.match(screen,/CockpitLayoutRules.mapWeight\(false\)/);
  assert.match(screen,/CockpitLayoutRules.controlsWeight\(false\)/);
- assert.match(screen,/sideToggle.setVisibility\(landscape \? View.VISIBLE : View.GONE\)/);
+ assert.match(screen,/if \(landscape\) \{\s*boolean panelLeft = CockpitPanePreferences\.spotifyLeft\(this\)/);
  assert.match(osm,/◎ Meine Position/);
  assert.match(osm,/centerOnAndroidPosition\(false\)/);
  assert.match(osm,/centerOnAndroidPosition\(true\)/);
@@ -622,7 +622,7 @@ test('v21 OSM preview cannot appear to be the Google SDK product',()=>{
  const shell=java('IntegratedNavigationActivity');
  const manifest=read('app/src/main/AndroidManifest.xml');
  const gradle=read('app/build.gradle');
- assert.match(shell,/FahrCockpit v21 · OSM-Sichttest/);
+ assert.match(shell,/FahrCockpit · OSM-Test/);
  assert.match(shell,/Die fest integrierte Google-Navigation bleibt das Hauptziel/);
  assert.match(shell,/Hier ist kein Google-SDK enthalten/);
  assert.match(shell,/Google Maps separat öffnen \(Samsung-Splitscreen\)/);
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 24/);
- assert.match(gradle,/versionName '0\.9\.22-beta'/);
+ assert.match(gradle,/versionCode 41/);
+ assert.match(gradle,/versionName '0\.9\.39-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==24/);
+ assert.match(ci,/versionCode'\]==41/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -703,7 +703,7 @@ test('v22 mute affects Google guidance speech, not Spotify or routing',()=>{
  const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
  const activity=java('IntegratedNavigationActivity');
  const voice=java('NavigationVoicePreferences');
- assert.match(engine,/Navigator\.AudioGuidance\.VIBRATION/);
+ assert.doesNotMatch(engine,/Navigator\\.AudioGuidance\\.VIBRATION/);
  assert.match(engine,/navigator\.setAudioGuidance\(mode\)/);
  assert.match(engine,/NavigationVoicePreferences\.isMuted\(host\)/);
  assert.match(activity,/voiceButton\.setOnClickListener/);
@@ -732,22 +732,24 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 24/);
-  assert.match(gradle,/versionName '0\.9\.22-beta'/);
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
-  assert.match(shell,/mapPane\.addView\(voiceButton, voicePosition\)/);
-  assert.doesNotMatch(shell,/panel\.addView\(voiceButton\)/);
+  assert.match(shell,/tools\.addView\(voiceButton, new LinearLayout\.LayoutParams\(/);
+  assert.match(shell,/cockpitPane\.addView\(tools, 1,/);
+  assert.doesNotMatch(shell,/mapPane\.addView\(voiceButton/);
   assert.match(shell,/DestinationStore\.recordRecent/);
   assert.match(shell,/DestinationStore\.saveFavorite/);
-  assert.match(shell,/DestinationStore\.removeFavorite/);
+  assert.match(shell,/DestinationStore\.removeManaged/);
   assert.match(shell,/AddressSuggestionResolver\.suggest/);
   assert.match(shell,/postDelayed\(pendingSuggestions, 650L\)/);
   assert.match(geo,/Geocoder\.GeocodeListener/);
   assert.match(store,/fahrcockpit_manual_routes_v1/);
   assert.match(store,/fahrcockpit_destinations_v23/);
   assert.match(store,/static boolean removeFavorite/);
+  assert.match(store,/static boolean removeManaged/);
   assert.match(rules,/maySuggestOnline/);
   assert.match(nav,/NavigationRequestBudget\.reserve\(host\)/);
   assert.doesNotMatch(shell,/Places\.initializeWithNewPlacesApiEnabled/);
@@ -762,7 +764,9 @@ test('v24 speaker is monochrome icon-only, never a Samsung emoji or text button'
   assert.match(cockpit,/voiceButton\.setImageDrawable\(new NavigationAudioIcon\(muted\)\)/);
   assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
   assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
-  assert.match(cockpit,/mapPane\.addView\(voiceButton, voicePosition\)/);
+  assert.match(cockpit,/tools\.addView\(voiceButton, new LinearLayout\.LayoutParams\(/);
+  assert.match(cockpit,/cockpitPane\.addView\(tools, 1,/);
+  assert.doesNotMatch(cockpit,/mapPane\.addView\(voiceButton/);
   assert.doesNotMatch(cockpit,/voiceButton\.setText\(/);
   assert.doesNotMatch(icon,/\uD83D\uDD0A|\uD83D\uDD07|Emoji/);
   assert.match(icon,/if \(muted\)/);
@@ -791,14 +795,14 @@ test('v24 custom favorite editor keeps a nickname separate from actual route tar
 test('v24 route menu collapses during active guidance while remaining reversible',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   assert.match(cockpit,/onGuidanceStateChanged\(boolean active\)/);
-  assert.match(cockpit,/if \(active\) collapseDestinationMenu\(\)/);
+  assert.match(cockpit,/if \(active\) \{\s*collapseDestinationMenu\(\);/);
   assert.match(cockpit,/private void collapseDestinationMenu\(\)/);
   assert.match(cockpit,/routePanel\.setVisibility\(View\.GONE\)/);
   assert.match(cockpit,/toggleRoutes\.setOnClickListener/);
   assert.match(cockpit,/destinationActions\.addView\(remembered/);
   assert.match(cockpit,/destinationActions\.addView\(saveDestination/);
-  assert.match(cockpit,/setPositiveButton\(osm \? "Straßenroute planen"/);
-  assert.match(cockpit,/Nur nach Freigabe der Abrechnung fortfahren/);
+  assert.match(cockpit,/\.setPositiveButton\("Straßenroute planen"/);
+  assert.doesNotMatch(cockpit,/Nur nach Freigabe der Abrechnung fortfahren|Google Navigation: Route bestätigen/);
 });
 
 test('v24 portrait gives Google ETA extra room, landscape remains 70/30',()=>{
@@ -813,4 +817,794 @@ test('v24 portrait gives Google ETA extra room, landscape remains 70/30',()=>{
   assert.match(cockpit,/CockpitLayoutRules\.controlsWeight\(false\)/);
   assert.match(cockpit,/CockpitLayoutRules\.safeBottomInset\(bars\.bottom, keyboard\.bottom\)/);
   assert.doesNotMatch(cockpit,/Google: Das SDK benötigt aktives Cloud Billing/);
+});
+
+
+test('v25 Saphe probe is opt-in and reads only the exact Android package name',()=>{
+  const listener=java('SpotifyNotificationListener');
+  const rules=java('SapheNotificationRules');
+  const probe=java('SapheNotificationProbe');
+  const ui=java('IntegratedNavigationActivity');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  const gradle=read('app/build.gradle');
+  assert.match(listener,/onNotificationPosted\(StatusBarNotification notification\)/);
+  assert.match(listener,/notification\.getPackageName\(\)/);
+  assert.match(listener,/SapheNotificationProbe\.onNotificationPosted/);
+  assert.doesNotMatch(listener,/getNotification\(\)|getKey\(\)|getId\(\)|getTag\(\)/);
+  assert.match(rules,/WarningSource\.SAPHE_PACKAGE\.equals\(packageName\)/);
+  assert.match(rules,/optedIn && WarningSource/);
+  assert.match(probe,/if \(!SapheNotificationRules\.shouldRecord/);
+  assert.match(probe,/putLong\(KEY_LAST_EVENT, System\.currentTimeMillis\(\)\)/);
+  assert.match(probe,/return prefs\(ctx\)\.getBoolean\(KEY_ENABLED, false\)/);
+  assert.doesNotMatch(probe,/BluetoothGatt|Network|HttpURLConnection|Notification\.EXTRA|getExtras\(\)/);
+  assert.match(ui,/case MENU_SAPHE_DIAGNOSIS:\s*showSapheProbeDialog\(\)/);
+  assert.match(ui,/showSapheBanner\(true\)/);
+  assert.match(ui,/SapheNotificationProbe\.lastObservedAt\(this\)/);
+  assert.match(ui,/Safety-Ereignis · Typ nicht verifiziert/);
+  assert.match(ui,/keine echte Warnung/);
+  assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
+  assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
+  assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
+  assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
+});
+
+
+test('v27 compact cockpit keeps navigation voice accessible without masking Google map',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const layout=java('CockpitLayoutRules');
+  const weights=java('IntegratedNavigationRules');
+  assert.match(cockpit,/tools\.addView\(voiceButton, new LinearLayout\.LayoutParams\(/);
+  assert.match(cockpit,/cockpitPane\.addView\(tools, 1,/);
+  assert.doesNotMatch(cockpit,/mapPane\.addView\(voiceButton/);
+  assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
+  assert.match(cockpit,/optionsButton\.setContentDescription\("FahrCockpit-Optionen öffnen"\)/);
+  assert.match(cockpit,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
+  assert.match(cockpit,/status\.setVisibility\(routine \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(cockpit,/CockpitLayoutRules\.mapWeight\(false\)/);
+  assert.match(cockpit,/CockpitLayoutRules\.controlsWeight\(false\)/);
+  assert.match(layout,/PORTRAIT_MAP_WEIGHT = 12/);
+  assert.match(weights,/MAP_WEIGHT = 7/);
+  assert.match(weights,/CONTROLS_WEIGHT = 3/);
+});
+
+
+test('v28 Tankerkoenig map prices require explicit search and never start billable routes',()=>{
+  const activity=java('IntegratedNavigationActivity');
+  const fuel=java('FuelActivity');
+  const cache=java('FuelMapSnapshot');
+  const bridge=java('NavigationEngine');
+  const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  const marker=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
+  const gradle=read('app/build.gradle');
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
+  assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
+  assert.match(fuel,/FuelPriceFormat\.perLiter\(price\)/);
+  assert.match(cache,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
+  assert.match(cache,/MAX_STATIONS = 120/);
+  assert.match(cache,/context\.getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
+  assert.doesNotMatch(cache,/apiKey|tankerkoenig_local_key|requestUrl|HttpURLConnection/);
+  assert.match(activity,/engine\.showFuelPrices\(local,/);
+  assert.match(activity,/this::chooseFuelStationAction/);
+  assert.match(activity,/setPositiveButton\("Route berechnen"/);
+  assert.match(activity,/engine\.startConfirmedRoute\(lat, lng, chosenName\)/);
+  assert.match(bridge,/default void showFuelPrices\(FuelMapSnapshot\.Snapshot snapshot/);
+  assert.match(engine,/map\.getMapAsync\(googleMap ->/);
+  assert.match(marker,/active\.addMarker\(new MarkerOptions\(\)/);
+  assert.match(marker,/active\.setOnInfoWindowClickListener\(marker ->/);
+  assert.match(marker,/marker\.setTag\(s\)/);
+  assert.match(cache,/FuelPriceFormat\.compact\(price\)/);
+  assert.doesNotMatch(marker,/setDestination\(|startGuidance\(|Places\.|HttpURLConnection|new NavigationView|new MapView/);
+});
+
+
+test('v29 nearby fuel search recovers from unavailable GPS through network provider',()=>{
+  const fuel=java('FuelActivity');
+  assert.match(fuel,/manager\.isProviderEnabled\(\s*LocationManager\.NETWORK_PROVIDER\)/);
+  assert.match(fuel,/manager\.isProviderEnabled\(\s*LocationManager\.GPS_PROVIDER\)/);
+  assert.match(fuel,/recentLocation\(manager\.getLastKnownLocation\(\s*LocationManager\.NETWORK_PROVIDER\)\)/);
+  assert.match(fuel,/recentLocation\(manager\.getLastKnownLocation\(\s*LocationManager\.GPS_PROVIDER\)\)/);
+  assert.match(fuel,/getCurrentLocation\(LocationManager\.NETWORK_PROVIDER/);
+  assert.match(fuel,/getCurrentLocation\(LocationManager\.GPS_PROVIDER/);
+  assert.match(fuel,/onLocationCandidate\(generation, location, key\)/);
+  assert.match(fuel,/if \(generation != locationGeneration/);
+  assert.match(fuel,/pendingLocationProviders <= 0/);
+  assert.match(fuel,/stopLocationRequests\(\)/);
+  assert.doesNotMatch(fuel,/locationSignal = new CancellationSignal/);
+  assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
+  assert.match(fuel,/FuelPriceFormat\.perLiter\(price\)/);
+  // The key stays in private app storage; only a manual search can call API.
+  assert.match(fuel,/search\.setOnClickListener\(v -> search\(\)\)/);
+  assert.doesNotMatch(fuel,/requestLocationUpdates\(/);
+});
+
+
+test('v29 direct fuel overlay is one tap, explicitly refreshed, and reuses saved settings',()=>{
+  const activity=java('IntegratedNavigationActivity');
+  const quick=java('FuelQuickSearch');
+  const settings=java('FuelQuickSettings');
+  const fuel=java('FuelActivity');
+  assert.match(activity,/fuelButton = cockpitButton\("Preise anzeigen", false\)/);
+  assert.match(activity,/fuelButton\.setOnClickListener\(v ->/);
+  assert.match(activity,/fuelRefreshButton\.setOnClickListener\(v ->/);
+  assert.match(activity,/startQuickFuelSearch\(\)/);
+  assert.match(activity,/FuelMapSnapshot\.readForDisplay\(this\)/);
+  assert.match(activity,/engine\.showFuelPrices\(local,/);
+  assert.match(activity,/fuelMarkersVisible = false/);
+  assert.match(activity,/FuelMapSnapshot\.MAX_AGE_MS/);
+  assert.match(activity,/new Intent\(this, FuelActivity\.class\)/);
+  assert.match(quick,/getString\("tankerkoenig_local_key"/);
+  assert.match(quick,/FuelRules\.validKey\(key\)/);
+  assert.match(quick,/FuelRules\.requestUrl\(key/);
+  assert.match(quick,/getCurrentLocation\(LocationManager\.NETWORK_PROVIDER/);
+  assert.match(quick,/getCurrentLocation\(LocationManager\.GPS_PROVIDER/);
+  assert.match(quick,/locationResolved = true/);
+  assert.match(quick,/if \(token != generation \|\| !searching \|\| locationResolved\) return/);
+  assert.match(quick,/FuelMapSnapshot\.save\(host, stations, type\)/);
+  assert.doesNotMatch(quick,/startGuidance\(|setDestination\(|Places\.|requestLocationUpdates\(/);
+  assert.match(settings,/fuel_type_index/);
+  assert.match(settings,/fuel_radius_index/);
+  assert.match(settings,/fuel_sort_index/);
+  assert.match(fuel,/FuelQuickSettings\.saveType\(FuelActivity\.this, position\)/);
+  assert.match(fuel,/FuelQuickSettings\.saveRadius\(FuelActivity\.this, position\)/);
+  assert.match(fuel,/FuelQuickSettings\.saveSort\(FuelActivity\.this, position\)/);
+});
+
+test('v29 idle Spotify panel keeps launch action while hiding disabled controls',()=>{
+  const activity=java('IntegratedNavigationActivity');
+  assert.match(activity,/boolean showMedia = state\.connected/);
+  assert.match(activity,/mediaControls\.setVisibility\(showMedia \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(activity,/mediaSkip\.setVisibility\(showMedia \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(activity,/spotifyHeader\.setVisibility\(showMedia \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(activity,/spotifySetup\.setVisibility\(nextAction == null \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(activity,/spotifySetup\.setOnClickListener\(v -> openSpotifyOrPermissions\(\)\)/);
+});
+
+
+test('v31 Saphe diagnostic is ten-minute opt-in and never reads payload or Bluetooth',()=>{
+  const state=java('SapheDiagnosticSession');
+  const listener=java('SpotifyNotificationListener');
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(state,/DURATION_MS = 10L \* 60 \* 1000L/);
+  assert.match(state,/now >= start && now < ends/);
+  assert.match(state,/WarningSource\.SAPHE_PACKAGE\.equals\(packageName\)/);
+  assert.match(state,/c\.getPackageName\(\)\.equals\(packageName\)/);
+  assert.match(state,/Math\.min\(9999,/);
+  assert.match(state,/putLong\(LAST_SAPHE, now\)/);
+  assert.match(state,/putLong\(TEST_SEEN, now\)/);
+  assert.doesNotMatch(state,/getNotification\(|getExtras\(|BluetoothGatt|HttpURLConnection/);
+  assert.match(listener,/onListenerConnected\(\)/);
+  assert.match(listener,/SapheDiagnosticSession\.onNotification\(this, notification\.getPackageName\(\)/);
+  assert.doesNotMatch(listener,/getNotification\(|getKey\(|getId\(|getTag\(/);
+  assert.match(cockpit,/SapheDiagnosticSession\.start\(this, System\.currentTimeMillis\(\)\)/);
+  assert.match(cockpit,/SapheDiagnosticSession\.stop\(this\)/);
+  assert.match(cockpit,/SapheDiagnosticSession\.sapheCount\(this\)/);
+  assert.match(cockpit,/SapheDiagnosticSession\.lastSapheAt\(this\)/);
+  assert.match(cockpit,/SapheDiagnosticSession\.selfTestSeen\(this\)/);
+  assert.match(cockpit,/manager\.notify\(31031, notification\)/);
+  assert.match(cockpit,/setDefaults\(0\)/);
+  assert.match(cockpit,/10 Minuten starten/);
+  assert.match(cockpit,/Testanzeige/);
+  assert.match(cockpit,/keine echte Warnung/);
+});
+
+test('v31 Google voice defaults off and routine guidance haptics are omitted',()=>{
+  const prefs=java('NavigationVoicePreferences');
+  const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(prefs,/getBoolean\(KEY_MUTED, true\)/);
+  assert.match(prefs,/putBoolean\(KEY_MUTED, muted\)/);
+  assert.match(engine,/NavigationVoicePreferences\.isMuted\(host\)/);
+  assert.match(engine,/Navigator\.AudioGuidance\.VOICE_ALERTS_AND_GUIDANCE/);
+  assert.match(engine,/Navigator\.AudioGuidance\.BLUETOOTH_AUDIO/);
+  assert.doesNotMatch(engine,/Navigator\.AudioGuidance\.VIBRATION/);
+  assert.match(engine,/navigator\.setAudioGuidance\(mode\)/);
+  assert.match(cockpit,/engine\.setVoiceMuted\(muted\)/);
+});
+
+test('v33 neutral safety prototype retains Saphe events with visible timed map banner',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const gradle=read('app/build.gradle');
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
+  assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
+  assert.match(cockpit,/SapheDiagnosticSession\.lastSapheAt\(this\)/);
+  assert.match(cockpit,/SapheNotificationProbe\.lastObservedAt\(this\)/);
+  assert.match(cockpit,/Math\.max\(observedAt, diagnosticAt\)/);
+  assert.match(cockpit,/title = simulated \? "TEST · ACHTUNG" : "ACHTUNG"/);
+  assert.match(cockpit,/Safety-Ereignis · Typ nicht verifiziert/);
+  assert.match(cockpit,/handler\.postDelayed\(hideSapheBanner, 3200L\)/);
+  assert.match(cockpit,/safetyEventCount\+\+/);
+  assert.match(cockpit,/showSapheBanner\(true\)/);
+  assert.doesNotMatch(cockpit,/sapheBanner\.setText\("Blitzer"/);
+});
+
+test('v33 Google-only navigation enables native speed and speed limits without extra APIs',()=>{
+  const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  assert.match(engine,/map\.setSpeedometerEnabled\(true\)/);
+  assert.match(engine,/map\.setSpeedLimitIconEnabled\(true\)/);
+  assert.match(engine,/map\.onCreate\(saved\)/);
+  assert.ok(engine.indexOf('map.onCreate(saved)') < engine.indexOf('map.setSpeedometerEnabled(true)'));
+  assert.doesNotMatch(engine,/SpeedLimitsApi|RoadsApi|SpeedLimitLookup|requestSpeedLimit/);
+  assert.doesNotMatch(manifest,/ACCESS_BACKGROUND_LOCATION/);
+});
+
+test('v33 sticky cockpit speed clears stale GPS readings and stops location on pause',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/cockpitPane\.addView\(currentSpeedView/);
+  assert.match(cockpit,/cockpitPane\.addView\(scroll/);
+  assert.match(cockpit,/root\.addView\(cockpitPane, controlParams\)/);
+  assert.match(cockpit,/currentSpeedView\.setText\("GPS — km\/h"\)/);
+  assert.match(cockpit,/location\.hasSpeed\(\)/);
+  assert.match(cockpit,/location\.hasAccuracy\(\)/);
+  assert.match(cockpit,/location\.getAccuracy\(\) > 80f/);
+  assert.match(cockpit,/location\.getElapsedRealtimeNanos\(\)/);
+  assert.match(cockpit,/location\.getSpeedAccuracyMetersPerSecond\(\) > 8f/);
+  assert.match(cockpit,/Math\.round\(metersPerSecond \* 3\.6f\)/);
+  assert.match(cockpit,/handler\.postDelayed\(expireSpeedReading, 8000L\)/);
+  assert.match(cockpit,/manager\.requestLocationUpdates\(LocationManager\.GPS_PROVIDER/);
+  assert.match(cockpit,/manager\.requestLocationUpdates\(LocationManager\.NETWORK_PROVIDER/);
+  assert.match(cockpit,/speedLocationManager\.removeUpdates\(speedLocationListener\)/);
+  assert.match(cockpit,/onPause\(\) \{\s*if \(autoFuelRefreshController != null\)\s*autoFuelRefreshController\.setVisible\(false\);\s*stopSpeedUpdates\(\)/);
+  assert.doesNotMatch(cockpit,/getLastKnownLocation\(/);
+});
+
+test('v37 large red full-screen Safety alert pulses legibly without claiming blitzer identity',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/sapheBanner = Ui\.text\(this, "", landscape \? 48 : 58, 0xffffffff, true\)/);
+  assert.match(cockpit,/sapheBanner\.setBackgroundColor\(0xf2ab1020\)/);
+  assert.match(cockpit,/handler\.postDelayed\(hideSapheBanner, 3200L\)/);
+  assert.match(cockpit,/Safety-Ereignis · Typ nicht verifiziert/);
+  assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
+  assert.match(cockpit,/sapheBanner\.startAnimation\(pulse\)/);
+  assert.match(cockpit,/pulse\.setDuration\(360L\)/);
+  assert.match(cockpit,/displayRoot\.addView\(sapheBanner/);
+  assert.doesNotMatch(cockpit,/sapheBanner\.setText\("Blitzer erkannt"/);
+});
+
+
+test('v34 only shows native Google speedometer during guidance and GPS fallback otherwise',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  assert.match(google,/map\.setSpeedometerEnabled\(true\)/);
+  assert.match(google,/map\.setSpeedLimitIconEnabled\(true\)/);
+  assert.match(cockpit,/navigationGuidanceActive = active/);
+  assert.match(cockpit,/currentSpeedView\.setVisibility\(\s*active \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(cockpit,/if \(active\) \{\s*collapseDestinationMenu\(\);/);
+  assert.match(cockpit,/startSpeedUpdates\(\);/);
+  assert.match(cockpit,/if \(!cockpitResumed \|\| currentSpeedView == null \|\| speedLocationListener != null\) return/);
+  assert.match(cockpit,/stopSpeedUpdates\(\)/);
+  assert.match(cockpit,/showUnknownSpeed\(\)/);
+});
+
+test('v34 removes SDK billing dialog while retaining user-triggered bounded routes',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  assert.match(cockpit,/route\.setOnClickListener\(v -> resolveAndStartRoute\(\)\)/);
+  assert.match(cockpit,/private void resolveAndStartRoute\(\)/);
+  assert.match(cockpit,/NavigationDestinationResolver\.resolve\(this, target/);
+  assert.match(cockpit,/!target\.equals\(selectedNavigationTarget\(\)\)/);
+  assert.match(cockpit,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
+  assert.doesNotMatch(cockpit,/Google Navigation: Route bestätigen|Nur nach Freigabe der Abrechnung fortfahren|Google-SDK-Kontingent|Navigation-SDK-Quote/);
+  assert.match(cockpit,/\.setTitle\("Google Navigation: Tankstelle anfahren"\)/);
+  assert.match(cockpit,/\.setPositiveButton\("Route berechnen", \(dialog, which\) ->/);
+  assert.match(google,/NavigationRequestBudget\.reserve\(host\)/);
+  assert.match(google,/if \(calculating\)/);
+});
+
+
+test('v35 compact unified cockpit preserves Google 70/30, portrait split, and accessibility',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const layout=java('CockpitLayoutRules');
+  assert.match(cockpit,/IntegratedNavigationRules\.MAP_WEIGHT/);
+  assert.match(cockpit,/IntegratedNavigationRules\.CONTROLS_WEIGHT/);
+  assert.match(cockpit,/CockpitLayoutRules\.mapWeight\(false\)/);
+  assert.match(cockpit,/CockpitLayoutRules\.controlsWeight\(false\)/);
+  assert.match(cockpit,/root\.addView\(mapPane, mapParams\)/);
+  assert.match(cockpit,/root\.addView\(cockpitPane, controlParams\)/);
+  assert.match(cockpit,/tools\.addView\(cockpitTitle, new LinearLayout\.LayoutParams\(0, -2, 1f\)\)/);
+  assert.match(cockpit,/cockpitTitle\.setSingleLine\(true\)/);
+  assert.match(cockpit,/optionsButton\.setContentDescription\("FahrCockpit-Optionen öffnen"\)/);
+  assert.match(cockpit,/voiceButton\.setContentDescription\(/);
+  assert.match(cockpit,/new android\.graphics\.drawable\.RippleDrawable\(/);
+  assert.match(cockpit,/cockpitButton\("Ziel \/ Route", true\)/);
+  assert.match(cockpit,/getResources\(\)\.getConfiguration\(\)\.orientation/);
+  assert.match(layout,/static int mapWeight\(boolean/);
+});
+
+test('v35 Spotify has compact header, single progress row and retains all seek actions',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/spotifyHeaderRow = Ui\.row\(this\)/);
+  assert.match(cockpit,/spotifyHeaderRow\.addView\(spotifyState/);
+  assert.match(cockpit,/mediaProgressRow = Ui\.row\(this\)/);
+  assert.match(cockpit,/mediaProgressRow\.addView\(elapsed/);
+  assert.match(cockpit,/mediaProgressRow\.addView\(seek/);
+  assert.match(cockpit,/mediaProgressRow\.addView\(duration/);
+  assert.match(cockpit,/mediaProgressRow\.setVisibility\(showProgress \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(cockpit,/spotifyHeaderRow\.setVisibility\(showMedia \? View\.VISIBLE : View\.GONE\)/);
+  assert.match(cockpit,/send\(SpotifyMedia\.Action\.PREVIOUS\)/);
+  assert.match(cockpit,/send\(SpotifyMedia\.Action\.NEXT\)/);
+  assert.match(cockpit,/send\(SpotifyMedia\.Action\.SEEK_BACK\)/);
+  assert.match(cockpit,/send\(SpotifyMedia\.Action\.SEEK_FORWARD\)/);
+  assert.match(cockpit,/SpotifyMedia\.seekAbsolute\(/);
+  assert.match(cockpit,/spotifySetup\.setOnClickListener\(v -> openSpotifyOrPermissions\(\)\)/);
+  assert.match(cockpit,/play\.setContentDescription\("Wiedergabe starten oder pausieren"\)/);
+  assert.match(cockpit,/state\.playing \? "Spielt" : "Pausiert"/);
+  assert.match(cockpit,/spotifyState\.setContentDescription\(fullSpotifyStatus\)/);
+  assert.match(cockpit,/play\.setText\(state\.playing \? "❚❚" : "▶"\)/);
+  assert.match(cockpit,/play\.setContentDescription\(state\.playing/);
+});
+
+test('v35 secondary fuel tools are collapsible without losing a manual refresh or station handoff',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/fuelActions\.addView\(fuelButton, cockpitActionParams\(1f, true\)\)/);
+  assert.match(cockpit,/fuelActions\.addView\(fuelRefreshButton, new LinearLayout\.LayoutParams\(/);
+  assert.match(cockpit,/fuelRefreshButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/case MENU_FUEL_SETTINGS:\s*startActivityForResult\(new Intent\(this, FuelActivity\.class\)/);
+  assert.doesNotMatch(cockpit,/fuelExtraActions|fuelMore/);
+  assert.match(cockpit,/FuelActivity\.class/);
+  assert.match(cockpit,/fuelButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/engine\.showFuelPrices\(local,/);
+});
+
+test('v35 Saphe status is truthful and warnings and diagnostic remain available',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/sapheStatusButton = cockpitButton\("S", false\)/);
+  assert.match(cockpit,/tools\.addView\(sapheStatusButton, sapheParams\)/);
+  assert.match(cockpit,/refreshSapheStatus\(\)/);
+  assert.match(cockpit,/SapheNotificationProbe\.enabled\(this\)/);
+  assert.match(cockpit,/SapheIndicatorRules\.state\(installed, access, optedIn, evidence\)/);
+  assert.match(cockpit,/options\.getMenu\(\)\.add\(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose"\)/);
+  assert.match(cockpit,/case MENU_SAPHE_DIAGNOSIS:\s*showSapheProbeDialog\(\)/);
+  assert.match(cockpit,/sapheBanner\.setBackgroundColor\(0xf2ab1020\)/);
+  assert.match(cockpit,/handler\.postDelayed\(hideSapheBanner, 3200L\)/);
+  assert.match(cockpit,/if \(!simulated\) refreshSapheStatus\(\)/);
+  assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
+  assert.doesNotMatch(cockpit,/Saphe verbunden|Blitzer erkannt/);
+});
+
+test('v35 removes routine success clutter and keeps route and Google-only cost guards',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  assert.match(cockpit,/message\.startsWith\("Google Navigation bereit"\)/);
+  assert.match(cockpit,/status\.setVisibility\(routine \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(cockpit,/currentSpeedView\.setVisibility\(\s*active \? View\.GONE : View\.VISIBLE\)/);
+  assert.match(cockpit,/route\.setOnClickListener\(v -> resolveAndStartRoute\(\)\)/);
+  assert.match(cockpit,/NavigationDestinationResolver\.resolve\(this, target/);
+  assert.match(cockpit,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
+  assert.match(google,/NavigationRequestBudget\.reserve\(host\)/);
+  assert.doesNotMatch(cockpit,/Nur nach Freigabe der Abrechnung fortfahren|Google Navigation: Route bestätigen/);
+});
+
+
+test('v35 in-app updater reuses Sanftwecker verified APK path without background installs',()=>{
+  const ui=java('IntegratedNavigationActivity');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  const gradle=read('app/build.gradle');
+  const update=java('UpdateActivity');
+  const downloader=java('VerifiedApkDownloader');
+  const policy=java('VerifiedUpdatePolicy');
+  const urls=java('UpdateUrlPolicy');
+  const paths=read('app/src/main/res/xml/update_file_paths.xml');
+  assert.match(ui,/options\.getMenu\(\)\.add\(0, MENU_APP_UPDATE, 1, "App aktualisieren"\)/);
+  assert.match(ui,/new Intent\(this, UpdateActivity\.class\)/);
+  assert.match(update,/RELEASES =\s*"https:\/\/api\.github\.com\/repos\/CobraChris\/app-fabrik-template\/releases\?per_page=100"/);
+  assert.match(update,/newestSignedAsset\(String response\)/);
+  assert.match(update,/asset\.optString\("digest", ""\)/);
+  assert.match(update,/VerifiedUpdatePolicy\.parseSha256\(digest\)/);
+  assert.match(update,/UpdateUrlPolicy\.isForTag\(url, tag\)/);
+  assert.match(update,/size <= 0L \|\| size > MAX_APK_BYTES/);
+  assert.match(update,/verified = VerifiedApkDownloader\.download\(/);
+  assert.match(update,/getPackageManager\(\)\.canRequestPackageInstalls\(\)/);
+  assert.match(update,/ACTION_MANAGE_UNKNOWN_APP_SOURCES/);
+  assert.match(update,/Intent\.FLAG_GRANT_READ_URI_PERMISSION/);
+  assert.match(update,/APK im Browser öffnen/);
+  assert.doesNotMatch(update,/AlarmManager|WorkManager|JobScheduler|onResume\(\).*checkForUpdate/s);
+  assert.match(manifest,/android\.permission\.REQUEST_INSTALL_PACKAGES/);
+  assert.match(manifest,/android:name="androidx\.core\.content\.FileProvider"/);
+  assert.match(manifest,/android:exported="false"\s+android:grantUriPermissions="true"/);
+  assert.match(manifest,/@xml\/update_file_paths/);
+  assert.match(paths,/<cache-path name="approved_updates" path="updates\/" \/>/);
+  assert.match(gradle,/implementation 'androidx\.core:core:1\.13\.1'/);
+  assert.match(policy,/release-assets\.githubusercontent\.com/);
+  assert.match(policy,/isTrustedDownloadHop/);
+  assert.match(policy,/isApproved/);
+  assert.match(urls,/isAllowed\(String url\)/);
+  assert.match(downloader,/MAX_BYTES=180L\*1024\*1024/);
+  assert.match(downloader,/MessageDigest\.getInstance\("SHA-256"\)/);
+  assert.match(downloader,/verifyPackageAndCertificate\(context,ready,expectedCode\)/);
+  assert.match(downloader,/PackageManager\.GET_SIGNING_CERTIFICATES/);
+  assert.match(downloader,/Arrays\.equals\(current\[0\]\.toByteArray\(\),incoming\[0\]\.toByteArray\(\)\)/);
+  assert.match(downloader,/FileProvider\.getUriForFile/);
+  assert.doesNotMatch(downloader,/deletePackage|pm install|Runtime\.getRuntime\(\)/);
+});
+
+
+test('v35 permanent options menu consolidates updater, side swap, fuel settings and Saphe diagnosis',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const preferences=java('CockpitPanePreferences');
+  assert.match(cockpit,/import android\.widget\.PopupMenu/);
+  assert.match(cockpit,/Button optionsButton = cockpitButton\("⋮", false\)/);
+  assert.match(cockpit,/optionsButton\.setContentDescription\("FahrCockpit-Optionen öffnen"\)/);
+  assert.match(cockpit,/cockpitPane\.addView\(tools, 1,\s*new LinearLayout\.LayoutParams\(-1, Ui\.dp\(this, 48\)\)\)/);
+  assert.doesNotMatch(cockpit,/panel\.addView\(tools\)/);
+  assert.match(cockpit,/optionsButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/new PopupMenu\(this, optionsButton\)/);
+  assert.match(cockpit,/if \(landscape\) \{\s*boolean panelLeft = CockpitPanePreferences\.spotifyLeft\(this\)/);
+  assert.match(cockpit,/panelLeft \? "Bedienfeld nach rechts" : "Bedienfeld nach links"/);
+  assert.match(cockpit,/case MENU_SWAP_PANE:/);
+  assert.match(cockpit,/CockpitPanePreferences\.saveSpotifyLeft\(this, newLeft\)/);
+  assert.match(cockpit,/root\.removeView\(mapPane\)/);
+  assert.match(cockpit,/root\.removeView\(cockpitPane\)/);
+  assert.match(cockpit,/root\.addView\(cockpitPane, controlParams\)/);
+  assert.match(preferences,/putBoolean\(KEY_SPOTIFY_LEFT, left\)\.commit\(\)/);
+  assert.match(cockpit,/options\.getMenu\(\)\.add\(0, MENU_APP_UPDATE, 1, "App aktualisieren"\)/);
+  assert.match(cockpit,/case MENU_APP_UPDATE:\s*startActivity\(new Intent\(this, UpdateActivity\.class\)\)/);
+  assert.match(cockpit,/case MENU_FUEL_SETTINGS:/);
+  assert.match(cockpit,/FuelActivity\.EXTRA_RETURN_TO_COCKPIT/);
+  assert.match(cockpit,/case MENU_SAPHE_DIAGNOSIS:\s*showSapheProbeDialog\(\)/);
+  assert.doesNotMatch(cockpit,/sapheCheck =|Button appUpdate =|sideToggle =/);
+  assert.doesNotMatch(cockpit,/fuelExtraActions|Button fuelMore/);
+  assert.match(cockpit,/fuelRefreshButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/voiceButton\.setOnClickListener\(v ->/);
+});
+
+
+test('v36 tank price requests share one persistent fail-closed limit with no automatic polling',()=>{
+  const quick=java('FuelQuickSearch');
+  const full=java('FuelActivity');
+  const gate=java('FuelRequestGate');
+  const rules=java('FuelRateRules');
+  const gradle=read('app/build.gradle');
+  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
+  assert.match(ci,/feature\/fahrcockpit-v36-tankerkoenig-rate-guard/);
+  assert.match(quick,/FuelRequestGate\.tryBegin\(host\)/);
+  assert.match(full,/FuelRequestGate\.tryBegin\(this\)/);
+  assert.match(quick,/FuelRequestGate\.reportHttp\(host, httpStatus\)/);
+  assert.match(full,/FuelRequestGate\.reportHttp\(this, httpStatus\)/);
+  assert.match(quick,/FuelRequestGate\.reportTransportFailure\(host\)/);
+  assert.match(full,/FuelRequestGate\.reportTransportFailure\(this\)/);
+  assert.doesNotMatch(quick,/callback\.onSuccess\(cache\)/);
+  assert.match(quick,/if \(!permit\.allowed\)/);
+  assert.match(full,/if \(!permit\.allowed\)/);
+  assert.match(gate,/private static final Object LOCK = new Object\(\)/);
+  assert.match(gate,/synchronized \(LOCK\)/);
+  assert.match(gate,/getApplicationContext\(\)\.getSharedPreferences\(/);
+  assert.match(gate,/\.putLong\(LAST_ATTEMPT, now\)\.commit\(\)/);
+  assert.match(gate,/FuelRateRules\.remainingMillis/);
+  assert.match(gate,/Math\.max\(previous, now \+ millis\)/);
+  assert.match(rules,/MIN_REQUEST_INTERVAL_MS = 65_000L/);
+  assert.match(rules,/MIN_APPROVED_AUTO_INTERVAL_MS = 300_000L/);
+  assert.match(rules,/RATE_LIMIT_BACKOFF_MS = 3_600_000L/);
+  assert.match(rules,/TRANSIENT_BACKOFF_MS = 300_000L/);
+  assert.match(rules,/httpCode == 503 \|\| httpCode == 429/);
+  assert.doesNotMatch(gate,/AlarmManager|WorkManager|JobScheduler|setInterval/);
+  assert.doesNotMatch(full,/startPolling|scheduleAutomaticRefresh|postDelayed\(.*fetch\(/);
+  assert.doesNotMatch(quick,/startPolling|scheduleAutomaticRefresh|postDelayed\(.*fetch\(/);
+});
+
+
+test('v36 always-on fuel price display retains explicitly labeled stale cache without hidden refresh',()=>{
+  const cached=java('FuelMapSnapshot');
+  const markers=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
+  const cockpit=java('IntegratedNavigationActivity');
+  const quick=java('FuelQuickSearch');
+  assert.match(cached,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
+  assert.match(cached,/MAX_DISPLAY_AGE_MS = 24 \* 60 \* 60 \* 1000L/);
+  assert.match(cached,/static Snapshot readForDisplay\(Context context\)/);
+  assert.match(cached,/readWithin\(context, MAX_DISPLAY_AGE_MS\)/);
+  assert.match(cached,/static boolean isStale\(Snapshot snapshot, long now\)/);
+  assert.match(cockpit,/FuelMapSnapshot\.readForDisplay\(this\)/);
+  assert.match(cockpit,/fuelInfo\.setText\(local\.stations\.size\(\) \+ " von "/);
+  assert.match(cockpit,/stale \? " · ALT, kein Live-Preis" : " · abgerufen"/);
+  assert.match(cockpit,/stale \? FuelMapSnapshot\.MAX_DISPLAY_AGE_MS/);
+  assert.match(cockpit,/handler\.postDelayed\(expireFuelMarkers,\s*Math\.min\(timeToAge, remainingPositionMs\)\)/);
+  assert.doesNotMatch(quick,/callback\.onSuccess\(cache\)/);
+  assert.match(markers,/boolean stale = FuelMapSnapshot\.isStale\(snapshot, System\.currentTimeMillis\(\)\)/);
+  assert.match(markers,/stale \? Color\.rgb\(117, 122, 133\) : tierColor/);
+  assert.match(markers,/\.snippet\(\(stale \? "VERALTETER PREIS · " : "Preisstand "\)/);
+  assert.match(markers,/canvas\.drawText\("ALT", 8\*d, 9\*d, paint\)/);
+});
+
+test('v36 navigation-only automatic scheduler is prepared but hard blocked without permission',()=>{
+  const policy=java('FuelAutoRefreshPolicy');
+  const pref=java('FuelAutoRefreshPreferences');
+  const controller=java('FuelAutoRefreshController');
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(policy,/static final boolean PROVIDER_APPROVED = false/);
+  assert.match(policy,/REGULAR_INTERVAL_MS = 15L \* 60_000L/);
+  assert.match(policy,/DISTANCE_MIN_INTERVAL_MS = 5L \* 60_000L/);
+  assert.match(policy,/DISTANCE_TRIGGER_METERS = 5_000f/);
+  assert.match(policy,/LOCATION_MAX_AGE_MS = 120_000L/);
+  assert.match(policy,/locationUsable\(/);
+  assert.match(policy,/distanceMeters\(/);
+  assert.match(pref,/FuelAutoRefreshPolicy\.PROVIDER_APPROVED\s*&&/);
+  assert.match(pref,/getBoolean\(ENABLED, false\)/);
+  assert.match(pref,/if \(enabled && !FuelAutoRefreshPolicy\.PROVIDER_APPROVED\)/);
+  assert.match(controller,/FuelAutoRefreshPolicy\.PROVIDER_APPROVED\s*&& FuelAutoRefreshPreferences\.enabled\(host\)/);
+  assert.match(controller,/&& visible && active && !host\.isFinishing\(\)/);
+  assert.match(controller,/FuelAutoRefreshPolicy\.isDue\(/);
+  assert.match(controller,/FuelAutoRefreshPolicy\.locationUsable\(/);
+  assert.match(controller,/handler\.postDelayed\(this, FuelAutoRefreshPolicy\.UI_TICK_INTERVAL_MS\)/);
+  assert.match(controller,/if \(!permitted\) \{\s*stop\(\);\s*return;/);
+  assert.match(controller,/requestPrices\.run\(\)/);
+  assert.match(controller,/locationManager\.removeUpdates\(listener\)/);
+  assert.match(cockpit,/new FuelAutoRefreshController\(this, this::startQuickFuelSearch\)/);
+  assert.match(cockpit,/autoFuelRefreshController\.setNavigationActive\(active\)/);
+  assert.match(cockpit,/autoFuelRefreshController\.setVisible\(true\)/);
+  assert.match(cockpit,/autoFuelRefreshController\.setVisible\(false\)/);
+  assert.match(cockpit,/autoFuelRefreshController\.shutdown\(\)/);
+  assert.match(cockpit,/MENU_FUEL_AUTO/);
+  assert.match(cockpit,/Auto-Preise: Freigabe ausstehend/);
+  assert.match(cockpit,/case MENU_FUEL_AUTO:/);
+  assert.match(cockpit,/if \(!FuelAutoRefreshPolicy\.PROVIDER_APPROVED\)/);
+  assert.match(cockpit,/FuelAutoRefreshPreferences\.saveEnabled\(this, enabled\)/);
+  assert.doesNotMatch(controller,/extends Service|JobScheduler|AlarmManager|WorkManager/);
+});
+
+
+test('v37 parking stores only the last local coordinate and uses walking Google Maps',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const tracker=java('ParkingTripTracker');
+  const store=java('ParkingLocationStore');
+  const gradle=read('app/build.gradle');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
+  assert.match(cockpit,/parkingTrip\.start\(SystemClock\.elapsedRealtime\(\)\)/);
+  assert.match(cockpit,/cockpitResumed = true/);
+  assert.match(cockpit,/cockpitResumed = false/);
+  assert.match(cockpit,/parkingTrip\.observe\(SystemClock\.elapsedRealtime\(\)/);
+  assert.match(cockpit,/parkingTrip\.finish\(SystemClock\.elapsedRealtime\(\)\)/);
+  assert.match(cockpit,/ParkingLocationStore\.save\(IntegratedNavigationActivity\.this, spot, true\)/);
+  assert.match(cockpit,/ParkingLocationStore\.save\(this, spot, false\)/);
+  assert.match(cockpit,/MENU_PARKING_SHOW/);
+  assert.match(cockpit,/MENU_PARKING_SAVE/);
+  assert.match(cockpit,/travelmode=walking/);
+  assert.match(tracker,/movingFixes >= 5/);
+  assert.match(tracker,/distanceMeters >= 350d/);
+  assert.match(tracker,/lastSpeed <= 2f/);
+  assert.match(store,/Context\.MODE_PRIVATE/);
+  assert.match(store,/\.commit\(\)/);
+  assert.doesNotMatch(manifest,/ACCESS_BACKGROUND_LOCATION|BLUETOOTH_SCAN|ACTIVITY_RECOGNITION/);
+  assert.doesNotMatch(cockpit,/getLastKnownLocation\(/);
+});
+
+test('v37 safety notification is visibly enlarged without falsely claiming speed-camera detection',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  assert.match(cockpit,/landscape \? 48 : 58/);
+  assert.match(cockpit,/sapheBanner\.setBackgroundColor\(0xf2ab1020\)/);
+  assert.match(cockpit,/displayRoot\.addView\(sapheBanner/);
+  assert.match(cockpit,/pulse\.setRepeatCount\(3\)/);
+  assert.match(cockpit,/Safety-Ereignis · Typ nicht verifiziert/);
+  assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
+  assert.doesNotMatch(cockpit,/Saphe verbunden|Blitzer erkannt/);
+});
+
+
+test('v37 official Google arrival event arms parking without altering routing or launching billable calls',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const nav=java('NavigationEngine');
+  const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  const parking=java('ParkingTripTracker');
+  assert.match(nav,/default void onFinalDestinationArrived\(\) \{\}/);
+  assert.match(google,/navigator\.addArrivalListener\(arrivalListener\)/);
+  assert.match(google,/event\.isFinalDestination\(\)/);
+  assert.match(google,/status\.onFinalDestinationArrived\(\)/);
+  assert.match(google,/navigator\.removeArrivalListener\(arrivalListener\)/);
+  assert.match(cockpit,/parkingTrip\.onFinalArrival\(SystemClock\.elapsedRealtime\(\)\)/);
+  assert.match(cockpit,/parkingTrip\.takeArrivedParking\(/);
+  assert.match(parking,/elapsedMs - arrivalAt > 180_000L/);
+  assert.match(parking,/lastSpeed > 1\.2f/);
+  assert.doesNotMatch(google,/onArrival.*\bsetDestination\b/);
+});
+
+
+test('v38 landscape ETA replaces only bottom Google card, preserving all turn guidance',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const nav=java('NavigationEngine');
+  const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
+  const gradle=read('app/build.gradle');
+  const layout=java('IntegratedNavigationRules');
+  assert.match(gradle,/versionCode 41/);
+  assert.match(gradle,/versionName '0\.9\.39-beta'/);
+  assert.match(layout,/MAP_WEIGHT = 7/);
+  assert.match(layout,/CONTROLS_WEIGHT = 3/);
+  assert.match(cockpit,/landscapeCockpit = landscape/);
+  assert.match(cockpit,/onRouteProgress\(int seconds, int meters\)/);
+  assert.match(cockpit,/private void showCompactEta\(int seconds, int meters\)/);
+  assert.match(cockpit,/if \(!landscapeCockpit \|\| !navigationGuidanceActive/);
+  assert.match(cockpit,/compactEtaView\.setVisibility\(View\.VISIBLE\)/);
+  assert.match(cockpit,/engine\.setNativeEtaVisible\(false\)/);
+  assert.match(cockpit,/private void hideCompactEta\(\)/);
+  assert.match(cockpit,/hideCompactEta\(\); \/\/ Fall back to Google instead of stale local ETA/);
+  assert.match(cockpit,/engine\.setNativeEtaVisible\(true\)/);
+  assert.match(cockpit,/new LinearLayout\.LayoutParams\(-1, -2\)/);
+  assert.match(nav,/onRouteProgress\(int remainingSeconds, int remainingMeters\)/);
+  assert.match(google,/map\.setEtaCardEnabled\(visible\)/);
+  assert.match(google,/navigator\.addRemainingTimeOrDistanceChangedListener\(/);
+  assert.match(google,/navigator\.removeRemainingTimeOrDistanceChangedListener\(/);
+  assert.match(google,/navigator\.getCurrentTimeAndDistance\(\)/);
+  assert.match(google,/notifyRemainingProgress\(\)/);
+  assert.match(google,/status\.onRouteProgress\(-1, -1\)/);
+  assert.doesNotMatch(google,/setHeaderEnabled\(false\)|setNavigationUiEnabled\(false\)/);
+  assert.doesNotMatch(google,/setDestination\([^;]*onRemainingTimeOrDistanceChanged/);
+});
+
+
+test('v39 fuel map is nearest-first and follows car using only local cached data',()=>{
+  const quick=java('FuelQuickSearch');
+  const current=java('IntegratedNavigationActivity');
+  const quality=java('FuelLocationQuality');
+  const pick=java('FuelNearbySelection');
+  const snapshot=java('FuelMapSnapshot');
+  const rules=java('FuelRules');
+  const policy=java('FuelAutoRefreshPolicy');
+  const guard=java('FuelRequestGate');
+  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+  assert.match(quick,/radius, type, "dist"/);
+  assert.match(rules,/public static String requestUrl\(String key, double lat, double lng,\s*int radiusKm, String type, String sort\)/);
+  assert.match(rules,/!"dist"\.equals\(sort\)/);
+  assert.match(snapshot,/MAX_STATIONS = 120/);
+  assert.match(pick,/MAX_VISIBLE_STATIONS = 40/);
+  assert.match(pick,/FuelAutoRefreshPolicy\.distanceMeters/);
+  assert.match(pick,/nearby\.sort\(Comparator\.comparingDouble/);
+  assert.match(current,/private Location fuelDisplayFix/);
+  assert.match(current,/FUEL_MARKER_REPOSITION_METERS = 250f/);
+  assert.match(current,/updateFuelMarkers\(\); \/\/ Local-only operation, never an API call/);
+  assert.match(current,/FuelNearbySelection\.nearby\(original,/);
+  assert.match(current,/hasCurrentFuelPosition\(\)/);
+  assert.match(current,/boolean locationWasMissing = !hasCurrentFuelPosition\(\)/);
+  assert.match(current,/Keine gespeicherten Preise in /);
+  assert.match(current,/Preise in /);
+  assert.match(quality,/MAX_SEARCH_FIX_AGE_MS = 15_000L/);
+  assert.match(quality,/MAX_SEARCH_ACCURACY_METERS = 250f/);
+  assert.match(quick,/FuelLocationQuality\.usable/);
+  assert.match(quick,/Keine neuen Preise:/);
+  assert.doesNotMatch(quick,/callback\.onSuccess\(cache\)/);
+  assert.match(guard,/FuelRateRules\.remainingMillis/);
+  assert.match(policy,/PROVIDER_APPROVED = false/);
+  assert.match(ci,/feature\/fahrcockpit-v39-fuel-nearby-current-gps/);
+  assert.match(ci,/versionCode'\]==41/);
+});
+
+
+test('v40 route favorites are local, multi-route and manually refresh at most ten IDs',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const activity=java('FuelRouteFavoritesActivity');
+  const store=java('FuelRouteFavoritesStore');
+  const price=java('FuelRoutePriceLookup');
+  const snapshot=java('FuelMapSnapshot');
+  const fuel=java('FuelActivity');
+  const policy=java('FuelAutoRefreshPolicy');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+  assert.match(manifest,/\.FuelRouteFavoritesActivity/);
+  assert.match(manifest,/FuelRouteFavoritesActivity" android:exported="false"/);
+  assert.match(cockpit,/MENU_FUEL_ROUTES = 5108/);
+  assert.match(cockpit,/Strecken & Tankstellenfavoriten/);
+  assert.match(cockpit,/startActivityForResult\(new Intent\(this,FuelRouteFavoritesActivity\.class\)/);
+  assert.match(cockpit,/this::chooseFuelStationAction/);
+  assert.match(cockpit,/FuelRouteFavoritesActivity\.chooseRoute\(this,/);
+  assert.match(fuel,/Button bookmark = Ui\.button\(this, "★"\)/);
+  assert.match(fuel,/FuelRouteFavoritesActivity\.chooseRoute\(this,/);
+  assert.match(snapshot,/clean\.put\("id", s\.id\)/);
+  assert.match(snapshot,/new Station\(s\.optString\("id", ""\), name/);
+  assert.match(store,/MAX_STATIONS_PER_ROUTE = 10/);
+  assert.match(store,/MAX_ROUTES = 20/);
+  assert.match(store,/getSharedPreferences\(PREFS,Context\.MODE_PRIVATE\)/);
+  assert.match(store,/List<String> groups/);
+  assert.match(store,/if\(!linked&&inGroup>=MAX_STATIONS_PER_ROUTE\)/);
+  assert.match(store,/static synchronized boolean removeRoute\(/);
+  assert.match(store,/static synchronized boolean remove\(/);
+  assert.match(store,/static synchronized int applyPrices\(/);
+  assert.match(store,/checkedAt<15L\*60_000L/);
+  assert.doesNotMatch(store,/HttpURLConnection|new URL\(/);
+  assert.match(price,/FuelRequestGate\.tryBegin\(host\)/);
+  assert.match(price,/https:\/\/creativecommons\.tankerkoenig\.de\/json\/prices\.php\?ids=/);
+  assert.match(price,/String\.join\(",",ids\)/);
+  assert.match(price,/FuelRouteFavoritesStore\.applyPrices/);
+  assert.match(price,/favs\.size\(\)>FuelRouteFavoritesStore\.MAX_STATIONS_PER_ROUTE/);
+  assert.doesNotMatch(price,/requestLocationUpdates|setDestination|ScheduledExecutor|TimerTask/);
+  assert.match(activity,/Preise dieser Strecke jetzt vergleichen/);
+  assert.match(activity,/routeSpinner\.setOnItemSelectedListener/);
+  assert.match(activity,/Tankstellen suchen und ★ speichern/);
+  assert.match(activity,/chooseDestination\(FuelRouteFavoritesStore\.Favorite fav\)/);
+  assert.match(policy,/PROVIDER_APPROVED = false/);
+  assert.match(ci,/feature\/fahrcockpit-v40-route-favorites/);
+  assert.match(ci,/versionCode'\]==41/);
+  // Always display the provider's 0.1-cent precision, including on route lists.
+  const precision=java('FuelPriceFormat');
+  assert.match(precision,/%.3f €\/l/);
+  assert.match(precision,/%.3f €/);
+  assert.match(fuel,/FuelPriceFormat\.perLiter\(price\)/);
+  assert.match(snapshot,/FuelPriceFormat\.compact\(price\)/);
+  assert.match(store,/FuelPriceFormat\.perLiter\(price\)/);
+  // A second fuel-type selection must never relabel the old price.
+  assert.match(fuel,/private String lastResponseFuelType = ""/);
+  assert.match(fuel,/lastResponseFuelType = selectedFuelType/);
+  assert.match(fuel,/lastResponseFuelType,lastFetchedMillis,null/);
+  assert.doesNotMatch(fuel,/fuelType\(\),lastFetchedMillis,null/);
+  // Returning from nested search must show newly created route profiles.
+  assert.match(activity,/if\(routeSpinner!=null\)\s*reloadRoutes\(FuelRouteFavoritesStore\.active\(this\)\)/);
+  assert.match(activity,/final String requestedRoute = selectedRoute/);
+  assert.match(activity,/if \(requestedRoute\.equals\(selectedRoute\)\)/);
+  assert.match(activity,/Tankerkönig \(CC BY 4\.0\)/);
+  // All storage mutations from UI and network callbacks are synchronized.
+  assert.match(store,/static synchronized String createRoute\(/);
+  assert.match(store,/static synchronized boolean add\(/);
+  assert.match(store,/static synchronized boolean remove\(/);
+  assert.match(store,/static synchronized boolean removeRoute\(/);
+  assert.match(store,/static synchronized int applyPrices\(/);
+});
+
+
+test('v41 compact Saphe header uses verified GATT evidence and never infers green from notifications',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const rule=java('SapheIndicatorRules');
+  const policy=java('FuelAutoRefreshPolicy');
+  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+  assert.match(cockpit,/sapheStatusButton = cockpitButton\("S", false\)/);
+  assert.match(cockpit,/tools\.addView\(sapheStatusButton, sapheParams\)/);
+  assert.match(cockpit,/new LinearLayout\.LayoutParams\(Ui\.dp\(this, 44\), Ui\.dp\(this, 44\)\)/);
+  assert.match(cockpit,/sapheStatusButton\.setOnClickListener\(v ->/);
+  assert.match(cockpit,/WarningSource\.openSaphe\(this\)/);
+  assert.match(cockpit,/sapheStatusButton\.setOnLongClickListener\(v ->/);
+  assert.match(cockpit,/showSapheProbeDialog\(\)/);
+  assert.match(cockpit,/private void refreshSapheStatus\(\)/);
+  assert.match(cockpit,/invalidateSapheBluetoothObservation\(\); \/\/ Recheck after Saphe or permission UI/);
+  assert.doesNotMatch(cockpit,/cockpitButton\("Saphe öffnen"/);
+  assert.doesNotMatch(cockpit,/sapheHeader = Ui\.row\(this\)/);
+  assert.doesNotMatch(cockpit,/sapheActions = Ui\.row\(this\)/);
+  assert.match(cockpit,/if \(landscape && BuildConfig\.GOOGLE_ONLY\) cockpitTitle\.setText\("FC"\)/);
+  assert.match(rule,/enum State/);
+  assert.match(rule,/ACTION_REQUIRED/);
+  assert.match(rule,/DETECTION_READY_UNKNOWN/);
+  assert.match(rule,/if \(!appInstalled\) return State\.ACTION_REQUIRED/);
+  assert.match(rule,/if \(evidence == Evidence\.OBSERVED_CONNECTED\)\s*return State\.DEVICE_OBSERVED_CONNECTED/);
+  assert.match(rule,/Do not mistake missing FahrCockpit notification access for a BLE/);
+  assert.doesNotMatch(cockpit,/Saphe.*[cC]onnected = true|setText\("Verbunden"\)/);
+  assert.match(cockpit,/case DEVICE_OBSERVED_CONNECTED: color = 0xff29864b/);
+  assert.match(policy,/PROVIDER_APPROVED = false/);
+  assert.match(ci,/feature\/fahrcockpit-v41-compact-saphe-status/);
+  assert.match(ci,/versionCode'\]==41/);
+  const bluetooth=java('SapheBluetoothStatus');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  assert.match(manifest,/android\.permission\.BLUETOOTH_CONNECT/);
+  assert.match(manifest,/android\.permission\.BLUETOOTH"[\s\S]*android:maxSdkVersion="30"/);
+  assert.doesNotMatch(manifest,/android\.permission\.BLUETOOTH_SCAN/);
+  assert.match(bluetooth,/manager\.getConnectedDevices\(BluetoothProfile\.GATT\)/);
+  assert.match(bluetooth,/Manifest\.permission\.BLUETOOTH_CONNECT/);
+  assert.match(bluetooth,/getSharedPreferences\(\s*PREFS, Context\.MODE_PRIVATE\)/);
+  assert.match(bluetooth,/if\(!present\)return false/);
+  assert.match(bluetooth,/enum Link \{ UNKNOWN, OBSERVED_CONNECTED, NOT_OBSERVED \}/);
+  assert.doesNotMatch(bluetooth,/\.connectGatt\(|\.startScan\(|new BluetoothSocket\(|new HttpURLConnection\(/);
+  assert.match(cockpit,/requestPermissions\(\s*new String\[\]\{Manifest\.permission\.BLUETOOTH_CONNECT\}/);
+  assert.match(cockpit,/SapheBluetoothStatus\.connectedForSelection\(this\)/);
+  assert.match(cockpit,/SapheBluetoothStatus\.choose\(this, selected\)/);
+  assert.match(cockpit,/SapheBluetoothStatus\.clear\(this\)/);
+  assert.match(cockpit,/SapheBluetoothStatus\.read\(this\)/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.current\(\)/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.sample\(sapheBluetoothObservation\.link\)/);
+  assert.match(cockpit,/SAPHE_BLUETOOTH_REFRESH_MS = 5_000L/);
+  assert.match(cockpit,/if \(cockpitResumed &&/);
+  assert.match(cockpit,/Bluetooth-Verbindung prüfen \(optional\)/);
+  // An incomplete OS device list cannot be mistaken for a disconnect.
+  assert.match(bluetooth,/boolean incompleteInventory = false/);
+  assert.match(bluetooth,/if \(incompleteInventory\)\s*return new Observation\(Link\.UNKNOWN/);
+  // Only new 5-second observations count towards red, never cached samples.
+  const gate=java('SapheBluetoothEvidenceGate');
+  assert.match(gate,/NEGATIVE_CONFIRMATIONS = 2/);
+  assert.match(gate,/consecutiveNegative \+ 1/);
+  assert.match(gate,/current = SapheIndicatorRules\.Evidence\.UNKNOWN/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.sample\(sapheBluetoothObservation\.link\)/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.current\(\)/);
+  assert.match(cockpit,/sapheBluetoothEvidenceGate\.reset\(\)/);
+  assert.doesNotMatch(cockpit,/if \(sapheBluetoothObservation\.link ==\s*SapheBluetoothStatus\.Link\.NOT_OBSERVED\)\s*evidence = SapheIndicatorRules\.Evidence\.NOT_OBSERVED/);
 });

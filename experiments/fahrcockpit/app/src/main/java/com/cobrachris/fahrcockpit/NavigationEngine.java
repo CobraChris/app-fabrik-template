@@ -15,6 +15,10 @@ interface NavigationEngine {
         default void onGoogleFailure(NavigationProviderPolicy.Failure reason) {}
         /** Active guidance affects the host window's keep-awake flag. */
         default void onGuidanceStateChanged(boolean active) {}
+        /** Final arrival only; reporting does not stop, reroute or bill navigation. */
+        default void onFinalDestinationArrived() {}
+        /** Passive SDK ETA, never a separate billable route request. */
+        default void onRouteProgress(int remainingSeconds, int remainingMeters) {}
     }
 
     boolean configured();
@@ -25,6 +29,14 @@ interface NavigationEngine {
     void stopGuidanceAndClearRoute();
     /** Explicit user preference; does not start or alter a route. */
     default void setVoiceMuted(boolean muted) {}
+    /** Show native ETA whenever the compact landscape value cannot be rendered. */
+    default void setNativeEtaVisible(boolean visible) {}
+    /** Display only previously user-requested, locally cached fuel prices. */
+    interface FuelMarkerSelection {
+        void onStationSelected(FuelMapSnapshot.Station station);
+    }
+    default void showFuelPrices(FuelMapSnapshot.Snapshot snapshot,
+                                FuelMarkerSelection selection) {}
     void onStart();
     void onResume();
     void onPause();

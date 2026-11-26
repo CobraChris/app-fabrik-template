@@ -11,7 +11,7 @@ final class NavigationVoicePreferences {
 
     static boolean isMuted(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_MUTED, false);
+            .getBoolean(KEY_MUTED, true);
     }
 
     static boolean save(Context context, boolean muted) {

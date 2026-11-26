@@ -10,6 +10,7 @@ import com.google.android.libraries.navigation.NavigationApi;
 import com.google.android.libraries.navigation.NavigationView;
 import com.google.android.libraries.navigation.Navigator;
 import com.google.android.libraries.navigation.RoutingOptions;
+import com.google.android.libraries.navigation.TimeAndDistance;
 import com.google.android.libraries.navigation.Waypoint;
 
 /**
@@ -22,7 +23,11 @@ public final class GoogleNavigationEngine implements NavigationEngine {
     private final Activity host;
     private final String apiKey;
     private NavigationView map;
+    private GoogleFuelPriceMarkers priceMarkers;
+    private int fuelMarkerGeneration;
     private Navigator navigator;
+    private Navigator.ArrivalListener arrivalListener;
+    private Navigator.RemainingTimeOrDistanceChangedListener progressListener;
     private Status status = value -> {};
     private boolean startedRoute;
     private boolean calculating;
@@ -51,7 +56,12 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             apiKeyInitialized = true;
         }
         map = new NavigationView(host);
+        priceMarkers = new GoogleFuelPriceMarkers(host);
         map.onCreate(saved);
+        // Navigation SDK controls are available during guided navigation.
+        // Show only Google-provided speed limits; never guess missing limits.
+        map.setSpeedometerEnabled(true);
+        map.setSpeedLimitIconEnabled(true);
         return map;
     }
 
@@ -62,9 +72,26 @@ public final class GoogleNavigationEngine implements NavigationEngine {
             @Override public void onNavigatorReady(Navigator result) {
                 if (closed || host.isFinishing() || host.isDestroyed()) return;
                 navigator = result;
+                // Listen only to the final destination. This is a passive
+                // SDK event; do not stop/restart guidance or issue route calls.
+                if (arrivalListener != null)
+                    navigator.removeArrivalListener(arrivalListener);
+                arrivalListener = event -> {
+                    if (!closed && startedRoute && event.isFinalDestination())
+                        status.onFinalDestinationArrived();
+                };
+                navigator.addArrivalListener(arrivalListener);
+                // Passive arrival estimates, event-driven: no additional
+                // setDestination(), poller, billing API or route requests.
+                if (progressListener != null)
+                    navigator.removeRemainingTimeOrDistanceChangedListener(progressListener);
+                progressListener = GoogleNavigationEngine.this::notifyRemainingProgress;
+                navigator.addRemainingTimeOrDistanceChangedListener(
+                    30, 100, progressListener);
                 // Navigator is a singleton and may still guide after rotation.
                 startedRoute = navigator.isGuidanceRunning();
                 status.onGuidanceStateChanged(startedRoute);
+                if (startedRoute) notifyRemainingProgress();
                 applyAudioPreference();
                 map.getMapAsync(googleMap -> {
                     if (host.checkSelfPermission(
@@ -134,8 +161,9 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                 NavigationProviderPolicy.Failure.LOCAL_REQUEST_LIMIT);
             return;
         }
-        // This call can consume billable Navigation Request quota. The native
-        // UI must have shown an explicit per-route confirmation first.
+        // This may consume a billable Navigation Request. The caller must
+        // be an explicit route-button press or a confirmed fuel destination;
+        // NavigationRequestBudget above still enforces the local limit.
         final Waypoint waypoint = Waypoint.builder()
             .setLatLng(latitude, longitude)
             .setTitle(title == null ? "FahrCockpit Ziel" : title)
@@ -160,6 +188,7 @@ public final class GoogleNavigationEngine implements NavigationEngine {
                 navigator.startGuidance();
                 startedRoute = true;
                 status.onGuidanceStateChanged(true);
+                notifyRemainingProgress();
                 status.onStatus("Echte Google-Abbiegenavigation in FahrCockpit aktiv.");
             } else {
                 startedRoute = navigator.isGuidanceRunning();
@@ -184,20 +213,45 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         }
     }
 
+    private void notifyRemainingProgress() {
+        if (closed || !startedRoute || navigator == null) return;
+        TimeAndDistance estimate = navigator.getCurrentTimeAndDistance();
+        if (estimate != null && estimate.getSeconds() >= 0
+                && estimate.getMeters() >= 0)
+            status.onRouteProgress(estimate.getSeconds(), estimate.getMeters());
+        else
+            status.onRouteProgress(-1, -1); // Restore native ETA; never show stale data.
+    }
+
+    @Override public void setNativeEtaVisible(boolean visible) {
+        if (map != null && !closed) map.setEtaCardEnabled(visible);
+    }
+
     private void applyAudioPreference() {
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
             host.runOnUiThread(this::applyAudioPreference);
             return;
         }
         if (navigator == null || closed) return;
-        // Google Navigation SDK 7.6.1 uses integer AudioGuidance flags.
-        // Muting speech preserves haptic alerts; no billable route request.
+        // v31: voice defaults to muted. Do not vibrate for routine Google
+        // guidance, even when speech is switched on. Saphe is unaffected.
+        // Preserve an existing user override in NavigationVoicePreferences.
         int mode = NavigationVoicePreferences.isMuted(host)
-            ? Navigator.AudioGuidance.VIBRATION
+            ? 0
             : Navigator.AudioGuidance.VOICE_ALERTS_AND_GUIDANCE
-                | Navigator.AudioGuidance.VIBRATION
                 | Navigator.AudioGuidance.BLUETOOTH_AUDIO;
         navigator.setAudioGuidance(mode);
+    }
+
+    @Override public void showFuelPrices(FuelMapSnapshot.Snapshot snapshot,
+                                         FuelMarkerSelection selection) {
+        if (map == null || closed) return;
+        final int generation = ++fuelMarkerGeneration;
+        map.getMapAsync(googleMap -> {
+            if (closed || generation != fuelMarkerGeneration
+                    || host.isDestroyed() || priceMarkers == null) return;
+            priceMarkers.display(googleMap, snapshot, selection);
+        });
     }
 
     @Override public void setVoiceMuted(boolean muted) {
@@ -223,12 +277,24 @@ public final class GoogleNavigationEngine implements NavigationEngine {
         if (navigator != null && !closed) {
             startedRoute = navigator.isGuidanceRunning();
             status.onGuidanceStateChanged(startedRoute);
+            if (startedRoute) notifyRemainingProgress();
         }
     }
     @Override public void onPause() {if (map != null) map.onPause();}
     @Override public void onStop() {if (map != null) map.onStop();}
     @Override public void onDestroy(boolean activityFinishing) {
+        if (navigator != null && progressListener != null) {
+            navigator.removeRemainingTimeOrDistanceChangedListener(progressListener);
+            progressListener = null;
+        }
+        if (navigator != null && arrivalListener != null) {
+            navigator.removeArrivalListener(arrivalListener);
+            arrivalListener = null;
+        }
         closed = true;
+        ++fuelMarkerGeneration;
+        if (priceMarkers != null) priceMarkers.clear();
+        priceMarkers = null;
         if (activityFinishing) stopGuidanceAndClearRoute();
         if (map != null) map.onDestroy();
         map = null;
