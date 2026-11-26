@@ -77,7 +77,8 @@ public final class IntegratedNavigationActivity extends Activity {
     private Button previous, play, next, backward, forward, spotifySetup, stopButton;
     private ImageButton voiceButton;
     private TextView sapheBanner;
-    private TextView safetyEventStatus;
+    private Button sapheStatusButton;
+    private SapheIndicatorRules.State lastSapheIndicatorState;
     private TextView currentSpeedView;
     private TextView compactEtaView;
     private boolean landscapeCockpit;
@@ -280,6 +281,9 @@ public final class IntegratedNavigationActivity extends Activity {
             : (BuildConfig.VISUAL_PREVIEW
                 ? "FahrCockpit · OSM-Test"
                 : "FahrCockpit"), landscape ? 13 : 14, Ui.FG, true);
+        // In 70/30 landscape the three 44dp header actions must remain
+        // reachable. Use a short label rather than clipping the Saphe button.
+        if (landscape && BuildConfig.GOOGLE_ONLY) cockpitTitle.setText("FC");
         cockpitTitle.setSingleLine(true);
         cockpitTitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
         cockpitTitle.setPadding(0, 0, Ui.dp(this, 5), 0);
@@ -336,6 +340,26 @@ public final class IntegratedNavigationActivity extends Activity {
         tools.addView(cockpitTitle, new LinearLayout.LayoutParams(0, -2, 1f));
         tools.addView(voiceButton, new LinearLayout.LayoutParams(
             Ui.dp(this, 44), Ui.dp(this, 44)));
+        // Equal to the existing options button. Never overlay Google Maps.
+        sapheStatusButton = cockpitButton("S", false);
+        sapheStatusButton.setTextSize(20);
+        sapheStatusButton.setContentDescription(
+            "Saphe öffnen; Bluetooth-Verbindungsstatus nicht verfügbar");
+        LinearLayout.LayoutParams sapheParams =
+            new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44));
+        sapheParams.leftMargin = Ui.dp(this, 5);
+        tools.addView(sapheStatusButton, sapheParams);
+        sapheStatusButton.setOnClickListener(v -> {
+            // The public Saphe app can be launched, not automatically
+            // Bluetooth-paired/connected by a third-party application.
+            if (!WarningSource.openSaphe(this))
+                showStatus("Saphe konnte nicht geöffnet werden. "
+                    + "Bitte Installation der Saphe-Link-App prüfen.");
+        });
+        sapheStatusButton.setOnLongClickListener(v -> {
+            showSapheProbeDialog();
+            return true;
+        });
         Button optionsButton = cockpitButton("⋮", false);
         optionsButton.setTextSize(22);
         optionsButton.setContentDescription("FahrCockpit-Optionen öffnen");
@@ -455,13 +479,9 @@ public final class IntegratedNavigationActivity extends Activity {
         status.setVisibility(engine != null && engine.configured()
             && BuildConfig.GOOGLE_ONLY ? View.GONE : View.VISIBLE);
         panel.addView(status);
-        // Saphe status is moved beside its own controls further below. An
-        // enabled notification probe is NOT proof of a connected device.
-        safetyEventStatus = Ui.text(this, "", 10, Ui.MUTED, false);
-        safetyEventStatus.setSingleLine(true);
-        safetyEventStatus.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        safetyEventStatus.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        safetyEventStatus.setPadding(0, 0, 0, 0);
+        // Saphe state is displayed exclusively in the 44dp header button:
+        // no duplicate status/header in the scrollable cockpit area.
+        refreshSapheStatus();
 
         // Route creation is intentionally collapsed during driving; Spotify
         // stays visible in the limited 30 % panel without manual searching.
@@ -708,29 +728,8 @@ public final class IntegratedNavigationActivity extends Activity {
             fuelMarkersVisible = true;
             startQuickFuelSearch();
         });
-        Ui.gap(this, panel, 7);
-        LinearLayout sapheHeader = Ui.row(this);
-        TextView sapheLabel = Ui.text(this, "Saphe", 13, Ui.FG, true);
-        sapheLabel.setPadding(0, 0, 0, 0);
-        sapheHeader.addView(sapheLabel,
-            new LinearLayout.LayoutParams(-2, Ui.dp(this, 28)));
-        sapheHeader.addView(safetyEventStatus,
-            new LinearLayout.LayoutParams(0, -2, 1f));
-        panel.addView(sapheHeader);
-        refreshSapheStatus();
-        LinearLayout sapheActions = Ui.row(this);
-        Button saphe = cockpitButton("Saphe öffnen", false);
-        sapheActions.addView(saphe,
-            new LinearLayout.LayoutParams(-1, Ui.dp(this, 44)));
-        panel.addView(sapheActions);
-        saphe.setOnClickListener(v -> {
-            Intent launch = getPackageManager().getLaunchIntentForPackage("my.saphelink");
-            if (launch == null) {
-                showStatus("Saphe-App auf diesem Gerät nicht gefunden.");
-            } else {
-                startActivity(launch);
-            }
-        });
+        // No Saphe section below the fuel controls: the header S now
+        // provides both launch and diagnostic long-press.
         // Update and diagnostics are available from the persistent ⋮ menu.
         // Keep the navigation viewport free of billing prompt text.
         // Google route requests remain bound to explicit route actions
@@ -1772,23 +1771,29 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void refreshSapheStatus() {
-        if (safetyEventStatus == null) return;
-        boolean enabled = SapheNotificationProbe.enabled(this);
-        String summary = enabled ? "Erkennung an" : "Erkennung aus";
-        String accessibility = "Saphe: " + summary;
-        if (safetyEventCount > 0) {
-            java.text.DateFormat clock = java.text.DateFormat.getTimeInstance(
-                java.text.DateFormat.SHORT, java.util.Locale.GERMANY);
-            String time = clock.format(new java.util.Date(lastSafetyShownAt));
-            summary = (enabled ? "An" : "Aus") + " · "
-                + safetyEventCount + " · " + time;
-            accessibility += ", " + safetyEventCount
-                + " empfangene Ereignisse, zuletzt " + time;
+        if (sapheStatusButton == null) return;
+        boolean installed = WarningSource.isSapheInstalled(this);
+        boolean access = Permissions.isMediaListenerEnabled(this);
+        boolean optedIn = SapheNotificationProbe.enabled(this);
+        SapheIndicatorRules.State next =
+            SapheIndicatorRules.state(installed, access, optedIn);
+        if (lastSapheIndicatorState != next) {
+            // RED = action required for FahrCockpit's Saphe detection.
+            // AMBER = notification detection ready, device connection UNKNOWN.
+            // Never use GREEN without a verifiable Saphe hardware signal.
+            int color = next == SapheIndicatorRules.State.ACTION_REQUIRED
+                ? 0xffb92e3c : 0xffcf932a;
+            sapheStatusButton.setBackground(Ui.background(this, color, 10));
+            sapheStatusButton.setTextColor(0xffffffff);
+            lastSapheIndicatorState = next;
         }
-        // Enabled means that notification detection was enabled by the user,
-        // not that the hardware or real-world warning type was verified.
-        safetyEventStatus.setText(summary);
-        safetyEventStatus.setContentDescription(accessibility);
+        String help = SapheIndicatorRules.description(installed, access, optedIn);
+        String status = "Saphe öffnen. " + help
+            + ". Langes Drücken öffnet die Diagnose.";
+        if (safetyEventCount > 0)
+            status += " Empfangene Safety-Ereignisse: " + safetyEventCount;
+        sapheStatusButton.setContentDescription(status);
+        sapheStatusButton.setTooltipText(status);
     }
 
     private void refreshSapheNotificationProbe() {
@@ -1976,6 +1981,7 @@ public final class IntegratedNavigationActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         cockpitResumed = true;
+        refreshSapheStatus(); // Recheck after returning from the Saphe app.
         startSpeedUpdates();
         if (autoFuelRefreshController != null)
             autoFuelRefreshController.setVisible(true);
