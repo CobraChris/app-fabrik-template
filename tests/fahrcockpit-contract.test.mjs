@@ -1304,7 +1304,7 @@ test('v36 always-on fuel price display retains explicitly labeled stale cache wi
   assert.match(cockpit,/fuelInfo\.setText\(local\.stations\.size\(\) \+ " von "/);
   assert.match(cockpit,/stale \? " · ALT, kein Live-Preis" : " · abgerufen"/);
   assert.match(cockpit,/stale \? FuelMapSnapshot\.MAX_DISPLAY_AGE_MS/);
-  assert.match(cockpit,/handler\.postDelayed\(expireFuelMarkers, delay\)/);
+  assert.match(cockpit,/handler\.postDelayed\(expireFuelMarkers,\s*Math\.min\(timeToAge, timeToPositionExpiry\)\)/);
   assert.doesNotMatch(quick,/callback\.onSuccess\(cache\)/);
   assert.match(markers,/boolean stale = FuelMapSnapshot\.isStale\(snapshot, System\.currentTimeMillis\(\)\)/);
   assert.match(markers,/stale \? Color\.rgb\(117, 122, 133\) : tierColor/);
