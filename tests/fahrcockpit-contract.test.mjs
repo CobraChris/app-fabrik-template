@@ -1157,7 +1157,7 @@ test('v35 Saphe status is truthful and warnings and diagnostic remain available'
   assert.match(cockpit,/tools\.addView\(sapheStatusButton, sapheParams\)/);
   assert.match(cockpit,/refreshSapheStatus\(\)/);
   assert.match(cockpit,/SapheNotificationProbe\.enabled\(this\)/);
-  assert.match(cockpit,/SapheIndicatorRules\.state\(installed, access, optedIn\)/);
+  assert.match(cockpit,/SapheIndicatorRules\.state\(installed, access, optedIn, evidence\)/);
   assert.match(cockpit,/options\.getMenu\(\)\.add\(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose"\)/);
   assert.match(cockpit,/case MENU_SAPHE_DIAGNOSIS:\s*showSapheProbeDialog\(\)/);
   assert.match(cockpit,/sapheBanner\.setBackgroundColor\(0xf2ab1020\)/);
@@ -1372,7 +1372,7 @@ test('v37 parking stores only the last local coordinate and uses walking Google 
   assert.match(tracker,/lastSpeed <= 2f/);
   assert.match(store,/Context\.MODE_PRIVATE/);
   assert.match(store,/\.commit\(\)/);
-  assert.doesNotMatch(manifest,/ACCESS_BACKGROUND_LOCATION|BLUETOOTH_SCAN|BLUETOOTH_CONNECT|ACTIVITY_RECOGNITION/);
+  assert.doesNotMatch(manifest,/ACCESS_BACKGROUND_LOCATION|BLUETOOTH_SCAN|ACTIVITY_RECOGNITION/);
   assert.doesNotMatch(cockpit,/getLastKnownLocation\(/);
 });
 
@@ -1545,7 +1545,7 @@ test('v40 route favorites are local, multi-route and manually refresh at most te
 });
 
 
-test('v41 compact Saphe header uses honest 3-state-ready semantics without false connected green',()=>{
+test('v41 compact Saphe header uses verified GATT evidence and never infers green from notifications',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   const rule=java('SapheIndicatorRules');
   const policy=java('FuelAutoRefreshPolicy');
@@ -1558,7 +1558,7 @@ test('v41 compact Saphe header uses honest 3-state-ready semantics without false
   assert.match(cockpit,/sapheStatusButton\.setOnLongClickListener\(v ->/);
   assert.match(cockpit,/showSapheProbeDialog\(\)/);
   assert.match(cockpit,/private void refreshSapheStatus\(\)/);
-  assert.match(cockpit,/refreshSapheStatus\(\); \/\/ Recheck after returning from the Saphe app/);
+  assert.match(cockpit,/invalidateSapheBluetoothObservation\(\); \/\/ Recheck after Saphe or permission UI/);
   assert.doesNotMatch(cockpit,/cockpitButton\("Saphe öffnen"/);
   assert.doesNotMatch(cockpit,/sapheHeader = Ui\.row\(this\)/);
   assert.doesNotMatch(cockpit,/sapheActions = Ui\.row\(this\)/);
@@ -1566,11 +1566,33 @@ test('v41 compact Saphe header uses honest 3-state-ready semantics without false
   assert.match(rule,/enum State/);
   assert.match(rule,/ACTION_REQUIRED/);
   assert.match(rule,/DETECTION_READY_UNKNOWN/);
-  assert.match(rule,/appInstalled && notificationAccess && optedIntoProbe/);
-  assert.doesNotMatch(rule,/return .*CONNECTED/);
+  assert.match(rule,/if \(!appInstalled \|\| !notificationAccess \|\| !optedIntoProbe\)/);
+  assert.match(rule,/if \(evidence == Evidence\.OBSERVED_CONNECTED\)\s*return State\.DEVICE_OBSERVED_CONNECTED/);
   assert.doesNotMatch(cockpit,/Saphe.*[cC]onnected = true|setText\("Verbunden"\)/);
-  assert.match(cockpit,/0xffb92e3c : 0xffcf932a/);
+  assert.match(cockpit,/case DEVICE_OBSERVED_CONNECTED: color = 0xff29864b/);
   assert.match(policy,/PROVIDER_APPROVED = false/);
   assert.match(ci,/feature\/fahrcockpit-v41-compact-saphe-status/);
   assert.match(ci,/versionCode'\]==41/);
+  const bluetooth=java('SapheBluetoothStatus');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  assert.match(manifest,/android\.permission\.BLUETOOTH_CONNECT/);
+  assert.match(manifest,/android\.permission\.BLUETOOTH"[\s\S]*android:maxSdkVersion="30"/);
+  assert.doesNotMatch(manifest,/android\.permission\.BLUETOOTH_SCAN/);
+  assert.match(bluetooth,/manager\.getConnectedDevices\(BluetoothProfile\.GATT\)/);
+  assert.match(bluetooth,/Manifest\.permission\.BLUETOOTH_CONNECT/);
+  assert.match(bluetooth,/getSharedPreferences\(\s*PREFS, Context\.MODE_PRIVATE\)/);
+  assert.match(bluetooth,/if\(!present\)return false/);
+  assert.match(bluetooth,/enum Link \{ UNKNOWN, OBSERVED_CONNECTED, NOT_OBSERVED \}/);
+  assert.doesNotMatch(bluetooth,/connectGatt|startScan|BluetoothLeScanner|BluetoothSocket|HttpURLConnection/);
+  assert.match(cockpit,/requestPermissions\(\s*new String\[\]\{Manifest\.permission\.BLUETOOTH_CONNECT\}/);
+  assert.match(cockpit,/SapheBluetoothStatus\.connectedForSelection\(this\)/);
+  assert.match(cockpit,/SapheBluetoothStatus\.choose\(this, selected\)/);
+  assert.match(cockpit,/SapheBluetoothStatus\.clear\(this\)/);
+  assert.match(cockpit,/SapheBluetoothStatus\.read\(this\)/);
+  assert.match(cockpit,/SapheIndicatorRules\.Evidence\.OBSERVED_CONNECTED/);
+  assert.match(cockpit,/SapheIndicatorRules\.Evidence\.NOT_OBSERVED/);
+  assert.match(cockpit,/SAPHE_BLUETOOTH_REFRESH_MS = 5_000L/);
+  assert.match(cockpit,/if \(cockpitResumed &&/);
+  assert.match(cockpit,/Bluetooth-Verbindung prüfen \(optional\)/);
+
 });
