@@ -524,8 +524,8 @@ test('v22 original App icon selects fixed Google 70/30 only with locally restric
  assert.match(selection,/Class\.forName\(IntegratedNavigationRules\.ENGINE_CLASS\)/);
  assert.match(main,/sdkCompiled\s*\?\s*IntegratedNavigationActivity\.class/);
  assert.match(main,/: SplitCockpitActivity\.class/);
- assert.match(gradle,/versionCode 39/);
- assert.match(gradle,/versionName '0\.9\.37-beta'/);
+ assert.match(gradle,/versionCode 40/);
+ assert.match(gradle,/versionName '0\.9\.38-beta'/);
 });
 
 test('v21 OSM turn guidance can be opened for safe manual field tests in a single fixed cockpit',()=>{
@@ -679,12 +679,12 @@ test('v21 Google SDK errors and transferred deep links never expose alternate ma
 test('v22 Google-only candidate preserves package and build identity',()=>{
  const gradle=read('app/build.gradle');
  assert.match(gradle,/applicationId 'com\.cobrachris\.fahrcockpit'/);
- assert.match(gradle,/versionCode 39/);
- assert.match(gradle,/versionName '0\.9\.37-beta'/);
+ assert.match(gradle,/versionCode 40/);
+ assert.match(gradle,/versionName '0\.9\.38-beta'/);
  assert.match(gradle,/if \(googleOnly && \(withOsmFallback \|\| visualPreview\)\)/);
  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
  assert.match(ci,/-PwithGoogleNavSdk=true -PgoogleOnly=true/);
- assert.match(ci,/versionCode'\]==39/);
+ assert.match(ci,/versionCode'\]==40/);
  assert.doesNotMatch(ci,/pull_request_target/);
 });
 
@@ -732,8 +732,8 @@ test('v23 favorites and local address prediction retain v22 navigation without p
   const rules=java('DestinationMatchRules');
   const geo=java('AddressSuggestionResolver');
   const nav=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
-  assert.match(gradle,/versionCode 39/);
-  assert.match(gradle,/versionName '0\.9\.37-beta'/);
+  assert.match(gradle,/versionCode 40/);
+  assert.match(gradle,/versionName '0\.9\.38-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
   assert.match(gradle,/WITH_GOOGLE_PLACES/);
   assert.match(bridge,/if \(!BuildConfig\.GOOGLE_PLACES_ACTIVATED \|\| !BuildConfig\.WITH_GOOGLE_PLACES\)/);
@@ -845,8 +845,8 @@ test('v25 Saphe probe is opt-in and reads only the exact Android package name',(
   assert.match(ui,/Settings\.ACTION_NOTIFICATION_LISTENER_SETTINGS/);
   assert.match(ui,/engine\.startConfirmedRoute\(lat, lng, readable\)/);
   assert.match(manifest,/FahrCockpit Spotify &amp; Saphe-Test/);
-  assert.match(gradle,/versionCode 39/);
-  assert.match(gradle,/versionName '0\.9\.37-beta'/);
+  assert.match(gradle,/versionCode 40/);
+  assert.match(gradle,/versionName '0\.9\.38-beta'/);
   assert.match(gradle,/GOOGLE_PLACES_ACTIVATED', 'false'/);
 });
 
@@ -879,8 +879,8 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   const engine=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
   const marker=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleFuelPriceMarkers.java');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 39/);
-  assert.match(gradle,/versionName '0\.9\.37-beta'/);
+  assert.match(gradle,/versionCode 40/);
+  assert.match(gradle,/versionName '0\.9\.38-beta'/);
   assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
   assert.match(fuel,/String\.format\(Locale\.GERMANY, "%.2f €\/l", price\)/);
   assert.match(cache,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
@@ -888,7 +888,7 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   assert.match(cache,/context\.getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
   assert.doesNotMatch(cache,/apiKey|tankerkoenig_local_key|requestUrl|HttpURLConnection/);
   assert.match(activity,/engine\.showFuelPrices\(local,/);
-  assert.match(activity,/station -> acceptFuelStation\(station\.lat, station\.lng, station\.name\)/);
+  assert.match(activity,/this::chooseFuelStationAction/);
   assert.match(activity,/setPositiveButton\("Route berechnen"/);
   assert.match(activity,/engine\.startConfirmedRoute\(lat, lng, chosenName\)/);
   assert.match(bridge,/default void showFuelPrices\(FuelMapSnapshot\.Snapshot snapshot/);
@@ -1008,8 +1008,8 @@ test('v31 Google voice defaults off and routine guidance haptics are omitted',()
 test('v33 neutral safety prototype retains Saphe events with visible timed map banner',()=>{
   const cockpit=java('IntegratedNavigationActivity');
   const gradle=read('app/build.gradle');
-  assert.match(gradle,/versionCode 39/);
-  assert.match(gradle,/versionName '0\.9\.37-beta'/);
+  assert.match(gradle,/versionCode 40/);
+  assert.match(gradle,/versionName '0\.9\.38-beta'/);
   assert.match(cockpit,/SAFETY_COOLDOWN_MS = 10000L/);
   assert.match(cockpit,/SapheDiagnosticSession\.lastSapheAt\(this\)/);
   assert.match(cockpit,/SapheNotificationProbe\.lastObservedAt\(this\)/);
@@ -1261,8 +1261,8 @@ test('v36 tank price requests share one persistent fail-closed limit with no aut
   const rules=java('FuelRateRules');
   const gradle=read('app/build.gradle');
   const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
-  assert.match(gradle,/versionCode 39/);
-  assert.match(gradle,/versionName '0\.9\.37-beta'/);
+  assert.match(gradle,/versionCode 40/);
+  assert.match(gradle,/versionName '0\.9\.38-beta'/);
   assert.match(ci,/feature\/fahrcockpit-v36-tankerkoenig-rate-guard/);
   assert.match(quick,/FuelRequestGate\.tryBegin\(host\)/);
   assert.match(full,/FuelRequestGate\.tryBegin\(this\)/);
@@ -1355,8 +1355,8 @@ test('v37 parking stores only the last local coordinate and uses walking Google 
   const store=java('ParkingLocationStore');
   const gradle=read('app/build.gradle');
   const manifest=read('app/src/main/AndroidManifest.xml');
-  assert.match(gradle,/versionCode 39/);
-  assert.match(gradle,/versionName '0\.9\.37-beta'/);
+  assert.match(gradle,/versionCode 40/);
+  assert.match(gradle,/versionName '0\.9\.38-beta'/);
   assert.match(cockpit,/parkingTrip\.start\(SystemClock\.elapsedRealtime\(\)\)/);
   assert.match(cockpit,/cockpitResumed = true/);
   assert.match(cockpit,/cockpitResumed = false/);
@@ -1412,8 +1412,8 @@ test('v38 landscape ETA replaces only bottom Google card, preserving all turn gu
   const google=read('app/src/navsdk/java/com/cobrachris/fahrcockpit/GoogleNavigationEngine.java');
   const gradle=read('app/build.gradle');
   const layout=java('IntegratedNavigationRules');
-  assert.match(gradle,/versionCode 39/);
-  assert.match(gradle,/versionName '0\.9\.37-beta'/);
+  assert.match(gradle,/versionCode 40/);
+  assert.match(gradle,/versionName '0\.9\.38-beta'/);
   assert.match(layout,/MAP_WEIGHT = 7/);
   assert.match(layout,/CONTROLS_WEIGHT = 3/);
   assert.match(cockpit,/landscapeCockpit = landscape/);
@@ -1471,5 +1471,52 @@ test('v39 fuel map is nearest-first and follows car using only local cached data
   assert.match(guard,/FuelRateRules\.remainingMillis/);
   assert.match(policy,/PROVIDER_APPROVED = false/);
   assert.match(ci,/feature\/fahrcockpit-v39-fuel-nearby-current-gps/);
-  assert.match(ci,/versionCode'\]==39/);
+  assert.match(ci,/versionCode'\]==40/);
+});
+
+
+test('v40 route favorites are local, multi-route and manually refresh at most ten IDs',()=>{
+  const cockpit=java('IntegratedNavigationActivity');
+  const activity=java('FuelRouteFavoritesActivity');
+  const store=java('FuelRouteFavoritesStore');
+  const price=java('FuelRoutePriceLookup');
+  const snapshot=java('FuelMapSnapshot');
+  const fuel=java('FuelActivity');
+  const policy=java('FuelAutoRefreshPolicy');
+  const manifest=read('app/src/main/AndroidManifest.xml');
+  const ci=read('../../.github/workflows/fahrcockpit-navsdk-compile.yml');
+  assert.match(manifest,/\.FuelRouteFavoritesActivity/);
+  assert.match(manifest,/FuelRouteFavoritesActivity" android:exported="false"/);
+  assert.match(cockpit,/MENU_FUEL_ROUTES = 5108/);
+  assert.match(cockpit,/Strecken & Tankstellenfavoriten/);
+  assert.match(cockpit,/startActivityForResult\(new Intent\(this,FuelRouteFavoritesActivity\.class\)/);
+  assert.match(cockpit,/this::chooseFuelStationAction/);
+  assert.match(cockpit,/FuelRouteFavoritesActivity\.chooseRoute\(this,/);
+  assert.match(fuel,/Button bookmark = Ui\.button\(this, "★"\)/);
+  assert.match(fuel,/FuelRouteFavoritesActivity\.chooseRoute\(this,/);
+  assert.match(snapshot,/clean\.put\("id", s\.id\)/);
+  assert.match(snapshot,/new Station\(s\.optString\("id", ""\), name/);
+  assert.match(store,/MAX_STATIONS_PER_ROUTE = 10/);
+  assert.match(store,/MAX_ROUTES = 20/);
+  assert.match(store,/getSharedPreferences\(PREFS,Context\.MODE_PRIVATE\)/);
+  assert.match(store,/List<String> groups/);
+  assert.match(store,/if\(!linked&&inGroup>=MAX_STATIONS_PER_ROUTE\)/);
+  assert.match(store,/static boolean removeRoute\(/);
+  assert.match(store,/static boolean remove\(/);
+  assert.match(store,/static int applyPrices\(/);
+  assert.match(store,/checkedAt<15L\*60_000L/);
+  assert.doesNotMatch(store,/HttpURLConnection|new URL\(/);
+  assert.match(price,/FuelRequestGate\.tryBegin\(host\)/);
+  assert.match(price,/https:\/\/creativecommons\.tankerkoenig\.de\/json\/prices\.php\?ids=/);
+  assert.match(price,/String\.join\(",",ids\)/);
+  assert.match(price,/FuelRouteFavoritesStore\.applyPrices/);
+  assert.match(price,/favs\.size\(\)>FuelRouteFavoritesStore\.MAX_STATIONS_PER_ROUTE/);
+  assert.doesNotMatch(price,/requestLocationUpdates|setDestination|ScheduledExecutor|TimerTask/);
+  assert.match(activity,/Preise dieser Strecke jetzt vergleichen/);
+  assert.match(activity,/routeSpinner\.setOnItemSelectedListener/);
+  assert.match(activity,/Tankstellen suchen und ★ speichern/);
+  assert.match(activity,/chooseDestination\(FuelRouteFavoritesStore\.Favorite fav\)/);
+  assert.match(policy,/PROVIDER_APPROVED = false/);
+  assert.match(ci,/feature\/fahrcockpit-v40-route-favorites/);
+  assert.match(ci,/versionCode'\]==40/);
 });
