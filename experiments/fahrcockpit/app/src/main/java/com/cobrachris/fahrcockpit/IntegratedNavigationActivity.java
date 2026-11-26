@@ -960,6 +960,14 @@ public final class IntegratedNavigationActivity extends Activity {
                 showUnknownSpeed();
                 showStatus("Standortberechtigung fehlt · keine SDK-Navigation.");
             }
+        } else if (code == SAPHE_BLUETOOTH_PERMISSION_REQUEST) {
+            invalidateSapheBluetoothObservation();
+            if (grants.length > 0
+                    && grants[0] == PackageManager.PERMISSION_GRANTED)
+                chooseSapheBluetoothDevice();
+            else
+                showStatus("Bluetooth-Berechtigung nicht erteilt. "
+                    + "Saphe Link und die bestehenden Warnungen bleiben unverändert.");
         }
     }
 
@@ -1908,20 +1916,6 @@ public final class IntegratedNavigationActivity extends Activity {
                     .show();
             })
             .setNegativeButton("Abbrechen", null).show();
-    }
-
-    @Override public void onRequestPermissionsResult(
-            int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != SAPHE_BLUETOOTH_PERMISSION_REQUEST) return;
-        invalidateSapheBluetoothObservation();
-        if (grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            chooseSapheBluetoothDevice();
-        } else {
-            showStatus("Bluetooth-Berechtigung nicht erteilt. "
-                + "Saphe Link und die bestehenden Warnungen bleiben unverändert.");
-        }
     }
 
     private void refreshSapheNotificationProbe() {
