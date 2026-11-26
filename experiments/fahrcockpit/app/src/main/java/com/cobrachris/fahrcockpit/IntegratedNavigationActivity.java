@@ -845,8 +845,9 @@ public final class IntegratedNavigationActivity extends Activity {
         if (location.getAccuracy() <= FuelLocationQuality.MAX_SEARCH_ACCURACY_METERS
                 && FuelRules.inGermany(location.getLatitude(),
                     location.getLongitude())) {
+            boolean locationWasMissing = !hasCurrentFuelPosition();
             fuelDisplayFix = new Location(location);
-            if (fuelMarkersVisible && (fuelLastRenderedFix == null
+            if (fuelMarkersVisible && (locationWasMissing || fuelLastRenderedFix == null
                     || location.distanceTo(fuelLastRenderedFix)
                         >= FUEL_MARKER_REPOSITION_METERS)) {
                 fuelLastRenderedFix = new Location(location);
@@ -1566,10 +1567,13 @@ public final class IntegratedNavigationActivity extends Activity {
                                   : FuelMapSnapshot.MAX_AGE_MS;
             long timeToAge = Math.max(1000L,
                 deadline - (now - snapshot.fetchedAt) + 100L);
-            long timeToPositionExpiry = hasCurrentFuelPosition() ? 25_000L
+            long remainingPositionMs = hasCurrentFuelPosition()
+                ? Math.max(1000L, (FUEL_FIX_MAX_AGE_NANOS -
+                    (SystemClock.elapsedRealtimeNanos()
+                        - fuelDisplayFix.getElapsedRealtimeNanos())) / 1_000_000L + 100L)
                 : timeToAge;
             handler.postDelayed(expireFuelMarkers,
-                Math.min(timeToAge, timeToPositionExpiry));
+                Math.min(timeToAge, remainingPositionMs));
         }
     }
 
