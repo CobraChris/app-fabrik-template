@@ -27,6 +27,14 @@ public final class FuelRules {
 
     public static String requestUrl(String key, double lat, double lng,
                                     int radiusKm, String type) {
+        return requestUrl(key, lat, lng, radiusKm, type, "price");
+    }
+
+    /** Cockpit may request distance-sorted results without changing the full search UI. */
+    public static String requestUrl(String key, double lat, double lng,
+                                    int radiusKm, String type, String sort) {
+        if (!"dist".equals(sort) && !"price".equals(sort))
+            throw new IllegalArgumentException("Unzulässige Tankstellen-Sortierung");
         if (!validKey(key)) throw new IllegalArgumentException("Ungültiger API-Key");
         if (!Double.isFinite(lat) || !Double.isFinite(lng) || !inGermany(lat, lng)) {
             throw new IllegalArgumentException("Tankerkönig liefert nur Daten für Deutschland");
@@ -39,7 +47,7 @@ public final class FuelRules {
         }
         return String.format(Locale.US,
             "https://creativecommons.tankerkoenig.de/json/list.php?lat=%.6f&lng=%.6f" +
-            "&rad=%d&type=%s&sort=price&apikey=%s",
-            lat, lng, radiusKm, type, key.trim());
+            "&rad=%d&type=%s&sort=%s&apikey=%s",
+            lat, lng, radiusKm, type, sort, key.trim());
     }
 }
