@@ -57,6 +57,9 @@ public final class FuelActivity extends Activity {
     private JSONArray lastStations;
     private String lastFetchedAt;
     private long lastFetchedMillis;
+    // Fuel grade of the *successful response*, not the currently selected
+    // spinner. Changing settings must never relabel an old Diesel price as E5.
+    private String lastResponseFuelType = "";
     private TextView message;
     private LinearLayout results;
     private Button search;
@@ -130,6 +133,7 @@ public final class FuelActivity extends Activity {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent,
                     android.view.View view, int position, long id) {
                 FuelQuickSettings.saveType(FuelActivity.this, position);
+                if (lastStations != null) showStations(lastStations);
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
@@ -412,6 +416,7 @@ public final class FuelActivity extends Activity {
                     // Share only the validated station data, never the API key.
                     // Rendering the cache on the map does not re-query the API.
                     FuelMapSnapshot.save(this, stations, selectedFuelType);
+                    lastResponseFuelType = selectedFuelType;
                     showStations(stations);
                 });
             } catch (Exception e) {
@@ -435,7 +440,13 @@ public final class FuelActivity extends Activity {
         search.setEnabled(true);
         results.removeAllViews();
         String at = lastFetchedAt == null ? "–" : lastFetchedAt;
-        message.setText(stations.length() + " Treffer · abgerufen um " + at +
+        String grade = lastResponseFuelType.isEmpty() ? ""
+            : " · " + lastResponseFuelType.toUpperCase(Locale.GERMANY);
+        String changedGrade = lastResponseFuelType.isEmpty()
+                || lastResponseFuelType.equals(fuelType())
+            ? "" : "\nKraftstofffilter geändert: Für neue Preise bitte Suche starten.";
+        message.setText(stations.length() + " Treffer" + grade
+            + " · abgerufen um " + at + changedGrade +
             (returnToCockpit
                 ? "\nTankstelle auswählen. Eine Google-Navigationsroute wird erst nach deiner Bestätigung berechnet."
                 : "\nPreise ohne Garantie; ausgewähltes Ziel in Google Maps öffnen."));
@@ -510,7 +521,7 @@ public final class FuelActivity extends Activity {
                     new FuelMapSnapshot.Station(stationId,name,
                         (street + ", " + town).trim(),lat,lng,price,
                         s.optBoolean("isOpen",false)),
-                    fuelType(),lastFetchedMillis,null));
+                    lastResponseFuelType,lastFetchedMillis,null));
             actions.addView(bookmark,new LinearLayout.LayoutParams(
                 Ui.dp(this,48),Ui.dp(this,44)));
             // Preserve the external Maps alternative without forcing a switch.
