@@ -46,7 +46,7 @@ final class FuelMapSnapshot {
             this.isOpen = isOpen;
         }
         String priceLabel() {
-            return String.format(Locale.GERMANY, "%.2f €", price);
+            return FuelPriceFormat.compact(price);
         }
     }
 
