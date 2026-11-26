@@ -1304,7 +1304,7 @@ test('v36 always-on fuel price display retains explicitly labeled stale cache wi
   assert.match(cockpit,/fuelInfo\.setText\(local\.stations\.size\(\) \+ " von "/);
   assert.match(cockpit,/stale \? " · ALT, kein Live-Preis" : " · abgerufen"/);
   assert.match(cockpit,/stale \? FuelMapSnapshot\.MAX_DISPLAY_AGE_MS/);
-  assert.match(cockpit,/handler\.postDelayed\(expireFuelMarkers,\s*Math\.min\(timeToAge, timeToPositionExpiry\)\)/);
+  assert.match(cockpit,/handler\.postDelayed\(expireFuelMarkers,\s*Math\.min\(timeToAge, remainingPositionMs\)\)/);
   assert.doesNotMatch(quick,/callback\.onSuccess\(cache\)/);
   assert.match(markers,/boolean stale = FuelMapSnapshot\.isStale\(snapshot, System\.currentTimeMillis\(\)\)/);
   assert.match(markers,/stale \? Color\.rgb\(117, 122, 133\) : tierColor/);
@@ -1460,6 +1460,7 @@ test('v39 fuel map is nearest-first and follows car using only local cached data
   assert.match(current,/updateFuelMarkers\(\); \/\/ Local-only operation, never an API call/);
   assert.match(current,/FuelNearbySelection\.nearby\(original,/);
   assert.match(current,/hasCurrentFuelPosition\(\)/);
+  assert.match(current,/boolean locationWasMissing = !hasCurrentFuelPosition\(\)/);
   assert.match(current,/Keine gespeicherten Preise in /);
   assert.match(current,/Preise in /);
   assert.match(quality,/MAX_SEARCH_FIX_AGE_MS = 15_000L/);
