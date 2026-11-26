@@ -882,7 +882,7 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   assert.match(gradle,/versionCode 40/);
   assert.match(gradle,/versionName '0\.9\.38-beta'/);
   assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
-  assert.match(fuel,/String\.format\(Locale\.GERMANY, "%.2f €\/l", price\)/);
+  assert.match(fuel,/FuelPriceFormat\.perLiter\(price\)/);
   assert.match(cache,/MAX_AGE_MS = 15 \* 60 \* 1000L/);
   assert.match(cache,/MAX_STATIONS = 120/);
   assert.match(cache,/context\.getSharedPreferences\(PREFS, Context\.MODE_PRIVATE\)/);
@@ -896,7 +896,7 @@ test('v28 Tankerkoenig map prices require explicit search and never start billab
   assert.match(marker,/active\.addMarker\(new MarkerOptions\(\)/);
   assert.match(marker,/active\.setOnInfoWindowClickListener\(marker ->/);
   assert.match(marker,/marker\.setTag\(s\)/);
-  assert.match(cache,/String\.format\(Locale\.GERMANY, "%.2f €", price\)/);
+  assert.match(cache,/FuelPriceFormat\.compact\(price\)/);
   assert.doesNotMatch(marker,/setDestination\(|startGuidance\(|Places\.|HttpURLConnection|new NavigationView|new MapView/);
 });
 
@@ -915,7 +915,7 @@ test('v29 nearby fuel search recovers from unavailable GPS through network provi
   assert.match(fuel,/stopLocationRequests\(\)/);
   assert.doesNotMatch(fuel,/locationSignal = new CancellationSignal/);
   assert.match(fuel,/FuelMapSnapshot\.save\(this, stations, selectedFuelType\)/);
-  assert.match(fuel,/String\.format\(Locale\.GERMANY, "%.2f €\/l", price\)/);
+  assert.match(fuel,/FuelPriceFormat\.perLiter\(price\)/);
   // The key stays in private app storage; only a manual search can call API.
   assert.match(fuel,/search\.setOnClickListener\(v -> search\(\)\)/);
   assert.doesNotMatch(fuel,/requestLocationUpdates\(/);
@@ -1519,6 +1519,13 @@ test('v40 route favorites are local, multi-route and manually refresh at most te
   assert.match(policy,/PROVIDER_APPROVED = false/);
   assert.match(ci,/feature\/fahrcockpit-v40-route-favorites/);
   assert.match(ci,/versionCode'\]==40/);
+  // Always display the provider's 0.1-cent precision, including on route lists.
+  const precision=java('FuelPriceFormat');
+  assert.match(precision,/%.3f €\/l/);
+  assert.match(precision,/%.3f €/);
+  assert.match(fuel,/FuelPriceFormat\.perLiter\(price\)/);
+  assert.match(snapshot,/FuelPriceFormat\.compact\(price\)/);
+  assert.match(store,/FuelPriceFormat\.perLiter\(price\)/);
   // A second fuel-type selection must never relabel the old price.
   assert.match(fuel,/private String lastResponseFuelType = ""/);
   assert.match(fuel,/lastResponseFuelType = selectedFuelType/);
