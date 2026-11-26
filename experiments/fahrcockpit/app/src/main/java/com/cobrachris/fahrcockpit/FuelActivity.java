@@ -56,6 +56,7 @@ public final class FuelActivity extends Activity {
     private Spinner sortOrder;
     private JSONArray lastStations;
     private String lastFetchedAt;
+    private long lastFetchedMillis;
     private TextView message;
     private LinearLayout results;
     private Button search;
@@ -426,7 +427,9 @@ public final class FuelActivity extends Activity {
 
     private void showStations(JSONArray stations) {
         if (lastStations != stations) {
-            lastFetchedAt = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
+            lastFetchedMillis = System.currentTimeMillis();
+            lastFetchedAt = DateFormat.getTimeInstance(DateFormat.SHORT).format(
+                new Date(lastFetchedMillis));
         }
         lastStations = stations;
         search.setEnabled(true);
@@ -494,6 +497,22 @@ public final class FuelActivity extends Activity {
                 inApp.setMinHeight(Ui.dp(this, 40));
                 actions.addView(inApp, new LinearLayout.LayoutParams(0, -2, 1f));
             }
+            // Route favorites use the provider's immutable station ID.
+            // A station can be linked to more than one route without
+            // duplicating or triggering a new network request.
+            Button bookmark = Ui.button(this, "★");
+            bookmark.setContentDescription("Tankstelle als Streckenfavorit speichern");
+            String stationId = s.optString("id", "");
+            bookmark.setEnabled(coordinates != null
+                && FuelRules.validKey(stationId));
+            bookmark.setOnClickListener(v ->
+                FuelRouteFavoritesActivity.chooseRoute(this,
+                    new FuelMapSnapshot.Station(stationId,name,
+                        (street + ", " + town).trim(),lat,lng,price,
+                        s.optBoolean("isOpen",false)),
+                    fuelType(),lastFetchedMillis,null));
+            actions.addView(bookmark,new LinearLayout.LayoutParams(
+                Ui.dp(this,48),Ui.dp(this,44)));
             // Preserve the external Maps alternative without forcing a switch.
             Button route = Ui.button(this, "In Google Maps öffnen");
             route.setEnabled(coordinates != null);
