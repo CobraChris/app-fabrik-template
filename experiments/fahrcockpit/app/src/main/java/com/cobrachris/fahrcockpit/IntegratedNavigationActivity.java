@@ -57,6 +57,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private static final int MENU_FUEL_AUTO = 5105;
     private static final int MENU_PARKING_SHOW = 5106;
     private static final int MENU_PARKING_SAVE = 5107;
+    private static final int MENU_FUEL_ROUTES = 5108;
     private static final String STATE_TARGET = "target";
     private static final String STATE_SELECTED_DISPLAY = "selected_display";
     private static final String STATE_SELECTED_TARGET = "selected_target";
@@ -85,6 +86,12 @@ public final class IntegratedNavigationActivity extends Activity {
     private final ParkingTripTracker parkingTrip = new ParkingTripTracker();
     private LocationManager speedLocationManager;
     private LocationListener speedLocationListener;
+    // RAM-only current GPS fix for filtering cached fuel markers as car moves.
+    // Never transmitted, saved to storage or used to trigger API requests.
+    private Location fuelDisplayFix;
+    private Location fuelLastRenderedFix;
+    private static final float FUEL_MARKER_REPOSITION_METERS = 250f;
+    private static final long FUEL_FIX_MAX_AGE_NANOS = 30_000_000_000L;
     private final Runnable expireSpeedReading = () -> showUnknownSpeed();
     private long sapheLastShownAt;
     private long lastSafetyShownAt;
@@ -361,6 +368,8 @@ public final class IntegratedNavigationActivity extends Activity {
             options.getMenu().add(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose");
             options.getMenu().add(0, MENU_PARKING_SHOW, 5, "Parkplatz anzeigen");
             options.getMenu().add(0, MENU_PARKING_SAVE, 6, "Parkplatz jetzt speichern");
+            options.getMenu().add(0, MENU_FUEL_ROUTES, 7,
+                "★ Strecken & Tankstellenfavoriten");
             options.getMenu().add(0, MENU_FUEL_AUTO, 4,
                 !FuelAutoRefreshPolicy.PROVIDER_APPROVED
                     ? "Auto-Preise: Freigabe ausstehend"
@@ -394,6 +403,9 @@ public final class IntegratedNavigationActivity extends Activity {
                         startActivityForResult(new Intent(this, FuelActivity.class)
                             .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
                             FUEL_PICK_REQUEST);
+                        return true;
+                    case MENU_FUEL_ROUTES:
+                        openFuelRoutes();
                         return true;
                     case MENU_SAPHE_DIAGNOSIS:
                         showSapheProbeDialog();
@@ -658,6 +670,12 @@ public final class IntegratedNavigationActivity extends Activity {
         fuelActions.addView(fuelButton, cockpitActionParams(1f, true));
         fuelActions.addView(fuelRefreshButton, new LinearLayout.LayoutParams(
             Ui.dp(this, 44), Ui.dp(this, 44)));
+        Button routeFavoritesButton = cockpitButton("★", false);
+        routeFavoritesButton.setContentDescription(
+            "Strecken und Tankstellenfavoriten öffnen");
+        fuelActions.addView(routeFavoritesButton,
+            new LinearLayout.LayoutParams(Ui.dp(this,44),Ui.dp(this,44)));
+        routeFavoritesButton.setOnClickListener(v -> openFuelRoutes());
         panel.addView(fuelActions);
         fuelInfo = Ui.text(this, "", 10, Ui.MUTED, false);
         fuelInfo.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
@@ -666,15 +684,16 @@ public final class IntegratedNavigationActivity extends Activity {
         panel.addView(fuelInfo);
         fuelButton.setOnClickListener(v -> {
             if (fuelQuickSearch.isSearching()) return;
-            if (fuelMarkersVisible
-                    && !FuelMapSnapshot.readForDisplay(this).stations.isEmpty()) {
+            if (fuelMarkersVisible && !visibleFuelSnapshot(
+                    FuelMapSnapshot.readForDisplay(this)).stations.isEmpty()) {
                 fuelMarkersVisible = false;
                 updateFuelMarkers();
             } else {
                 fuelMarkersVisible = true;
                 FuelMapSnapshot.Snapshot cached = FuelMapSnapshot.readForDisplay(this);
                 if (cached.stations.isEmpty()
-                        || !cached.type.equals(FuelQuickSettings.type(this))) {
+                        || !cached.type.equals(FuelQuickSettings.type(this))
+                        || visibleFuelSnapshot(cached).stations.isEmpty()) {
                     startQuickFuelSearch();
                 } else {
                     updateFuelMarkers();
@@ -830,12 +849,25 @@ public final class IntegratedNavigationActivity extends Activity {
     }
 
     private void onSpeedLocation(Location location) {
-        if (currentSpeedView == null || location == null
-                || !location.hasSpeed() || !location.hasAccuracy()
-                || location.getAccuracy() > 80f) return;
+        if (location == null || !location.hasAccuracy()) return;
         long ageNanos = SystemClock.elapsedRealtimeNanos()
             - location.getElapsedRealtimeNanos();
         if (ageNanos < 0L || ageNanos > 5_000_000_000L) return;
+        // Fuel markers need location, not speed: also works at traffic lights.
+        if (location.getAccuracy() <= FuelLocationQuality.MAX_SEARCH_ACCURACY_METERS
+                && FuelRules.inGermany(location.getLatitude(),
+                    location.getLongitude())) {
+            boolean locationWasMissing = !hasCurrentFuelPosition();
+            fuelDisplayFix = new Location(location);
+            if (fuelMarkersVisible && (locationWasMissing || fuelLastRenderedFix == null
+                    || location.distanceTo(fuelLastRenderedFix)
+                        >= FUEL_MARKER_REPOSITION_METERS)) {
+                fuelLastRenderedFix = new Location(location);
+                updateFuelMarkers(); // Local-only operation, never an API call.
+            }
+        }
+        if (currentSpeedView == null || !location.hasSpeed()
+                || location.getAccuracy() > 80f) return;
         float metersPerSecond = location.getSpeed();
         if (Float.isNaN(metersPerSecond) || Float.isInfinite(metersPerSecond)
                 || metersPerSecond < 0f || metersPerSecond > 85f) return;
@@ -895,6 +927,8 @@ public final class IntegratedNavigationActivity extends Activity {
         }
         speedLocationManager = null;
         speedLocationListener = null;
+        fuelDisplayFix = null;
+        fuelLastRenderedFix = null;
         handler.removeCallbacks(expireSpeedReading);
         showUnknownSpeed();
     }
@@ -1258,6 +1292,27 @@ public final class IntegratedNavigationActivity extends Activity {
         acceptFuelStation(lat, lng, data.getStringExtra(FuelActivity.RESULT_NAME));
     }
 
+    private void openFuelRoutes() {
+        startActivityForResult(new Intent(this,FuelRouteFavoritesActivity.class),
+            FUEL_PICK_REQUEST);
+    }
+
+    private void chooseFuelStationAction(FuelMapSnapshot.Station station) {
+        if (station == null) return;
+        new AlertDialog.Builder(this)
+            .setTitle(station.name)
+            .setMessage(station.priceLabel() + "/l · " + station.address)
+            .setItems(new String[] {"Als Navigationsziel übernehmen",
+                                    "★ Zu Streckenfavoriten hinzufügen"},
+                (dialog,which)->{
+                    if(which==0)acceptFuelStation(station.lat,station.lng,station.name);
+                    else if(which==1)FuelRouteFavoritesActivity.chooseRoute(this,
+                        station,FuelQuickSettings.type(this),
+                        FuelMapSnapshot.readForDisplay(this).fetchedAt,null);
+                })
+            .setNegativeButton("Abbrechen",null).show();
+    }
+
     private void acceptFuelStation(double lat, double lng, String displayName) {
         String coords = FuelRules.stationCoordinates(lat, lng);
         if (coords == null) {
@@ -1466,20 +1521,42 @@ public final class IntegratedNavigationActivity extends Activity {
         });
     }
 
+    /** Current GPS is valid only while this Activity is visible. */
+    private boolean hasCurrentFuelPosition() {
+        if (fuelDisplayFix == null) return false;
+        long age = SystemClock.elapsedRealtimeNanos()
+            - fuelDisplayFix.getElapsedRealtimeNanos();
+        return age >= 0L && age <= FUEL_FIX_MAX_AGE_NANOS
+            && fuelDisplayFix.hasAccuracy()
+            && fuelDisplayFix.getAccuracy()
+                <= FuelLocationQuality.MAX_SEARCH_ACCURACY_METERS;
+    }
+
+    private FuelMapSnapshot.Snapshot visibleFuelSnapshot(
+            FuelMapSnapshot.Snapshot original) {
+        if (!hasCurrentFuelPosition() || original == null
+                || original.stations.isEmpty()) {
+            return new FuelMapSnapshot.Snapshot("", 0L, new ArrayList<>());
+        }
+        return FuelNearbySelection.nearby(original,
+            fuelDisplayFix.getLatitude(), fuelDisplayFix.getLongitude(),
+            FuelQuickSettings.radiusKm(this));
+    }
+
     private void updateFuelMarkers() {
         FuelMapSnapshot.Snapshot snapshot = FuelMapSnapshot.readForDisplay(this);
         boolean valid = !snapshot.stations.isEmpty()
             && snapshot.type.equals(FuelQuickSettings.type(this));
         long now = System.currentTimeMillis();
         boolean stale = valid && FuelMapSnapshot.isStale(snapshot, now);
+        FuelMapSnapshot.Snapshot local = valid && fuelMarkersVisible
+            ? visibleFuelSnapshot(snapshot)
+            : new FuelMapSnapshot.Snapshot("", 0L, new ArrayList<>());
         if (engine != null) {
-            FuelMapSnapshot.Snapshot displayed = fuelMarkersVisible && valid
-                ? snapshot : new FuelMapSnapshot.Snapshot("", 0L, new ArrayList<>());
-            engine.showFuelPrices(displayed,
-                station -> acceptFuelStation(station.lat, station.lng, station.name));
+            engine.showFuelPrices(local,this::chooseFuelStationAction);
         }
         if (fuelButton != null) {
-            fuelButton.setText(fuelMarkersVisible && valid
+            fuelButton.setText(fuelMarkersVisible && !local.stations.isEmpty()
                 ? "Preise ausblenden" : "Preise anzeigen");
         }
         if (fuelInfo != null) {
@@ -1487,11 +1564,25 @@ public final class IntegratedNavigationActivity extends Activity {
                 java.text.DateFormat time = java.text.DateFormat.getDateTimeInstance(
                     java.text.DateFormat.SHORT, java.text.DateFormat.SHORT,
                     java.util.Locale.GERMANY);
-                fuelInfo.setText(snapshot.stations.size() + " Preise · "
-                    + snapshot.type.toUpperCase(java.util.Locale.GERMANY)
-                    + (stale ? " · ALT, kein Live-Preis" : " · aktuell")
-                    + " · Stand " + time.format(new java.util.Date(snapshot.fetchedAt)));
-                fuelInfo.setTextColor(stale ? Ui.WARN : Ui.MUTED);
+                if (!hasCurrentFuelPosition()) {
+                    fuelInfo.setText("GPS-Position wird ermittelt · alte "
+                        + "Preis-Marker ausgeblendet · ↻ für neue Suche");
+                    fuelInfo.setTextColor(Ui.WARN);
+                } else if (local.stations.isEmpty()) {
+                    fuelInfo.setText("Keine gespeicherten Preise in "
+                        + FuelQuickSettings.radiusKm(this)
+                        + " km um dein Auto · ↻ hier neu abrufen");
+                    fuelInfo.setTextColor(Ui.WARN);
+                } else {
+                    fuelInfo.setText(local.stations.size() + " von "
+                        + snapshot.stations.size() + " Preisen in "
+                        + FuelQuickSettings.radiusKm(this) + " km · "
+                        + snapshot.type.toUpperCase(java.util.Locale.GERMANY)
+                        + (stale ? " · ALT, kein Live-Preis" : " · abgerufen")
+                        + " · Stand " + time.format(new java.util.Date(snapshot.fetchedAt))
+                        + " · ↻ für neue Umgebung");
+                    fuelInfo.setTextColor(stale ? Ui.WARN : Ui.MUTED);
+                }
                 fuelInfo.setVisibility(View.VISIBLE);
             } else if (valid) {
                 fuelInfo.setText("Preise ausgeblendet · ↻ zum Aktualisieren");
@@ -1503,12 +1594,18 @@ public final class IntegratedNavigationActivity extends Activity {
         }
         handler.removeCallbacks(expireFuelMarkers);
         if (valid && fuelMarkersVisible) {
-            // Update the age indicator after 15 min; remove the display only
-            // after the separate 24h retained-cache deadline. Never poll here.
+            // Periodic LOCAL filtering/expiry only. Do not fetch anything here.
             long deadline = stale ? FuelMapSnapshot.MAX_DISPLAY_AGE_MS
-                : FuelMapSnapshot.MAX_AGE_MS;
-            long delay = Math.max(1000L, deadline - (now - snapshot.fetchedAt) + 100L);
-            handler.postDelayed(expireFuelMarkers, delay);
+                                  : FuelMapSnapshot.MAX_AGE_MS;
+            long timeToAge = Math.max(1000L,
+                deadline - (now - snapshot.fetchedAt) + 100L);
+            long remainingPositionMs = hasCurrentFuelPosition()
+                ? Math.max(1000L, (FUEL_FIX_MAX_AGE_NANOS -
+                    (SystemClock.elapsedRealtimeNanos()
+                        - fuelDisplayFix.getElapsedRealtimeNanos())) / 1_000_000L + 100L)
+                : timeToAge;
+            handler.postDelayed(expireFuelMarkers,
+                Math.min(timeToAge, remainingPositionMs));
         }
     }
 

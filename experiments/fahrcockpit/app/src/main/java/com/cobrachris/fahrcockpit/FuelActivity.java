@@ -56,6 +56,10 @@ public final class FuelActivity extends Activity {
     private Spinner sortOrder;
     private JSONArray lastStations;
     private String lastFetchedAt;
+    private long lastFetchedMillis;
+    // Fuel grade of the *successful response*, not the currently selected
+    // spinner. Changing settings must never relabel an old Diesel price as E5.
+    private String lastResponseFuelType = "";
     private TextView message;
     private LinearLayout results;
     private Button search;
@@ -129,6 +133,7 @@ public final class FuelActivity extends Activity {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent,
                     android.view.View view, int position, long id) {
                 FuelQuickSettings.saveType(FuelActivity.this, position);
+                if (lastStations != null) showStations(lastStations);
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
@@ -269,7 +274,9 @@ public final class FuelActivity extends Activity {
             if (gpsAvailable) {
                 Location gps = recentLocation(manager.getLastKnownLocation(
                     LocationManager.GPS_PROVIDER));
-                if (gps != null && (recent == null || gps.getTime() > recent.getTime())) {
+                if (gps != null && (recent == null || gps.getAccuracy() < recent.getAccuracy()
+                        || (gps.getAccuracy() == recent.getAccuracy()
+                            && gps.getTime() > recent.getTime()))) {
                     recent = gps;
                 }
             }
@@ -324,16 +331,17 @@ public final class FuelActivity extends Activity {
 
     private static Location recentLocation(Location position) {
         if (position == null) return null;
-        long age = System.currentTimeMillis() - position.getTime();
-        return age >= 0 && age < 120000
-            && Double.isFinite(position.getLatitude())
-            && Double.isFinite(position.getLongitude()) ? position : null;
+        return position.hasAccuracy() && FuelLocationQuality.usable(
+            System.currentTimeMillis(), position.getTime(), position.getAccuracy(),
+            position.getLatitude(), position.getLongitude()) ? position : null;
     }
 
     private void onLocationCandidate(int generation, Location position, String key) {
         if (generation != locationGeneration || search.isEnabled()) return;
-        if (position != null && Double.isFinite(position.getLatitude())
-                && Double.isFinite(position.getLongitude())) {
+        if (position != null && position.hasAccuracy()
+                && FuelLocationQuality.usable(System.currentTimeMillis(),
+                    position.getTime(), position.getAccuracy(),
+                    position.getLatitude(), position.getLongitude())) {
             stopLocationRequests();
             fetch(position, key);
             return;
@@ -408,6 +416,7 @@ public final class FuelActivity extends Activity {
                     // Share only the validated station data, never the API key.
                     // Rendering the cache on the map does not re-query the API.
                     FuelMapSnapshot.save(this, stations, selectedFuelType);
+                    lastResponseFuelType = selectedFuelType;
                     showStations(stations);
                 });
             } catch (Exception e) {
@@ -423,13 +432,21 @@ public final class FuelActivity extends Activity {
 
     private void showStations(JSONArray stations) {
         if (lastStations != stations) {
-            lastFetchedAt = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
+            lastFetchedMillis = System.currentTimeMillis();
+            lastFetchedAt = DateFormat.getTimeInstance(DateFormat.SHORT).format(
+                new Date(lastFetchedMillis));
         }
         lastStations = stations;
         search.setEnabled(true);
         results.removeAllViews();
         String at = lastFetchedAt == null ? "–" : lastFetchedAt;
-        message.setText(stations.length() + " Treffer · abgerufen um " + at +
+        String grade = lastResponseFuelType.isEmpty() ? ""
+            : " · " + lastResponseFuelType.toUpperCase(Locale.GERMANY);
+        String changedGrade = lastResponseFuelType.isEmpty()
+                || lastResponseFuelType.equals(fuelType())
+            ? "" : "\nKraftstofffilter geändert: Für neue Preise bitte Suche starten.";
+        message.setText(stations.length() + " Treffer" + grade
+            + " · abgerufen um " + at + changedGrade +
             (returnToCockpit
                 ? "\nTankstelle auswählen. Eine Google-Navigationsroute wird erst nach deiner Bestätigung berechnet."
                 : "\nPreise ohne Garantie; ausgewähltes Ziel in Google Maps öffnen."));
@@ -461,8 +478,7 @@ public final class FuelActivity extends Activity {
             double distance = s.optDouble("dist", -1);
             double lat = s.optDouble("lat", Double.NaN);
             double lng = s.optDouble("lng", Double.NaN);
-            String priceText = price >= 0 ? String.format(Locale.GERMANY, "%.2f €/l", price)
-                                          : "Preis nicht gemeldet";
+            String priceText = FuelPriceFormat.perLiter(price);
             String distText = distance >= 0 ? String.format(Locale.GERMANY, "%.1f km", distance)
                                             : "Entfernung unbekannt";
             String openText = s.optBoolean("isOpen", false) ? "geöffnet" : "geschlossen/unbekannt";
@@ -491,6 +507,22 @@ public final class FuelActivity extends Activity {
                 inApp.setMinHeight(Ui.dp(this, 40));
                 actions.addView(inApp, new LinearLayout.LayoutParams(0, -2, 1f));
             }
+            // Route favorites use the provider's immutable station ID.
+            // A station can be linked to more than one route without
+            // duplicating or triggering a new network request.
+            Button bookmark = Ui.button(this, "★");
+            bookmark.setContentDescription("Tankstelle als Streckenfavorit speichern");
+            String stationId = s.optString("id", "");
+            bookmark.setEnabled(coordinates != null
+                && FuelRules.validKey(stationId));
+            bookmark.setOnClickListener(v ->
+                FuelRouteFavoritesActivity.chooseRoute(this,
+                    new FuelMapSnapshot.Station(stationId,name,
+                        (street + ", " + town).trim(),lat,lng,price,
+                        s.optBoolean("isOpen",false)),
+                    lastResponseFuelType,lastFetchedMillis,null));
+            actions.addView(bookmark,new LinearLayout.LayoutParams(
+                Ui.dp(this,48),Ui.dp(this,44)));
             // Preserve the external Maps alternative without forcing a switch.
             Button route = Ui.button(this, "In Google Maps öffnen");
             route.setEnabled(coordinates != null);

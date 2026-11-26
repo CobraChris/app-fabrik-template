@@ -20,6 +20,15 @@ public final class FuelRulesTest {
         assertTrue(url.startsWith("https://creativecommons.tankerkoenig.de/json/list.php?"));
         assertTrue(url.contains("rad=10&type=e10&sort=price&apikey=" + KEY));
     }
+    @Test public void nearestSortForCockpitAndNoParameterInjection() {
+        String url = FuelRules.requestUrl(KEY, 53.5511, 10.0, 10, "diesel", "dist");
+        assertTrue(url.contains("rad=10&type=diesel&sort=dist&apikey=" + KEY));
+        try {
+            FuelRules.requestUrl(KEY, 53.5511, 10.0, 10, "diesel", "dist&bad=1");
+            fail("Sort injection must not be possible");
+        } catch (IllegalArgumentException expected) { }
+    }
+
     @Test public void acceptsFuelStationCoordinatesWithoutNavigationRequest() {
         assertEquals("53.551100,10.000000",
             FuelRules.stationCoordinates(53.5511, 10.0));

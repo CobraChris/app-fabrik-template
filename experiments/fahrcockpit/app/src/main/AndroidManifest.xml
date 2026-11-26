@@ -58,6 +58,7 @@
             android:exported="false"
             android:resizeableActivity="true" />
         <activity android:name=".FuelActivity" android:exported="false" />
+        <activity android:name=".FuelRouteFavoritesActivity" android:exported="false" />
         <activity android:name=".UpdateActivity" android:exported="false" />
         <!-- Expose only an APK in the private updates/ cache to the system installer. -->
         <provider
