@@ -57,6 +57,7 @@ public final class IntegratedNavigationActivity extends Activity {
     private static final int MENU_FUEL_AUTO = 5105;
     private static final int MENU_PARKING_SHOW = 5106;
     private static final int MENU_PARKING_SAVE = 5107;
+    private static final int MENU_FUEL_ROUTES = 5108;
     private static final String STATE_TARGET = "target";
     private static final String STATE_SELECTED_DISPLAY = "selected_display";
     private static final String STATE_SELECTED_TARGET = "selected_target";
@@ -367,6 +368,8 @@ public final class IntegratedNavigationActivity extends Activity {
             options.getMenu().add(0, MENU_SAPHE_DIAGNOSIS, 3, "Saphe-Diagnose");
             options.getMenu().add(0, MENU_PARKING_SHOW, 5, "Parkplatz anzeigen");
             options.getMenu().add(0, MENU_PARKING_SAVE, 6, "Parkplatz jetzt speichern");
+            options.getMenu().add(0, MENU_FUEL_ROUTES, 7,
+                "★ Strecken & Tankstellenfavoriten");
             options.getMenu().add(0, MENU_FUEL_AUTO, 4,
                 !FuelAutoRefreshPolicy.PROVIDER_APPROVED
                     ? "Auto-Preise: Freigabe ausstehend"
@@ -400,6 +403,9 @@ public final class IntegratedNavigationActivity extends Activity {
                         startActivityForResult(new Intent(this, FuelActivity.class)
                             .putExtra(FuelActivity.EXTRA_RETURN_TO_COCKPIT, true),
                             FUEL_PICK_REQUEST);
+                        return true;
+                    case MENU_FUEL_ROUTES:
+                        openFuelRoutes();
                         return true;
                     case MENU_SAPHE_DIAGNOSIS:
                         showSapheProbeDialog();
@@ -664,6 +670,12 @@ public final class IntegratedNavigationActivity extends Activity {
         fuelActions.addView(fuelButton, cockpitActionParams(1f, true));
         fuelActions.addView(fuelRefreshButton, new LinearLayout.LayoutParams(
             Ui.dp(this, 44), Ui.dp(this, 44)));
+        Button routeFavoritesButton = cockpitButton("★", false);
+        routeFavoritesButton.setContentDescription(
+            "Strecken und Tankstellenfavoriten öffnen");
+        fuelActions.addView(routeFavoritesButton,
+            new LinearLayout.LayoutParams(Ui.dp(this,44),Ui.dp(this,44)));
+        routeFavoritesButton.setOnClickListener(v -> openFuelRoutes());
         panel.addView(fuelActions);
         fuelInfo = Ui.text(this, "", 10, Ui.MUTED, false);
         fuelInfo.setPadding(0, Ui.dp(this, 2), 0, Ui.dp(this, 2));
@@ -1280,6 +1292,27 @@ public final class IntegratedNavigationActivity extends Activity {
         acceptFuelStation(lat, lng, data.getStringExtra(FuelActivity.RESULT_NAME));
     }
 
+    private void openFuelRoutes() {
+        startActivityForResult(new Intent(this,FuelRouteFavoritesActivity.class),
+            FUEL_PICK_REQUEST);
+    }
+
+    private void chooseFuelStationAction(FuelMapSnapshot.Station station) {
+        if (station == null) return;
+        new AlertDialog.Builder(this)
+            .setTitle(station.name)
+            .setMessage(station.priceLabel() + "/l · " + station.address)
+            .setItems(new String[] {"Als Navigationsziel übernehmen",
+                                    "★ Zu Streckenfavoriten hinzufügen"},
+                (dialog,which)->{
+                    if(which==0)acceptFuelStation(station.lat,station.lng,station.name);
+                    else if(which==1)FuelRouteFavoritesActivity.chooseRoute(this,
+                        station,FuelQuickSettings.type(this),
+                        FuelMapSnapshot.readForDisplay(this).fetchedAt,null);
+                })
+            .setNegativeButton("Abbrechen",null).show();
+    }
+
     private void acceptFuelStation(double lat, double lng, String displayName) {
         String coords = FuelRules.stationCoordinates(lat, lng);
         if (coords == null) {
@@ -1520,8 +1553,7 @@ public final class IntegratedNavigationActivity extends Activity {
             ? visibleFuelSnapshot(snapshot)
             : new FuelMapSnapshot.Snapshot("", 0L, new ArrayList<>());
         if (engine != null) {
-            engine.showFuelPrices(local,
-                station -> acceptFuelStation(station.lat, station.lng, station.name));
+            engine.showFuelPrices(local,this::chooseFuelStationAction);
         }
         if (fuelButton != null) {
             fuelButton.setText(fuelMarkersVisible && !local.stations.isEmpty()
