@@ -23,7 +23,7 @@ final class FuelMapSnapshot {
     private static final String STATIONS = "stations";
     private static final String SAVED_AT = "saved_at";
     private static final String TYPE = "fuel_type";
-    private static final int MAX_STATIONS = 40;
+    private static final int MAX_STATIONS = 120; // Cache near-station candidates; render at most 40.
 
     private FuelMapSnapshot() {}
 
