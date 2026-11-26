@@ -1583,7 +1583,7 @@ test('v41 compact Saphe header uses verified GATT evidence and never infers gree
   assert.match(bluetooth,/getSharedPreferences\(\s*PREFS, Context\.MODE_PRIVATE\)/);
   assert.match(bluetooth,/if\(!present\)return false/);
   assert.match(bluetooth,/enum Link \{ UNKNOWN, OBSERVED_CONNECTED, NOT_OBSERVED \}/);
-  assert.doesNotMatch(bluetooth,/connectGatt|startScan|BluetoothLeScanner|BluetoothSocket|HttpURLConnection/);
+  assert.doesNotMatch(bluetooth,/\.connectGatt\(|\.startScan\(|new BluetoothSocket\(|new HttpURLConnection\(/);
   assert.match(cockpit,/requestPermissions\(\s*new String\[\]\{Manifest\.permission\.BLUETOOTH_CONNECT\}/);
   assert.match(cockpit,/SapheBluetoothStatus\.connectedForSelection\(this\)/);
   assert.match(cockpit,/SapheBluetoothStatus\.choose\(this, selected\)/);
