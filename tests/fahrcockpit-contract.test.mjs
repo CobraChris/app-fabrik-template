@@ -1566,8 +1566,9 @@ test('v41 compact Saphe header uses verified GATT evidence and never infers gree
   assert.match(rule,/enum State/);
   assert.match(rule,/ACTION_REQUIRED/);
   assert.match(rule,/DETECTION_READY_UNKNOWN/);
-  assert.match(rule,/if \(!appInstalled \|\| !notificationAccess \|\| !optedIntoProbe\)/);
+  assert.match(rule,/if \(!appInstalled\) return State\.ACTION_REQUIRED/);
   assert.match(rule,/if \(evidence == Evidence\.OBSERVED_CONNECTED\)\s*return State\.DEVICE_OBSERVED_CONNECTED/);
+  assert.match(rule,/Do not mistake missing FahrCockpit notification access for a BLE/);
   assert.doesNotMatch(cockpit,/Saphe.*[cC]onnected = true|setText\("Verbunden"\)/);
   assert.match(cockpit,/case DEVICE_OBSERVED_CONNECTED: color = 0xff29864b/);
   assert.match(policy,/PROVIDER_APPROVED = false/);
