@@ -680,7 +680,8 @@ public final class IntegratedNavigationActivity extends Activity {
                 fuelMarkersVisible = true;
                 FuelMapSnapshot.Snapshot cached = FuelMapSnapshot.readForDisplay(this);
                 if (cached.stations.isEmpty()
-                        || !cached.type.equals(FuelQuickSettings.type(this))) {
+                        || !cached.type.equals(FuelQuickSettings.type(this))
+                        || visibleFuelSnapshot(cached).stations.isEmpty()) {
                     startQuickFuelSearch();
                 } else {
                     updateFuelMarkers();
